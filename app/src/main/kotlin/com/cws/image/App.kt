@@ -1,11 +1,15 @@
 package com.cws.image
 
+import android.app.Activity
 import android.app.Application
+import android.content.Context
 import com.facebook.stetho.Stetho
 import com.github.andrewoma.dexx.kollection.*
 import com.squareup.leakcanary.LeakCanary
 import trikita.anvil.Anvil
+import trikita.anvil.RenderableView
 import trikita.jedux.Action
+import trikita.jedux.Logger
 import trikita.jedux.Store
 
 val languages = immutableListOf("english",
@@ -130,16 +134,23 @@ val instructionsBySubjectLanguagePair =
     )
 
 data class Instruction(val subject: String, val language: String, val path: String)
-data class State(val language: String,
+data class State(val languages: ImmutableList<String>,
+                 val language: String,
                  val instructions: ImmutableList<ImmutableList<String>>,
                  val instructionsBySubjectLanguagePair: ImmutableMap<ImmutableList<String>,
-                     Instruction>)
+                     Instruction>,
+                 val navigationStack: NavigationStack)
 
 enum class Actions {
   INIT,
+  SHOW_CURRENT_VIEW,
+  NAVIGATE_TO,
+  NAVIGATE_BACK,
   SET_LANGUAGE,
   PLAY_INSTRUCTION
 }
+
+data class NavigationActionValue(val value: Any?, val activity: Activity)
 
 fun setLanguage(language: String): Action<Actions, String> {
   return Action(Actions.SET_LANGUAGE,
@@ -151,15 +162,105 @@ fun playInstruction(instruction: Instruction): Action<Actions, Instruction> {
                 instruction)
 }
 
-class Reducer : Store.Reducer<Action<Actions, *>, State> {
+fun showCurrentView(activity: Activity): Action<Actions, NavigationActionValue> {
+  return Action(Actions.SHOW_CURRENT_VIEW,
+                NavigationActionValue(null, activity))
+}
+
+fun navigateTo(navigationFrame: NavigationFrame, activity: Activity): Action<Actions, NavigationActionValue> {
+  return Action(Actions.NAVIGATE_TO,
+                NavigationActionValue(navigationFrame, activity))
+}
+
+fun navigateBack(activity: Activity): Action<Actions, NavigationActionValue> {
+  return Action(Actions.NAVIGATE_BACK,
+                NavigationActionValue(null, activity))
+}
+
+fun reduceLanguage(state: String, action: Action<Actions, *>): String {
+  return when(action.type) {
+    Actions.SET_LANGUAGE -> {
+      val language = action.value
+      if (language is String) language
+      else state
+    }
+
+    else -> state
+  }
+}
+
+fun reduceNavigation(state: NavigationStack, action: Action<Actions, *>): NavigationStack {
+  return when(action.type) {
+    Actions.NAVIGATE_TO -> {
+      val navigationFrame = action.value
+      if (navigationFrame is NavigationFrame) state.push(navigationFrame)
+      else state
+    }
+
+    Actions.NAVIGATE_BACK -> state.pop()
+
+    else -> state
+  }
+}
+
+class Reducer: Store.Reducer<Action<Actions, *>, State> {
   override fun reduce(action: Action<Actions, *>, state: State): State {
-    return when(action.type) {
-      Actions.SET_LANGUAGE -> {
-        val language = action.value
-        if (language !is String) state
-        else state.copy(language = language)
+    return state.copy(language = reduceLanguage(state.language, action),
+                      navigationStack = reduceNavigation(state.navigationStack, action))
+  }
+}
+
+class Navigator: Store.Middleware<Action<Actions, *>, State> {
+  fun makeView(scene: String, props: Any?, context: Context): RenderableView {
+    return when(scene) {
+      "main" -> MainView(context)
+      "instruction" -> InstructionView(context, props as InstructionProps)
+      else -> MainView(context)
+    }
+  }
+
+  fun render(activity: Activity, navigationStack: NavigationStack) {
+    val frameToRender = navigationStack.peek()
+    val v = makeView(frameToRender.scene,
+                     frameToRender.props,
+                     activity)
+    activity.setContentView(v)
+  }
+
+  override fun dispatch(store: Store<Action<Actions, *>, State>,
+                        action: Action<Actions, *>,
+                        next: Store.NextDispatcher<Action<Actions, *>>) {
+    when(action.type) {
+      Actions.SHOW_CURRENT_VIEW -> {
+        val value = action.value
+        if (value is NavigationActionValue) {
+          render(value.activity, store.state.navigationStack)
+        }
       }
-      else -> state
+
+      Actions.NAVIGATE_TO -> {
+        val value = action.value
+        if (value is NavigationActionValue) {
+          next.dispatch(Action(action.type, value.value))
+          render(value.activity, store.state.navigationStack)
+        }
+      }
+
+      Actions.NAVIGATE_BACK -> {
+        val value = action.value
+        if (value is NavigationActionValue) {
+          if (store.state.navigationStack.frames.size == 1
+              || store.state.navigationStack.frames.isEmpty()) {
+            value.activity.finish()
+          } else {
+            println("ABOUT TO DISPATCH NAVIGATE_BACK TO REDUCER")
+            next.dispatch(Action(action.type, value.value))
+            render(value.activity, store.state.navigationStack)
+          }
+        }
+      }
+
+      else -> next.dispatch(action)
     }
   }
 }
@@ -170,31 +271,60 @@ fun getInstruction(instructionsBySubjectLanguagePair: ImmutableMap<ImmutableList
 }
 
 fun getInstructions(instructionsBySubjectLanguagePair: ImmutableMap<ImmutableList<String>, Instruction>,
-                    ks: ImmutableList<ImmutableList<String>>): ImmutableList<Instruction?> {
-  return ks.map { getInstruction(instructionsBySubjectLanguagePair, it) }
+                    ks: ImmutableList<ImmutableList<String>>): ImmutableList<Instruction> {
+  return ks.mapNotNull { getInstruction(instructionsBySubjectLanguagePair, it) }
            .toImmutableList()
 }
 
-fun getInstructions(state: State): ImmutableList<Instruction?> {
+fun getInstructions(state: State): ImmutableList<Instruction> {
   return getInstructions(state.instructionsBySubjectLanguagePair,
                          state.instructions)
 }
 
-fun getVisibleInstructions(instructions: ImmutableList<Instruction?>, language: String): ImmutableList<Instruction> {
-  return instructions.filter { it?.language == language }.filterNotNull().toImmutableList()
+fun getVisibleInstructions(instructions: ImmutableList<Instruction>, language: String): ImmutableList<Instruction> {
+  return instructions.filter { it.language == language }.toImmutableList()
 }
 
-val initialState = State("english",
-                         instructions,
-                         instructionsBySubjectLanguagePair)
+val initialLanguage = "english"
 
-val store: Store<Action<Actions, *>, State> = Store(Reducer(), initialState)
+val initialState =
+    State(languages = languages,
+          language = initialLanguage,
+          instructions = instructions,
+          instructionsBySubjectLanguagePair = instructionsBySubjectLanguagePair,
+          navigationStack = NavigationStack(
+                              immutableListOf(
+                                  NavigationFrame("main", null))))
 
 class App : Application() {
+  val store: Store<Action<Actions, *>, State> = Store(Reducer(),
+                                                      initialState,
+                                                      Logger("Image"),
+                                                      Navigator())
+
   override fun onCreate() {
     super.onCreate()
-    LeakCanary.install(this);
+    LeakCanary.install(this)
     Stetho.initializeWithDefaults(this)
     store.subscribe(Anvil::render)
+  }
+}
+
+
+
+
+data class NavigationFrame(val scene: String, val props: Any?)
+
+class NavigationStack(val frames: ImmutableList<NavigationFrame>) {
+  fun push(nf: NavigationFrame): NavigationStack {
+    return NavigationStack(frames.plus(nf))
+  }
+
+  fun pop(): NavigationStack {
+    return NavigationStack(frames.dropLast(1))
+  }
+
+  fun peek(): NavigationFrame {
+    return frames.last()
   }
 }
