@@ -312,7 +312,6 @@ class App : Application() {
 
 
 
-
 data class NavigationFrame(val scene: String, val props: Any?)
 
 class NavigationStack(val frames: ImmutableList<NavigationFrame>) {
