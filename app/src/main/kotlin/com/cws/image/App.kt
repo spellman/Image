@@ -3,6 +3,10 @@ package com.cws.image
 import android.app.Activity
 import android.app.Application
 import android.content.Context
+import android.media.MediaScannerConnection
+import android.net.Uri
+import android.os.Environment
+import android.util.Log
 import com.facebook.stetho.Stetho
 import com.github.andrewoma.dexx.kollection.*
 import com.squareup.leakcanary.LeakCanary
@@ -11,6 +15,7 @@ import trikita.anvil.RenderableView
 import trikita.jedux.Action
 import trikita.jedux.Logger
 import trikita.jedux.Store
+import java.io.File
 
 val languages = immutableListOf("english",
                                 "spanish",
@@ -134,7 +139,11 @@ val instructionsBySubjectLanguagePair =
     )
 
 data class Instruction(val subject: String, val language: String, val path: String)
-data class State(val languages: ImmutableList<String>,
+
+data class IsInstructionsDirReadableActionValue(val isReadable: Boolean, val reason: String?)
+
+data class State(val isInstructionsDirReadable: IsInstructionsDirReadableActionValue,
+                 val languages: ImmutableList<String>,
                  val language: String,
                  val instructions: ImmutableList<ImmutableList<String>>,
                  val instructionsBySubjectLanguagePair: ImmutableMap<ImmutableList<String>,
@@ -143,6 +152,7 @@ data class State(val languages: ImmutableList<String>,
 
 enum class Actions {
   INIT,
+  SET_IS_INSTRUCTIONS_DIR_READABLE,
   SHOW_CURRENT_VIEW,
   NAVIGATE_TO,
   NAVIGATE_BACK,
@@ -151,6 +161,11 @@ enum class Actions {
 }
 
 data class NavigationActionValue(val value: Any?, val activity: Activity)
+
+fun setIsInstructionsDirReadable(isReadable: Boolean, reason: String?): Action<Actions, IsInstructionsDirReadableActionValue> {
+  return Action(Actions.SET_IS_INSTRUCTIONS_DIR_READABLE,
+                IsInstructionsDirReadableActionValue(isReadable, reason))
+}
 
 fun setLanguage(language: String): Action<Actions, String> {
   return Action(Actions.SET_LANGUAGE,
@@ -175,6 +190,18 @@ fun navigateTo(navigationFrame: NavigationFrame, activity: Activity): Action<Act
 fun navigateBack(activity: Activity): Action<Actions, NavigationActionValue> {
   return Action(Actions.NAVIGATE_BACK,
                 NavigationActionValue(null, activity))
+}
+
+fun reduceIsInstructionsDirReadable(state: IsInstructionsDirReadableActionValue, action: Action<Actions, *>): IsInstructionsDirReadableActionValue {
+  return when(action.type) {
+    Actions.SET_IS_INSTRUCTIONS_DIR_READABLE -> {
+      val isReadable = action.value
+      if (isReadable is IsInstructionsDirReadableActionValue) isReadable
+      else state
+    }
+
+    else -> state
+  }
 }
 
 fun reduceLanguage(state: String, action: Action<Actions, *>): String {
@@ -205,7 +232,8 @@ fun reduceNavigation(state: NavigationStack, action: Action<Actions, *>): Naviga
 
 class Reducer: Store.Reducer<Action<Actions, *>, State> {
   override fun reduce(action: Action<Actions, *>, state: State): State {
-    return state.copy(language = reduceLanguage(state.language, action),
+    return state.copy(isInstructionsDirReadable = reduceIsInstructionsDirReadable(state.isInstructionsDirReadable, action),
+                      language = reduceLanguage(state.language, action),
                       navigationStack = reduceNavigation(state.navigationStack, action))
   }
 }
@@ -288,7 +316,10 @@ fun getVisibleInstructions(instructions: ImmutableList<Instruction>, language: S
 val initialLanguage = "english"
 
 val initialState =
-    State(languages = languages,
+    State(isInstructionsDirReadable = IsInstructionsDirReadableActionValue(
+                                        false,
+                                        "Initially assume instructions dir is not readable because it hasn't been checked for readability."),
+          languages = languages,
           language = initialLanguage,
           instructions = instructions,
           instructionsBySubjectLanguagePair = instructionsBySubjectLanguagePair,
@@ -307,6 +338,59 @@ class App : Application() {
     LeakCanary.install(this)
     Stetho.initializeWithDefaults(this)
     store.subscribe(Anvil::render)
+    ensureExternalFilesDirExistsAndIsAccessibleViaUsbConnection()
+  }
+
+  fun ensureExternalFilesDirExistsAndIsAccessibleViaUsbConnection() {
+    if (!isExternalStorageReadable()) {
+      store.dispatch(setIsInstructionsDirReadable(false,
+                                                  "External storage is not readable."))
+    }
+    else {
+      val appDir = File(Environment.getExternalStorageDirectory(), packageName)
+      Log.i("files", ".")
+      Log.i("files", ".")
+      Log.i("files", "appDir.absolutePath")
+      Log.i("files", appDir.absolutePath)
+      Log.i("files", ".")
+      Log.i("files", ".")
+      val tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb = File(appDir, ".tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb")
+
+      if (!appDir.isDirectory || appDir.listFiles().isEmpty()) {
+        if (!isExternalStorageWritable()) {
+          store.dispatch(setIsInstructionsDirReadable(false,
+                                                      "There is no directory at instructions-directory path, ${appDir.absolutePath} or the directory is empty; it can't be created because external storage is not writable."))
+        }
+        else {
+          appDir.deleteRecursively()
+          if (!appDir.mkdirs()) {
+            store.dispatch(setIsInstructionsDirReadable(false,
+                                                        "Could not make directory ${appDir.absolutePath}, even though external storage is writable."))
+          }
+          else {
+            if (!tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb.createNewFile()) {
+              store.dispatch(setIsInstructionsDirReadable(false,
+                                                          "Could not make file ${tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb.absolutePath}, even though external storage is writable."))
+            }
+            else {
+              MediaScannerConnection.scanFile(this as Context,
+                                              arrayOf(tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb.toString()),
+                                              null,
+                                              { path: String, uri: Uri ->
+                                                Log.i("ExternalStorage", "Scanned ${path}:")
+                                                Log.i("ExternalStorage", "-> uri=${uri}")
+                                              })
+              store.dispatch(setIsInstructionsDirReadable(true,
+                                                          "Made directory ${appDir.absolutePath} and file ${tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb.absolutePath} (to make directory appear when device is mounted via USB)."))
+            }
+          }
+        }
+      }
+      else {
+        store.dispatch(setIsInstructionsDirReadable(true,
+                                                    "${appDir.absolutePath} is a directory and ${tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb.absolutePath} is a file (to make directory appear when device is mounted via USB)."))
+      }
+    }
   }
 }
 
@@ -326,4 +410,17 @@ class NavigationStack(val frames: ImmutableList<NavigationFrame>) {
   fun peek(): NavigationFrame {
     return frames.last()
   }
+}
+
+
+
+fun isExternalStorageWritable(): Boolean {
+  val s = Environment.getExternalStorageState()
+  return Environment.MEDIA_MOUNTED == s
+}
+
+fun isExternalStorageReadable(): Boolean {
+  val s = Environment.getExternalStorageState()
+  return Environment.MEDIA_MOUNTED == s
+         || Environment.MEDIA_MOUNTED_READ_ONLY == s
 }
