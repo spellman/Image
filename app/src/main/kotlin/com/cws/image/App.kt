@@ -25,129 +25,159 @@ val languages = immutableListOf("english",
                                 "russian",
                                 "ethiopian")
 
+data class InstructionIdent(val subject: String, val language: String)
+
 val instructions =
     immutableListOf(
-        immutableListOf("chest", "english"),
-        immutableListOf("leg", "english"),
-        immutableListOf("arm", "english"),
-        immutableListOf("chest", "spanish"),
-        immutableListOf("leg", "spanish"),
-        immutableListOf("arm", "spanish"),
-        immutableListOf("chest", "tagalog"),
-        immutableListOf("leg", "tagalog"),
-        immutableListOf("arm", "tagalog"),
-        immutableListOf("chest", "french"),
-        immutableListOf("leg", "french"),
-        immutableListOf("arm", "french"),
-        immutableListOf("chest", "german"),
-        immutableListOf("leg", "german"),
-        immutableListOf("arm", "german"),
-        immutableListOf("chest", "russian"),
-        immutableListOf("leg", "russian"),
-        immutableListOf("arm", "russian"),
-        immutableListOf("chest", "ethiopian"),
-        immutableListOf("leg", "ethiopian"),
-        immutableListOf("arm", "ethiopian")
+        InstructionIdent("chest", "english"),
+        InstructionIdent("leg", "english"),
+        InstructionIdent("arm", "english"),
+        InstructionIdent("chest", "spanish"),
+        InstructionIdent("leg", "spanish"),
+        InstructionIdent("arm", "spanish"),
+        InstructionIdent("chest", "tagalog"),
+        InstructionIdent("leg", "tagalog"),
+        InstructionIdent("arm", "tagalog"),
+        InstructionIdent("chest", "french"),
+        InstructionIdent("leg", "french"),
+        InstructionIdent("arm", "french"),
+        InstructionIdent("chest", "german"),
+        InstructionIdent("leg", "german"),
+        InstructionIdent("arm", "german"),
+        InstructionIdent("chest", "russian"),
+        InstructionIdent("leg", "russian"),
+        InstructionIdent("arm", "russian"),
+        InstructionIdent("chest", "ethiopian"),
+        InstructionIdent("leg", "ethiopian"),
+        InstructionIdent("arm", "ethiopian")
     )
 
 val instructionsBySubjectLanguagePair =
     immutableMapOf(
-        Pair(immutableListOf("chest", "english"),
+        Pair(InstructionIdent("chest", "english"),
              Instruction(subject = "chest",
                          language = "english",
-                         path = "chest/english/path")),
-        Pair(immutableListOf("leg", "english"),
+                         path = "chest/english/path",
+                         cueTiming = 1000)),
+        Pair(InstructionIdent("leg", "english"),
              Instruction(subject = "leg",
                          language = "english",
-                         path = "leg/english/path")),
-        Pair(immutableListOf("arm", "english"),
+                         path = "leg/english/path",
+                         cueTiming = 1000)),
+        Pair(InstructionIdent("arm", "english"),
              Instruction(subject = "arm",
                          language = "english",
-                         path = "arm/english/path")),
-        Pair(immutableListOf("chest", "spanish"),
+                         path = "arm/english/path",
+                         cueTiming = 1000)),
+        Pair(InstructionIdent("chest", "spanish"),
              Instruction(subject = "chest",
                          language = "spanish",
-                         path = "chest/spanish/path")),
-        Pair(immutableListOf("leg", "spanish"),
+                         path = "chest/spanish/path",
+                         cueTiming = 1000)),
+        Pair(InstructionIdent("leg", "spanish"),
              Instruction(subject = "leg",
                          language = "spanish",
-                         path = "leg/spanish/path")),
-        Pair(immutableListOf("arm", "spanish"),
+                         path = "leg/spanish/path",
+                         cueTiming = 1000)),
+        Pair(InstructionIdent("arm", "spanish"),
              Instruction(subject = "arm",
                          language = "spanish",
-                         path = "arm/spanish/path")),
-        Pair(immutableListOf("chest", "tagalog"),
+                         path = "arm/spanish/path",
+                         cueTiming = 1000)),
+        Pair(InstructionIdent("chest", "tagalog"),
              Instruction(subject = "chest",
                          language = "tagalog",
-                         path = "chest/tagalog/path")),
-        Pair(immutableListOf("leg", "tagalog"),
+                         path = "chest/tagalog/path",
+                         cueTiming = 1000)),
+        Pair(InstructionIdent("leg", "tagalog"),
              Instruction(subject = "leg",
                          language = "tagalog",
-                         path = "leg/tagalog/path")),
-        Pair(immutableListOf("arm", "tagalog"),
+                         path = "leg/tagalog/path",
+                         cueTiming = 1000)),
+        Pair(InstructionIdent("arm", "tagalog"),
              Instruction(subject = "arm",
                          language = "tagalog",
-                         path = "arm/tagalog/path")),
-        Pair(immutableListOf("chest", "french"),
+                         path = "arm/tagalog/path",
+                         cueTiming = 1000)),
+        Pair(InstructionIdent("chest", "french"),
              Instruction(subject = "chest",
                          language = "french",
-                         path = "chest/french/path")),
-        Pair(immutableListOf("leg", "french"),
+                         path = "chest/french/path",
+                         cueTiming = 1000)),
+        Pair(InstructionIdent("leg", "french"),
              Instruction(subject = "leg",
                          language = "french",
-                         path = "leg/french/path")),
-        Pair(immutableListOf("arm", "french"),
+                         path = "leg/french/path",
+                         cueTiming = 1000)),
+        Pair(InstructionIdent("arm", "french"),
              Instruction(subject = "arm",
                          language = "french",
-                         path = "arm/french/path")),
-        Pair(immutableListOf("chest", "german"),
+                         path = "arm/french/path",
+                         cueTiming = 1000)),
+        Pair(InstructionIdent("chest", "german"),
              Instruction(subject = "chest",
                          language = "german",
-                         path = "chest/german/path")),
-        Pair(immutableListOf("leg", "german"),
+                         path = "chest/german/path",
+                         cueTiming = 1000)),
+        Pair(InstructionIdent("leg", "german"),
              Instruction(subject = "leg",
                          language = "german",
-                         path = "leg/german/path")),
-        Pair(immutableListOf("arm", "german"),
+                         path = "leg/german/path",
+                         cueTiming = 1000)),
+        Pair(InstructionIdent("arm", "german"),
              Instruction(subject = "arm",
                          language = "german",
-                         path = "arm/german/path")),
-        Pair(immutableListOf("chest", "russian"),
+                         path = "arm/german/path",
+                         cueTiming = 1000)),
+        Pair(InstructionIdent("chest", "russian"),
              Instruction(subject = "chest",
                          language = "russian",
-                         path = "chest/russian/path")),
-        Pair(immutableListOf("leg", "russian"),
+                         path = "chest/russian/path",
+                         cueTiming = 1000)),
+        Pair(InstructionIdent("leg", "russian"),
              Instruction(subject = "leg",
                          language = "russian",
-                         path = "leg/russian/path")),
-        Pair(immutableListOf("arm", "russian"),
+                         path = "leg/russian/path",
+                         cueTiming = 1000)),
+        Pair(InstructionIdent("arm", "russian"),
              Instruction(subject = "arm",
                          language = "russian",
-                         path = "arm/russian/path")),
-        Pair(immutableListOf("chest", "ethiopian"),
+                         path = "arm/russian/path",
+                         cueTiming = 1000)),
+        Pair(InstructionIdent("chest", "ethiopian"),
              Instruction(subject = "chest",
                          language = "ethiopian",
-                         path = "chest/ethiopian/path")),
-        Pair(immutableListOf("leg", "ethiopian"),
+                         path = "chest/ethiopian/path",
+                         cueTiming = 1000)),
+        Pair(InstructionIdent("leg", "ethiopian"),
              Instruction(subject = "leg",
                          language = "ethiopian",
-                         path = "leg/ethiopian/path")),
-        Pair(immutableListOf("arm", "ethiopian"),
+                         path = "leg/ethiopian/path",
+                         cueTiming = 1000)),
+        Pair(InstructionIdent("arm", "ethiopian"),
              Instruction(subject = "arm",
                          language = "ethiopian",
-                         path = "arm/ethiopian/path"))
+                         path = "arm/ethiopian/path",
+                         cueTiming = 1000))
     )
 
-data class Instruction(val subject: String, val language: String, val path: String)
+data class Instruction(val subject: String,
+                       val language: String,
+                       val path: String,
+                       val cueTiming: Int)
 
-data class IsInstructionsDirReadableActionValue(val isReadable: Boolean, val reason: String?)
+fun ident(instruction: Instruction): InstructionIdent {
+  return InstructionIdent(subject = instruction.subject, language = instruction.language)
+}
+
+data class IsInstructionsDirReadableActionValue(val isReadable: Boolean,
+                                                val reason: String?)
 
 data class State(val isInstructionsDirReadable: IsInstructionsDirReadableActionValue,
                  val languages: ImmutableList<String>,
                  val language: String,
-                 val instructions: ImmutableList<ImmutableList<String>>,
-                 val instructionsBySubjectLanguagePair: ImmutableMap<ImmutableList<String>,
-                     Instruction>,
+                 val instructions: ImmutableList<InstructionIdent>,
+                 val instructionsBySubjectLanguagePair: ImmutableMap<InstructionIdent, Instruction>,
                  val navigationStack: NavigationStack)
 
 enum class Actions {
@@ -293,14 +323,14 @@ class Navigator: Store.Middleware<Action<Actions, *>, State> {
   }
 }
 
-fun getInstruction(instructionsBySubjectLanguagePair: ImmutableMap<ImmutableList<String>, Instruction>,
-                   k: ImmutableList<String>): Instruction? {
+fun getInstruction(instructionsBySubjectLanguagePair: ImmutableMap<InstructionIdent, Instruction>,
+                   k: InstructionIdent): Instruction? {
   return instructionsBySubjectLanguagePair[k]
 }
 
-fun getInstructions(instructionsBySubjectLanguagePair: ImmutableMap<ImmutableList<String>, Instruction>,
-                    ks: ImmutableList<ImmutableList<String>>): ImmutableList<Instruction> {
-  return ks.mapNotNull { getInstruction(instructionsBySubjectLanguagePair, it) }
+fun getInstructions(instructionsBySubjectLanguagePair: ImmutableMap<InstructionIdent, Instruction>,
+                    ks: ImmutableList<InstructionIdent>): ImmutableList<Instruction> {
+  return ks.mapNotNull { k -> getInstruction(instructionsBySubjectLanguagePair, k) }
            .toImmutableList()
 }
 
@@ -310,51 +340,97 @@ fun getInstructions(state: State): ImmutableList<Instruction> {
 }
 
 fun getVisibleInstructions(instructions: ImmutableList<Instruction>, language: String): ImmutableList<Instruction> {
-  return instructions.filter { it.language == language }.toImmutableList()
+  return instructions.filter { i -> i.language == language }.toImmutableList()
 }
 
-val initialLanguage = "english"
-
-val initialState =
-    State(isInstructionsDirReadable = IsInstructionsDirReadableActionValue(
-                                        false,
-                                        "Initially assume instructions dir is not readable because it hasn't been checked for readability."),
-          languages = languages,
-          language = initialLanguage,
-          instructions = instructions,
-          instructionsBySubjectLanguagePair = instructionsBySubjectLanguagePair,
-          navigationStack = NavigationStack(
-                              immutableListOf(
-                                  NavigationFrame("main", null))))
-
 class App : Application() {
+  val appDir = File(Environment.getExternalStorageDirectory(), "com.cws.image")
+  val tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb =
+      File(appDir, ".tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb")
+
+  val initialLanguage = "english"
+
+  val normalizedInstructions = normalizeInstructions(readInstructionsFromStorage(appDir))
+
+  val initialState =
+      State(isInstructionsDirReadable = IsInstructionsDirReadableActionValue(
+          false,
+          "Initially assume instructions dir is not readable because it hasn't been checked for readability."),
+            languages = languages,
+            language = initialLanguage,
+            instructions = normalizedInstructions.instructions,
+            instructionsBySubjectLanguagePair = normalizedInstructions.instructionsBySubjectLanguagePair,
+            navigationStack = NavigationStack(
+                immutableListOf(
+                    NavigationFrame("main", null))))
+
   val store: Store<Action<Actions, *>, State> = Store(Reducer(),
                                                       initialState,
                                                       Logger("Image"),
                                                       Navigator())
-
   override fun onCreate() {
     super.onCreate()
     LeakCanary.install(this)
     Stetho.initializeWithDefaults(this)
     store.subscribe(Anvil::render)
-    ensureExternalFilesDirExistsAndIsAccessibleViaUsbConnection()
+    ensureExternalFilesDirExistsAndIsAccessibleViaUsbConnection(appDir)
   }
 
-  fun ensureExternalFilesDirExistsAndIsAccessibleViaUsbConnection() {
+  fun fileToInstruction(file: File): Instruction? {
+    val n: String = file.name.substringBeforeLast(".")
+    val (subject, language, cueTiming) = n.split('_')
+
+    println()
+    println("Instructions file to parse: ${file.absolutePath}")
+    println("subject: ${subject}    language: ${language}    cueTiming: ${cueTiming}")
+    try {
+      return Instruction(subject = subject,
+                         language = language,
+                         path = file.absolutePath,
+                         cueTiming = cueTiming.toInt())
+    }
+    catch (e: NumberFormatException) {
+      Log.e("parse instructions file", e.toString())
+      return null
+    }
+  }
+
+  fun readInstructionsFromStorage(appDir: File): ImmutableList<Instruction> {
+    appDir.listFiles().forEach { file -> println(file.absolutePath) }
+    val r = appDir.listFiles({ file -> file != tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb })
+                 .mapNotNull {file -> fileToInstruction(file)}
+                 .toImmutableList()
+    println()
+    println("Parsed instructions:")
+    println(r)
+    return r
+  }
+
+  data class NormalizedInstructionsResult(val instructions: ImmutableList<InstructionIdent>,
+                                          val instructionsBySubjectLanguagePair: ImmutableMap<InstructionIdent, Instruction>)
+
+  fun normalizeInstructions(instructions: ImmutableList<Instruction>): NormalizedInstructionsResult {
+    return NormalizedInstructionsResult(
+             instructions = instructions.map(::ident).toImmutableList(),
+             instructionsBySubjectLanguagePair = instructions.map { i -> Pair(ident(i), i)}
+                                                             .groupBy { p: Pair<InstructionIdent, Instruction> -> p.first }
+                                                             .map { p: Map.Entry<InstructionIdent, List<Pair<InstructionIdent, Instruction>>> ->
+                                                                    Pair(p.key, p.value.last().second) }
+                                                             .toImmutableMap())
+  }
+
+  fun ensureExternalFilesDirExistsAndIsAccessibleViaUsbConnection(appDir: File) {
     if (!isExternalStorageReadable()) {
       store.dispatch(setIsInstructionsDirReadable(false,
                                                   "External storage is not readable."))
     }
     else {
-      val appDir = File(Environment.getExternalStorageDirectory(), packageName)
       Log.i("files", ".")
       Log.i("files", ".")
       Log.i("files", "appDir.absolutePath")
       Log.i("files", appDir.absolutePath)
       Log.i("files", ".")
       Log.i("files", ".")
-      val tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb = File(appDir, ".tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb")
 
       if (!appDir.isDirectory || appDir.listFiles().isEmpty()) {
         if (!isExternalStorageWritable()) {

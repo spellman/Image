@@ -153,7 +153,7 @@ class MainView(val c: Context) : RenderableView(c) {
 data class InstructionProps(val instruction: Instruction)
 
 class InstructionView : RenderableView {
-  var props: InstructionProps = InstructionProps(instruction = Instruction("", "", ""))
+  var props: InstructionProps = InstructionProps(instruction = Instruction("", "", "", 0))
 
   constructor(c: Context) : super(c)
   constructor(c: Context, props: InstructionProps) : this(c) { this.props = props }
