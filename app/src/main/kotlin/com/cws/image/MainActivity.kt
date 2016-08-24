@@ -8,8 +8,7 @@ import android.support.v7.app.AppCompatActivity
 import android.support.v7.widget.LinearLayoutCompat
 import android.text.TextUtils
 import android.view.View
-import com.github.andrewoma.dexx.kollection.ImmutableList
-import com.github.andrewoma.dexx.kollection.immutableListOf
+import com.github.andrewoma.dexx.kollection.ImmutableSet
 import trikita.anvil.BaseDSL
 import trikita.anvil.DSL.*
 import trikita.anvil.RenderableView
@@ -32,18 +31,20 @@ class MainActivity : AppCompatActivity() {
   }
 }
 
-data class LanguagesProps(val languages: ImmutableList<String>)
+data class LanguagesProps(val languages: ImmutableSet<String>)
 
 class LanguagesView : RenderableView {
   var c: Context
-  var props: LanguagesProps = LanguagesProps(languages = immutableListOf())
   var store: Store<Action<Actions, *>, State>
+  lateinit var languages: ImmutableSet<String>
 
   constructor(c: Context) : super(c) {
     this.c = c
     this.store = (c.applicationContext as App).store
   }
-  constructor(c: Context, props: LanguagesProps) : this(c) { this.props = props }
+  constructor(c: Context, props: LanguagesProps) : this(c) {
+    this.languages = props.languages
+  }
 
   override fun view() {
     horizontalScrollView {
@@ -54,7 +55,7 @@ class LanguagesView : RenderableView {
         size(WRAP, FILL)
         AppCompatv7DSL.orientation(LinearLayoutCompat.HORIZONTAL)
 //        backgroundColor(android.graphics.Color.argb(32, 255, 0, 0))
-        props.languages.map { l ->
+        languages.map { l ->
           frameLayout {
             size(WRAP, FILL)
             appCompatTextView {
@@ -80,18 +81,21 @@ class LanguagesView : RenderableView {
   }
 }
 
-data class InstructionsProps(val instructions: ImmutableList<Instruction>)
+data class InstructionsProps(val instructions: ImmutableSet<Instruction>,
+                             val language: String)
 
 class InstructionsView : RenderableView {
   var c: Context
-  var props: InstructionsProps = InstructionsProps(immutableListOf())
   var store: Store<Action<Actions, *>, State>
+  lateinit var instructions: ImmutableSet<Instruction>
 
   constructor(c: Context) : super(c) {
     this.c = c
     this.store = (c.applicationContext as App).store
   }
-  constructor(c: Context, props: InstructionsProps) : this(c) { this.props = props }
+  constructor(c: Context, props: InstructionsProps) : this(c) {
+    this.instructions = getVisibleInstructions(props.instructions, props.language)
+  }
 
   override fun view() {
     scrollView {
@@ -101,15 +105,14 @@ class InstructionsView : RenderableView {
         size(FILL, WRAP)
         AppCompatv7DSL.orientation(LinearLayoutCompat.VERTICAL)
 //        backgroundColor(android.graphics.Color.argb(32, 0, 0, 255))
-        props.instructions.map { i ->
+        instructions.map { i ->
           appCompatTextView {
             size(FILL, WRAP)
             text(i.subject + " - " + i.language)
             margin(dip(0), dip(16))
             textColor(android.graphics.Color.BLACK)
             onClick { v ->
-              store.dispatch(navigateTo(NavigationFrame("instruction",
-                                                        InstructionProps(i)),
+              store.dispatch(navigateTo(NavigationFrame("instruction", InstructionProps(i)),
                                         c as Activity))
             }
           }
@@ -119,33 +122,22 @@ class InstructionsView : RenderableView {
   }
 }
 
-data class VisibleInstructionsProps(val instructions: ImmutableList<Instruction>, val language: String)
-
-class VisibleInstructionsView : RenderableView {
+class MainView : RenderableView {
   var c: Context
-  var props: VisibleInstructionsProps = VisibleInstructionsProps(immutableListOf(), "")
+  var store: Store<Action<Actions, *>, State>
 
-  constructor(c: Context) : super(c) { this.c = c }
-  constructor(c: Context, props: VisibleInstructionsProps) : this(c) { this.props = props }
-
-  override fun view() {
-    InstructionsView(c,
-                     InstructionsProps(getVisibleInstructions(props.instructions,
-                                                              props.language))).view()
+  constructor(c: Context) : super(c) {
+    this.c = c
+    this.store = (c.applicationContext as App).store
   }
-}
-
-class MainView(val c: Context) : RenderableView(c) {
-  val store: Store<Action<Actions, *>, State> = (c.applicationContext as App).store
 
   override fun view() {
     linearLayoutCompat {
       size(FILL, FILL)
       AppCompatv7DSL.orientation(LinearLayoutCompat.VERTICAL)
-      LanguagesView(c, LanguagesProps(store.state.languages)).view()
-      VisibleInstructionsView(c,
-                              VisibleInstructionsProps(getInstructions(store.state),
-                                                       store.state.language)).view()
+      LanguagesView(c, LanguagesProps(getLanguages(store.state))).view()
+      InstructionsView(c, InstructionsProps(getInstructions(store.state),
+                                            getLanguage(store.state))).view()
     }
   }
 }
@@ -153,14 +145,21 @@ class MainView(val c: Context) : RenderableView(c) {
 data class InstructionProps(val instruction: Instruction)
 
 class InstructionView : RenderableView {
-  var props: InstructionProps = InstructionProps(instruction = Instruction("", "", ""))
+  var c: Context
+  var store: Store<Action<Actions, *>, State>
+  lateinit var instruction: Instruction
 
-  constructor(c: Context) : super(c)
-  constructor(c: Context, props: InstructionProps) : this(c) { this.props = props }
+  constructor(c: Context) : super(c) {
+    this.c = c
+    this.store = (c.applicationContext as App).store
+  }
+  constructor(c: Context, props: InstructionProps) : this(c) {
+    this.instruction = props.instruction
+  }
 
   override fun view() {
     appCompatTextView {
-      text(props.instruction.toString())
+      text(instruction.toString())
       textColor(android.graphics.Color.BLACK)
     }
   }
