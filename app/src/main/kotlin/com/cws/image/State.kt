@@ -1,5 +1,6 @@
 package com.cws.image
 
+import android.app.Activity
 import com.github.andrewoma.dexx.kollection.*
 
 data class Instruction(val subject: String,
@@ -19,6 +20,7 @@ data class State(val canReadInstructionsFiles: Boolean,
                  val language: String,
                  val instructions: ImmutableSet<InstructionIdent>,
                  val instructionsBySubjectLanguagePair: ImmutableMap<InstructionIdent, Instruction>,
+                 val activity: Activity?,
                  val navigationStack: NavigationStack)
 
 // Dummy data I started with
