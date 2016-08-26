@@ -24,7 +24,12 @@ fun normalizeInstructions(instructions: ImmutableSet<Instruction>): NormalizedIn
           .toImmutableMap())
 }
 
+data class SetInstructionsAndLanguagesActionValue(val canReadInstructionFiles: Boolean,
+                                                  val canReadInstructionFilesMessage: String,
+                                                  val instructions: ImmutableSet<Instruction>)
+
 data class InstructionFilesResult(val canReadInstructionFiles: Boolean,
+                                  val canReadInstructionFilesMessage: String,
                                   val instructions: ImmutableSet<InstructionIdent>,
                                   val instructionsBySubjectLanguagePair: ImmutableMap<InstructionIdent, Instruction>,
                                   val languages: ImmutableSet<String>)
@@ -38,30 +43,33 @@ fun reduceInstructionsAndLanguages(action: Action<Actions, *>, state: Instructio
       // I think the guy who answered, Andrey Breslav, works on Kotlin.
       val v = action.value as SetInstructionsAndLanguagesActionValue
       val normalizedInstructions = normalizeInstructions(v.instructions)
-      return InstructionFilesResult(v.canReadInstructionFiles,
-                                    normalizedInstructions.instructions,
-                                    normalizedInstructions.instructionsBySubjectLanguagePair,
-                                    getLanguages(normalizedInstructions.instructionsBySubjectLanguagePair))
-    }
-
+      return InstructionFilesResult(
+          v.canReadInstructionFiles,
+          v.canReadInstructionFilesMessage,
+          normalizedInstructions.instructions,
+          normalizedInstructions.instructionsBySubjectLanguagePair,
+          getLanguages(normalizedInstructions.instructionsBySubjectLanguagePair)) }
     else -> state
   }
 }
 
-data class SetInstructionsAndLanguagesActionValue(val canReadInstructionFiles: Boolean,
-                                                  val message: String,
-                                                  val instructions: ImmutableSet<Instruction>)
-
-fun setInstructionsAndLanguages(canReadInstructionFiles: Boolean, message: String, instructions: ImmutableSet<Instruction>): Action<Actions, SetInstructionsAndLanguagesActionValue> {
+fun setInstructionsAndLanguages(canReadInstructionFiles: Boolean,
+                                canReadInstructionFilesMessage: String,
+                                instructions: ImmutableSet<Instruction>): Action<Actions, SetInstructionsAndLanguagesActionValue> {
   return Action(Actions.SET_INSTRUCTIONS_AND_LANGUAGES,
-                SetInstructionsAndLanguagesActionValue(canReadInstructionFiles, message, instructions))
+                SetInstructionsAndLanguagesActionValue(canReadInstructionFiles,
+                                                       canReadInstructionFilesMessage,
+                                                       instructions))
 }
 
-data class RefreshInstructionsActionValue(val context: Context,
-                                          val appDir: File,
-                                          val instructionsFilesUpdateFn: (ImmutableSet<Instruction>) -> Action<Actions, SetInstructionsAndLanguagesActionValue>)
+data class RefreshInstructionsActionValue(
+             val context: Context,
+             val appDir: File,
+             val instructionsFilesUpdateFn: (ImmutableSet<Instruction>) -> Action<Actions, SetInstructionsAndLanguagesActionValue>)
 
-fun refreshInstructions(context: Context, appDir: File, updateFn: (ImmutableSet<Instruction>) -> Action<Actions, SetInstructionsAndLanguagesActionValue>): Action<Actions, RefreshInstructionsActionValue> {
+fun refreshInstructions(context: Context,
+                        appDir: File,
+                        updateFn: (ImmutableSet<Instruction>) -> Action<Actions, SetInstructionsAndLanguagesActionValue>): Action<Actions, RefreshInstructionsActionValue> {
   return Action(Actions.REFRESH_INSTRUCTIONS,
                 RefreshInstructionsActionValue(context, appDir, updateFn))
 }

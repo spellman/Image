@@ -23,30 +23,41 @@ class NavigationStack(val frames: ImmutableList<NavigationFrame>) {
   }
 }
 
-data class NavigationActionValue(val value: Any?, val activity: Activity)
-
-fun showCurrentView(activity: Activity): Action<Actions, NavigationActionValue> {
-  return Action(Actions.SHOW_CURRENT_VIEW,
-                NavigationActionValue(null, activity))
+fun setActivity(activity: Activity): Action<Actions, Activity> {
+  return Action(Actions.SET_ACTIVITY, activity)
 }
 
-fun navigateTo(navigationFrame: NavigationFrame, activity: Activity): Action<Actions, NavigationActionValue> {
-  return Action(Actions.NAVIGATE_TO,
-                NavigationActionValue(navigationFrame, activity))
+fun clearActivity(): Action<Actions, Nothing?> {
+  return Action(Actions.CLEAR_ACTIVITY, null)
+}
+fun showCurrentView(): Action<Actions, Nothing?> {
+  return Action(Actions.SHOW_CURRENT_VIEW, null)
 }
 
-fun navigateBack(activity: Activity): Action<Actions, NavigationActionValue> {
-  return Action(Actions.NAVIGATE_BACK,
-                NavigationActionValue(null, activity))
+fun navigateTo(navigationFrame: NavigationFrame): Action<Actions, NavigationFrame> {
+  return Action(Actions.NAVIGATE_TO, navigationFrame)
 }
 
-fun reduceNavigation(action: Action<Actions, *>, state: NavigationStack): NavigationStack {
+fun navigateBack(): Action<Actions, Nothing?> {
+  return Action(Actions.NAVIGATE_BACK, null)
+}
+
+data class NavigationStackAndActivity(val navigationStack: NavigationStack,
+                                      val activity: Activity?)
+
+fun reduceNavigation(action: Action<Actions, *>, state: NavigationStackAndActivity): NavigationStackAndActivity {
+  val navigationStack = state.navigationStack
+
   return when(action.type) {
+    Actions.SET_ACTIVITY -> state.copy(activity = action.value as Activity)
+
+    Actions.CLEAR_ACTIVITY -> state.copy(activity = null)
+
     Actions.NAVIGATE_TO -> {
-      state.push(action.value as NavigationFrame)
+      state.copy(navigationStack = navigationStack.push(action.value as NavigationFrame))
     }
 
-    Actions.NAVIGATE_BACK -> state.pop()
+    Actions.NAVIGATE_BACK -> state.copy(navigationStack = navigationStack.pop())
 
     else -> state
   }
@@ -71,30 +82,31 @@ class Navigator: Store.Middleware<Action<Actions, *>, State> {
   override fun dispatch(store: Store<Action<Actions, *>, State>,
                         action: Action<Actions, *>,
                         next: Store.NextDispatcher<Action<Actions, *>>) {
-    when(action.type) {
-      Actions.SHOW_CURRENT_VIEW -> {
-        val value = action.value as NavigationActionValue
-        render(value.activity, store.state.navigationStack)
-      }
-
-      Actions.NAVIGATE_TO -> {
-        val value = action.value as NavigationActionValue
-        next.dispatch(Action(action.type, value.value))
-        render(value.activity, store.state.navigationStack)
-      }
-
-      Actions.NAVIGATE_BACK -> {
-        val value = action.value as NavigationActionValue
-        if (store.state.navigationStack.frames.size == 1
-            || store.state.navigationStack.frames.isEmpty()) {
-          value.activity.finish()
-        } else {
-          next.dispatch(Action(action.type, value.value))
-          render(value.activity, store.state.navigationStack)
+    val activity = store.state.activity
+    if (activity !is Activity) next.dispatch(action)
+    else {
+      when (action.type) {
+        Actions.SHOW_CURRENT_VIEW -> {
+          render(activity, store.state.navigationStack)
         }
-      }
 
-      else -> next.dispatch(action)
+        Actions.NAVIGATE_TO -> {
+          next.dispatch(action)
+          render(activity, store.state.navigationStack)
+        }
+
+        Actions.NAVIGATE_BACK -> {
+          if (store.state.navigationStack.frames.size == 1
+              || store.state.navigationStack.frames.isEmpty()) {
+            activity.finish()
+          } else {
+            next.dispatch(action)
+            render(activity, store.state.navigationStack)
+          }
+        }
+
+        else -> next.dispatch(action)
+      }
     }
   }
 }

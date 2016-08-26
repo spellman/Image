@@ -1,17 +1,12 @@
 package com.cws.image
 
-import android.app.Activity
 import android.app.Application
 import android.content.Context
-import android.media.MediaScannerConnection
-import android.net.Uri
 import android.os.Environment
-import android.util.Log
 import com.facebook.stetho.Stetho
 import com.github.andrewoma.dexx.kollection.*
 import com.squareup.leakcanary.LeakCanary
 import trikita.anvil.Anvil
-import trikita.anvil.RenderableView
 import trikita.jedux.Action
 import trikita.jedux.Logger
 import trikita.jedux.Store
@@ -24,6 +19,7 @@ val initialState =
           language = "english", // Should be system language. (What if there are no instructions in the system language? Show msg whenever no visible instructions, including then.)
           instructions = immutableSetOf(),
           instructionsBySubjectLanguagePair = immutableMapOf(),
+          activity = null,
           navigationStack = NavigationStack(immutableListOf(NavigationFrame("main", null))))
 
 fun playInstruction(instruction: Instruction): Action<Actions, Instruction> {
@@ -35,18 +31,28 @@ class Reducer(): Store.Reducer<Action<Actions, *>, State> {
   override fun reduce(action: Action<Actions, *>, state: State): State {
     val instructionFilesResult = reduceInstructionsAndLanguages(
                                    action,
-                                   InstructionFilesResult(state.canReadInstructionsFiles,
-                                                          state.instructions,
-                                                          state.instructionsBySubjectLanguagePair,
-                                                          state.languages))
+                                   InstructionFilesResult(
+                                       state.canReadInstructionsFiles,
+                                       state.canReadInstructionsFilesMessage,
+                                       state.instructions,
+                                       state.instructionsBySubjectLanguagePair,
+                                       state.languages))
+
+    val navigationStackAndActivity = reduceNavigation(
+                                       action,
+                                       NavigationStackAndActivity(
+                                           state.navigationStack,
+                                           state.activity))
 
     return state.copy(
         canReadInstructionsFiles = instructionFilesResult.canReadInstructionFiles,
+        canReadInstructionsFilesMessage = instructionFilesResult.canReadInstructionFilesMessage,
         languages = instructionFilesResult.languages,
         language = reduceLanguage(action, state.language),
         instructions = instructionFilesResult.instructions,
         instructionsBySubjectLanguagePair = instructionFilesResult.instructionsBySubjectLanguagePair,
-        navigationStack = reduceNavigation(action, state.navigationStack))
+        activity = navigationStackAndActivity.activity,
+        navigationStack = navigationStackAndActivity.navigationStack)
   }
 }
 
@@ -88,11 +94,11 @@ fun requestUserCopyInstructionsToAppDir(packageName: String, appDir: File): (Imm
   return  { instructions: ImmutableSet<Instruction> ->
     if (instructions.isEmpty()) {
       setInstructionsAndLanguages(canReadInstructionFiles = true,
-                                  message = "No instructions found. Connect to the device (USB or otherwise) and copy instructions files to <device>/InternalStorage/${packageName}.",
+                                  canReadInstructionFilesMessage = "No instructions found. Connect to the device (USB or otherwise) and copy instructions files to <device>/InternalStorage/${packageName}.",
                                   instructions = immutableSetOf())
     } else {
       setInstructionsAndLanguages(canReadInstructionFiles = true,
-                                  message = "Read instructions from ${appDir.absolutePath}.",
+                                  canReadInstructionFilesMessage = "Read instructions from ${appDir.absolutePath}.",
                                   instructions = instructions)
     }
   }

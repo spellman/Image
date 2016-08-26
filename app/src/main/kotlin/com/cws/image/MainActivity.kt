@@ -1,6 +1,5 @@
 package com.cws.image
 
-import android.app.Activity
 import android.content.Context
 import android.os.Bundle
 import android.support.v4.content.ContextCompat
@@ -18,16 +17,23 @@ import trikita.jedux.Action
 import trikita.jedux.Store
 
 class MainActivity : AppCompatActivity() {
+  lateinit var store: Store<Action<Actions, *>, State>
+
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
 
-    val store = (application as App).store
-    store.dispatch(showCurrentView(this))
+    store = (application as App).store
+    store.dispatch(setActivity(this))
+    store.dispatch(showCurrentView())
+  }
+
+  override fun onDestroy() {
+    store.dispatch(clearActivity())
+    super.onDestroy()
   }
 
   override fun onBackPressed() {
-    val store = (application as App).store
-    store.dispatch(navigateBack(this))
+    store.dispatch(navigateBack())
   }
 }
 
@@ -40,7 +46,7 @@ class LanguagesView : RenderableView {
 
   constructor(c: Context) : super(c) {
     this.c = c
-    this.store = (c.applicationContext as App).store
+    this.store = (c as MainActivity).store
   }
   constructor(c: Context, props: LanguagesProps) : this(c) {
     this.languages = props.languages
@@ -91,7 +97,7 @@ class InstructionsView : RenderableView {
 
   constructor(c: Context) : super(c) {
     this.c = c
-    this.store = (c.applicationContext as App).store
+    this.store = (c as MainActivity).store
   }
   constructor(c: Context, props: InstructionsProps) : this(c) {
     this.instructions = getVisibleInstructions(props.instructions, props.language)
@@ -112,8 +118,7 @@ class InstructionsView : RenderableView {
             margin(dip(0), dip(16))
             textColor(android.graphics.Color.BLACK)
             onClick { v ->
-              store.dispatch(navigateTo(NavigationFrame("instruction", InstructionProps(i)),
-                                        c as Activity))
+              store.dispatch(navigateTo(NavigationFrame("instruction", InstructionProps(i))))
             }
           }
         }
@@ -128,7 +133,7 @@ class MainView : RenderableView {
 
   constructor(c: Context) : super(c) {
     this.c = c
-    this.store = (c.applicationContext as App).store
+    this.store = (c as MainActivity).store
   }
 
   override fun view() {
@@ -151,7 +156,7 @@ class InstructionView : RenderableView {
 
   constructor(c: Context) : super(c) {
     this.c = c
-    this.store = (c.applicationContext as App).store
+    this.store = (c as MainActivity).store
   }
   constructor(c: Context, props: InstructionProps) : this(c) {
     this.instruction = props.instruction
