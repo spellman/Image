@@ -23,7 +23,9 @@ class MainActivity : AppCompatActivity() {
     super.onCreate(savedInstanceState)
 
     store = (application as App).store
-    store.dispatch(updateCurrentViewProps(MainProps(store, store.state)))
+    store.dispatch(updateCurrentViewProps(
+                     MainProps(dispatch = { x -> store.dispatch(x) },
+                               state = store.state)))
     store.dispatch(setActivity(this))
     store.dispatch(showCurrentView())
   }
@@ -39,19 +41,19 @@ class MainActivity : AppCompatActivity() {
   }
 }
 
-data class LanguagesProps(val store: Store<Action<Actions, *>, State>,
+data class LanguagesProps(val dispatch: (Action<Actions, *>) -> State,
                           val languages: ImmutableSet<String>)
 
 class LanguagesView : RenderableView {
   var c: Context
-  lateinit var store: Store<Action<Actions, *>, State>
+  lateinit var dispatch: (Action<Actions, *>) -> State
   lateinit var languages: ImmutableSet<String>
 
   constructor(c: Context) : super(c) {
     this.c = c
   }
   constructor(c: Context, props: LanguagesProps) : this(c) {
-    this.store = props.store
+    this.dispatch = props.dispatch
     this.languages = props.languages
   }
 
@@ -82,7 +84,7 @@ class LanguagesView : RenderableView {
               ellipsize(TextUtils.TruncateAt.END)
               text(l)
             }
-            onClick { v -> store.dispatch(setLanguage(l)) }
+            onClick { v -> dispatch(setLanguage(l)) }
           }
         }
       }
@@ -90,20 +92,20 @@ class LanguagesView : RenderableView {
   }
 }
 
-data class InstructionsProps(val store: Store<Action<Actions, *>, State>,
+data class InstructionsProps(val dispatch: (Action<Actions, *>) -> State,
                              val instructions: ImmutableSet<Instruction>,
                              val language: String)
 
 class InstructionsView : RenderableView {
   var c: Context
-  lateinit var store: Store<Action<Actions, *>, State>
+  lateinit var dispatch: (Action<Actions, *>) -> State
   lateinit var instructions: ImmutableSet<Instruction>
 
   constructor(c: Context) : super(c) {
     this.c = c
   }
   constructor(c: Context, props: InstructionsProps) : this(c) {
-    this.store = props.store
+    this.dispatch = props.dispatch
     this.instructions = getVisibleInstructions(props.instructions, props.language)
   }
 
@@ -122,9 +124,9 @@ class InstructionsView : RenderableView {
             margin(dip(0), dip(16))
             textColor(android.graphics.Color.BLACK)
             onClick { v ->
-              store.dispatch(
+              dispatch(
                   navigateTo(NavigationFrame("instruction",
-                                             InstructionProps(store, i))))
+                                             InstructionProps(dispatch, i))))
             }
           }
         }
@@ -133,19 +135,19 @@ class InstructionsView : RenderableView {
   }
 }
 
-data class MainProps(val store: Store<Action<Actions, *>, State>,
+data class MainProps(val dispatch: (Action<Actions, *>) -> State,
                      val state: State)
 
 class MainView : RenderableView {
   var c: Context
-  lateinit var store: Store<Action<Actions, *>, State>
+  lateinit var dispatch: (Action<Actions, *>) -> State
   lateinit var state: State
 
   constructor(c: Context) : super(c) {
     this.c = c
   }
   constructor(c: Context, props: MainProps) : this(c) {
-    this.store = props.store
+    this.dispatch = props.dispatch
     this.state = props.state
   }
 
@@ -153,27 +155,27 @@ class MainView : RenderableView {
     linearLayoutCompat {
       size(FILL, FILL)
       AppCompatv7DSL.orientation(LinearLayoutCompat.VERTICAL)
-      LanguagesView(c, LanguagesProps(store, getLanguages(state))).view()
-      InstructionsView(c, InstructionsProps(store,
+      LanguagesView(c, LanguagesProps(dispatch, getLanguages(state))).view()
+      InstructionsView(c, InstructionsProps(dispatch,
                                             getInstructions(state),
                                             getLanguage(state))).view()
     }
   }
 }
 
-data class InstructionProps(val store: Store<Action<Actions, *>, State>,
+data class InstructionProps(val dispatch: (Action<Actions, *>) -> State,
                             val instruction: Instruction)
 
 class InstructionView : RenderableView {
   var c: Context
-  lateinit var store: Store<Action<Actions, *>, State>
+  lateinit var dispatch: (Action<Actions, *>) -> State
   lateinit var instruction: Instruction
 
   constructor(c: Context) : super(c) {
     this.c = c
   }
   constructor(c: Context, props: InstructionProps) : this(c) {
-    this.store = props.store
+    this.dispatch = props.dispatch
     this.instruction = props.instruction
   }
 
