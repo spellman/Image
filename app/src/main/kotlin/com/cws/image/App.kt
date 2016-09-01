@@ -1,14 +1,13 @@
 package com.cws.image
 
 import android.app.Application
-import android.content.Context
+import android.media.MediaScannerConnection
 import android.os.Environment
-import com.facebook.stetho.Stetho
+//import com.facebook.stetho.Stetho
 import com.github.andrewoma.dexx.kollection.*
 import com.squareup.leakcanary.LeakCanary
 import trikita.anvil.Anvil
 import trikita.jedux.Action
-import trikita.jedux.Logger
 import trikita.jedux.Store
 import java.io.File
 
@@ -94,11 +93,11 @@ fun requestUserCopyInstructionsToAppDir(packageName: String, appDir: File): (Imm
   return  { instructions: ImmutableSet<Instruction> ->
     if (instructions.isEmpty()) {
       setInstructionsAndLanguages(canReadInstructionFiles = true,
-                                  canReadInstructionFilesMessage = "No instructions found. Connect to the device (USB or otherwise) and copy instructions files to <device>/InternalStorage/${packageName}.",
+                                  canReadInstructionFilesMessage = "No instructions found. We're loading files manually for now so do the following to get started: 1. Connect the device to your computer via USB. 2. Ensure the device is in file transfer mode: Swipe down from the top of the device screen; one of the notifications should say \"USB for charging\" or \"USB for photo transfer\" or \"USB for file transfers\" or something like that. If it isn't \"USB for file transfers\", then touch the notification and then select \"USB for file transfers\". 3. Open the device in your file explorer (Windows Explorer on Windows, Finder on Mac, etc.). 4. Copy your instruction sound-files to <device>/InternalStorage/${packageName}.",
                                   instructions = immutableSetOf())
     } else {
       setInstructionsAndLanguages(canReadInstructionFiles = true,
-                                  canReadInstructionFilesMessage = "Read instructions from ${appDir.absolutePath}.",
+                                  canReadInstructionFilesMessage = "Found instructions in ${appDir.absolutePath}.",
                                   instructions = instructions)
     }
   }
@@ -119,9 +118,10 @@ class App : Application() {
     val appDir: File = File(Environment.getExternalStorageDirectory(), packageName)
 
     LeakCanary.install(this)
-    Stetho.initializeWithDefaults(this)
+//    Stetho.initializeWithDefaults(this)
     store.subscribe(Anvil::render)
-    store.dispatch(refreshInstructions(this as Context,
+    store.dispatch(refreshInstructions(MediaScannerConnection(this,
+                                                              MediaScannerConnectionClient()),
                                        appDir,
                                        requestUserCopyInstructionsToAppDir(packageName, appDir)))
   }

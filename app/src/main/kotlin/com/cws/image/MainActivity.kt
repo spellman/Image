@@ -23,12 +23,14 @@ class MainActivity : AppCompatActivity() {
     super.onCreate(savedInstanceState)
 
     store = (application as App).store
+    store.dispatch(updateCurrentViewProps(MainProps(store, store.state)))
     store.dispatch(setActivity(this))
     store.dispatch(showCurrentView())
   }
 
   override fun onDestroy() {
     store.dispatch(clearActivity())
+    store.dispatch(updateCurrentViewProps(null))
     super.onDestroy()
   }
 
@@ -37,18 +39,19 @@ class MainActivity : AppCompatActivity() {
   }
 }
 
-data class LanguagesProps(val languages: ImmutableSet<String>)
+data class LanguagesProps(val store: Store<Action<Actions, *>, State>,
+                          val languages: ImmutableSet<String>)
 
 class LanguagesView : RenderableView {
   var c: Context
-  var store: Store<Action<Actions, *>, State>
+  lateinit var store: Store<Action<Actions, *>, State>
   lateinit var languages: ImmutableSet<String>
 
   constructor(c: Context) : super(c) {
     this.c = c
-    this.store = (c as MainActivity).store
   }
   constructor(c: Context, props: LanguagesProps) : this(c) {
+    this.store = props.store
     this.languages = props.languages
   }
 
@@ -87,19 +90,20 @@ class LanguagesView : RenderableView {
   }
 }
 
-data class InstructionsProps(val instructions: ImmutableSet<Instruction>,
+data class InstructionsProps(val store: Store<Action<Actions, *>, State>,
+                             val instructions: ImmutableSet<Instruction>,
                              val language: String)
 
 class InstructionsView : RenderableView {
   var c: Context
-  var store: Store<Action<Actions, *>, State>
+  lateinit var store: Store<Action<Actions, *>, State>
   lateinit var instructions: ImmutableSet<Instruction>
 
   constructor(c: Context) : super(c) {
     this.c = c
-    this.store = (c as MainActivity).store
   }
   constructor(c: Context, props: InstructionsProps) : this(c) {
+    this.store = props.store
     this.instructions = getVisibleInstructions(props.instructions, props.language)
   }
 
@@ -118,7 +122,9 @@ class InstructionsView : RenderableView {
             margin(dip(0), dip(16))
             textColor(android.graphics.Color.BLACK)
             onClick { v ->
-              store.dispatch(navigateTo(NavigationFrame("instruction", InstructionProps(i))))
+              store.dispatch(
+                  navigateTo(NavigationFrame("instruction",
+                                             InstructionProps(store, i))))
             }
           }
         }
@@ -127,38 +133,47 @@ class InstructionsView : RenderableView {
   }
 }
 
+data class MainProps(val store: Store<Action<Actions, *>, State>,
+                     val state: State)
+
 class MainView : RenderableView {
   var c: Context
-  var store: Store<Action<Actions, *>, State>
+  lateinit var store: Store<Action<Actions, *>, State>
+  lateinit var state: State
 
   constructor(c: Context) : super(c) {
     this.c = c
-    this.store = (c as MainActivity).store
+  }
+  constructor(c: Context, props: MainProps) : this(c) {
+    this.store = props.store
+    this.state = props.state
   }
 
   override fun view() {
     linearLayoutCompat {
       size(FILL, FILL)
       AppCompatv7DSL.orientation(LinearLayoutCompat.VERTICAL)
-      LanguagesView(c, LanguagesProps(getLanguages(store.state))).view()
-      InstructionsView(c, InstructionsProps(getInstructions(store.state),
-                                            getLanguage(store.state))).view()
+      LanguagesView(c, LanguagesProps(store, getLanguages(state))).view()
+      InstructionsView(c, InstructionsProps(store,
+                                            getInstructions(state),
+                                            getLanguage(state))).view()
     }
   }
 }
 
-data class InstructionProps(val instruction: Instruction)
+data class InstructionProps(val store: Store<Action<Actions, *>, State>,
+                            val instruction: Instruction)
 
 class InstructionView : RenderableView {
   var c: Context
-  var store: Store<Action<Actions, *>, State>
+  lateinit var store: Store<Action<Actions, *>, State>
   lateinit var instruction: Instruction
 
   constructor(c: Context) : super(c) {
     this.c = c
-    this.store = (c as MainActivity).store
   }
   constructor(c: Context, props: InstructionProps) : this(c) {
+    this.store = props.store
     this.instruction = props.instruction
   }
 

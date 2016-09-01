@@ -30,6 +30,11 @@ fun setActivity(activity: Activity): Action<Actions, Activity> {
 fun clearActivity(): Action<Actions, Nothing?> {
   return Action(Actions.CLEAR_ACTIVITY, null)
 }
+
+fun updateCurrentViewProps(props: Any?): Action<Actions, Any?> {
+  return Action(Actions.UPDATE_CURRENT_VIEW_PROPS, props)
+}
+
 fun showCurrentView(): Action<Actions, Nothing?> {
   return Action(Actions.SHOW_CURRENT_VIEW, null)
 }
@@ -53,6 +58,15 @@ fun reduceNavigation(action: Action<Actions, *>, state: NavigationStackAndActivi
 
     Actions.CLEAR_ACTIVITY -> state.copy(activity = null)
 
+  // 2016-08-30 Cort Spellman
+  // TODO: Why does it not re-render on updating language or navigating to
+  // instruction? Why does it render instruction after navigating to it and
+  // then pushing back?
+    Actions.UPDATE_CURRENT_VIEW_PROPS -> {
+      val updatedCurrent = navigationStack.peek().copy(props = action.value)
+      state.copy(navigationStack = navigationStack.pop().push(updatedCurrent))
+    }
+
     Actions.NAVIGATE_TO -> {
       state.copy(navigationStack = navigationStack.push(action.value as NavigationFrame))
     }
@@ -66,9 +80,9 @@ fun reduceNavigation(action: Action<Actions, *>, state: NavigationStackAndActivi
 class Navigator: Store.Middleware<Action<Actions, *>, State> {
   fun makeView(scene: String, props: Any?, context: Context): RenderableView {
     return when(scene) {
-      "main" -> MainView(context)
+      "main" -> MainView(context, props as MainProps)
       "instruction" -> InstructionView(context, props as InstructionProps)
-      else -> MainView(context)
+      else -> MainView(context, props as MainProps)
     }
   }
 
@@ -83,25 +97,27 @@ class Navigator: Store.Middleware<Action<Actions, *>, State> {
                         action: Action<Actions, *>,
                         next: Store.NextDispatcher<Action<Actions, *>>) {
     val activity = store.state.activity
+    val navigationStack = store.state.navigationStack
+
     if (activity !is Activity) next.dispatch(action)
     else {
       when (action.type) {
         Actions.SHOW_CURRENT_VIEW -> {
-          render(activity, store.state.navigationStack)
+          render(activity, navigationStack)
         }
 
         Actions.NAVIGATE_TO -> {
           next.dispatch(action)
-          render(activity, store.state.navigationStack)
+          render(activity, navigationStack)
         }
 
         Actions.NAVIGATE_BACK -> {
-          if (store.state.navigationStack.frames.size == 1
-              || store.state.navigationStack.frames.isEmpty()) {
+          if (navigationStack.frames.size == 1
+              || navigationStack.frames.isEmpty()) {
             activity.finish()
           } else {
             next.dispatch(action)
-            render(activity, store.state.navigationStack)
+            render(activity, navigationStack)
           }
         }
 

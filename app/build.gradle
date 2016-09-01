@@ -52,5 +52,6 @@ dependencies {
   compile "co.trikita:anvil-recyclerview-v7:$anvil_version"
   compile "com.github.trikita:jedux:-SNAPSHOT"
   compile "com.github.andrewoma.dexx:kollection:0.6"
-  compile "com.squareup.leakcanary:leakcanary-android:1.4-beta2"
+  debugCompile "com.squareup.leakcanary:leakcanary-android:1.4-beta2"
+  debugCompile "com.fasterxml.jackson.module:jackson-module-kotlin:2.7.5"
 }

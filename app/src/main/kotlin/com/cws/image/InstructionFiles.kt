@@ -1,10 +1,11 @@
 package com.cws.image
 
-import android.content.Context
 import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Environment
 import android.util.Log
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.kotlin.KotlinModule
 import com.github.andrewoma.dexx.kollection.*
 import trikita.jedux.Action
 import trikita.jedux.Store
@@ -63,19 +64,29 @@ fun setInstructionsAndLanguages(canReadInstructionFiles: Boolean,
 }
 
 data class RefreshInstructionsActionValue(
-             val context: Context,
+             val mediaScannerConnection: MediaScannerConnection,
              val appDir: File,
              val instructionsFilesUpdateFn: (ImmutableSet<Instruction>) -> Action<Actions, SetInstructionsAndLanguagesActionValue>)
 
-fun refreshInstructions(context: Context,
+fun refreshInstructions(mediaScannerConnection: MediaScannerConnection,
                         appDir: File,
                         updateFn: (ImmutableSet<Instruction>) -> Action<Actions, SetInstructionsAndLanguagesActionValue>): Action<Actions, RefreshInstructionsActionValue> {
   return Action(Actions.REFRESH_INSTRUCTIONS,
-                RefreshInstructionsActionValue(context, appDir, updateFn))
+                RefreshInstructionsActionValue(mediaScannerConnection, appDir, updateFn))
+}
+
+class MediaScannerConnectionClient: MediaScannerConnection.MediaScannerConnectionClient {
+  override fun onMediaScannerConnected() {}
+
+  override fun onScanCompleted(path: String?, uri: Uri?) {
+    Log.d("ExternalStorage", "Scanned ${path}:")
+    Log.d("ExternalStorage", "-> uri=${uri}")
+  }
 }
 
 class InstructionFiles: Store.Middleware<Action<Actions, *>, State> {
   val tokenFileName = ".tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb"
+  val mapper: ObjectMapper = ObjectMapper().registerModule(KotlinModule())
 
   fun isExternalStorageWritable(): Boolean {
     val s = Environment.getExternalStorageState()
@@ -92,9 +103,8 @@ class InstructionFiles: Store.Middleware<Action<Actions, *>, State> {
     val n: String = file.name.substringBeforeLast(".")
     val (subject, language, cueTiming) = n.split('_')
 
-    println()
-    Log.i("fileToInstruction", "Instructions file to parse: ${file.absolutePath}")
-    Log.i("fileToInstruction", "subject: ${subject}    language: ${language}    cueTiming: ${cueTiming}")
+    Log.d("fileToInstruction", "Instructions file to parse: ${file.absolutePath}")
+    Log.d("parsed values", "subject: ${subject}    language: ${language}    cueTiming: ${cueTiming}")
     try {
       return Instruction(subject = subject,
                          language = language,
@@ -102,18 +112,19 @@ class InstructionFiles: Store.Middleware<Action<Actions, *>, State> {
                          cueTiming = cueTiming.toInt())
     }
     catch (e: NumberFormatException) {
-      Log.e("parse instructions file", e.toString())
+      Log.e("parse instructions file",
+            mapper.writerWithDefaultPrettyPrinter().writeValueAsString(e))
       return null
     }
   }
 
   fun readInstructionsFromStorage(appDir: File, filesToSkip: ImmutableSet<File>): ImmutableSet<Instruction> {
-    appDir.listFiles().forEach { file -> println(file.absolutePath) }
+    appDir.listFiles().forEach { file -> Log.d("appDir file", file.absolutePath) }
     val r = appDir.listFiles({ file -> !filesToSkip.contains(file) })
                   .mapNotNull {file -> fileToInstruction(file)}
                   .toImmutableSet()
-    println()
-    Log.i("Parsed instructions", r.toString())
+    Log.d("Parsed instructions",
+          mapper.writerWithDefaultPrettyPrinter().writeValueAsString(r))
     return r
   }
 
@@ -126,7 +137,7 @@ class InstructionFiles: Store.Middleware<Action<Actions, *>, State> {
   }
 
   fun refreshInstructions(store: Store<Action<Actions, *>, State>,
-                          c: Context,
+                          mediaScannerConnection: MediaScannerConnection,
                           appDir: File,
                           instructionsFilesUpdateFn: (ImmutableSet<Instruction>) -> Action<Actions, SetInstructionsAndLanguagesActionValue>) {
     val tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb = File(appDir, tokenFileName)
@@ -170,14 +181,11 @@ class InstructionFiles: Store.Middleware<Action<Actions, *>, State> {
         return
       }
 
-      MediaScannerConnection.scanFile(c,
-                                      arrayOf(tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb.toString()),
-                                      null,
-                                      { path: String, uri: Uri ->
-                                        Log.i("ExternalStorage", "Scanned ${path}:")
-                                        Log.i("ExternalStorage", "-> uri=${uri}")
-                                      })
-      Log.i("ExternalStorage", "Made directory ${appDir.absolutePath} and file ${tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb.absolutePath} (to make directory appear when device is mounted via USB).")
+      mediaScannerConnection.connect()
+      mediaScannerConnection.scanFile(tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb.toString(),
+                                      null)
+
+      Log.d("ExternalStorage", "Made directory ${appDir.absolutePath} and file ${tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb.absolutePath} (to make directory appear when device is mounted via USB).")
     }
 
     store.dispatch(
@@ -191,7 +199,10 @@ class InstructionFiles: Store.Middleware<Action<Actions, *>, State> {
     when(action.type) {
       Actions.REFRESH_INSTRUCTIONS -> {
         val v = action.value as RefreshInstructionsActionValue
-        refreshInstructions(store, v.context, v.appDir, v.instructionsFilesUpdateFn)
+        refreshInstructions(store,
+                            v.mediaScannerConnection,
+                            v.appDir,
+                            v.instructionsFilesUpdateFn)
         next.dispatch(action)
       }
 
