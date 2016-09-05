@@ -1,7 +1,7 @@
 package com.cws.image
 
+import android.content.Context
 import android.media.MediaScannerConnection
-import android.net.Uri
 import android.os.Environment
 import android.util.Log
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -10,6 +10,20 @@ import com.github.andrewoma.dexx.kollection.*
 import trikita.jedux.Action
 import trikita.jedux.Store
 import java.io.File
+
+// 2016-09-05 Cort Spellman
+// TODO: Change canReadInstructionFilesMessage to a value (collection?), such
+// that those values are in bijective correspondence with the possible
+// situations involving reading files that I want to recognize / log.
+// I don't want to be restricted to a string message; I probably want to show
+// a certain view or at least format the text a certain way.
+// Moreover, I want to make use of Android's resources localization stuff and
+// change what and how something is displayed like any other view.
+data class InstructionsState(val canReadInstructionFiles: Boolean,
+                             val canReadInstructionFilesMessage: String,
+                             val instructions: ImmutableSet<InstructionIdent>,
+                             val instructionsBySubjectLanguagePair: ImmutableMap<InstructionIdent, Instruction>,
+                             val languages: ImmutableSet<String>)
 
 data class NormalizedInstructionsResult(val instructions: ImmutableSet<InstructionIdent>,
                                         val instructionsBySubjectLanguagePair: ImmutableMap<InstructionIdent, Instruction>)
@@ -29,13 +43,7 @@ data class SetInstructionsAndLanguagesActionValue(val canReadInstructionFiles: B
                                                   val canReadInstructionFilesMessage: String,
                                                   val instructions: ImmutableSet<Instruction>)
 
-data class InstructionFilesResult(val canReadInstructionFiles: Boolean,
-                                  val canReadInstructionFilesMessage: String,
-                                  val instructions: ImmutableSet<InstructionIdent>,
-                                  val instructionsBySubjectLanguagePair: ImmutableMap<InstructionIdent, Instruction>,
-                                  val languages: ImmutableSet<String>)
-
-fun reduceInstructionsAndLanguages(action: Action<Actions, *>, state: InstructionFilesResult): InstructionFilesResult {
+fun reduceInstructionsAndLanguages(action: Action<Actions, *>, state: InstructionsState): InstructionsState {
   return when(action.type) {
     Actions.SET_INSTRUCTIONS_AND_LANGUAGES -> {
       // 2016-08-16 Cort Spellman
@@ -44,12 +52,12 @@ fun reduceInstructionsAndLanguages(action: Action<Actions, *>, state: Instructio
       // I think the guy who answered, Andrey Breslav, works on Kotlin.
       val v = action.value as SetInstructionsAndLanguagesActionValue
       val normalizedInstructions = normalizeInstructions(v.instructions)
-      return InstructionFilesResult(
-          v.canReadInstructionFiles,
-          v.canReadInstructionFilesMessage,
-          normalizedInstructions.instructions,
-          normalizedInstructions.instructionsBySubjectLanguagePair,
-          getLanguages(normalizedInstructions.instructionsBySubjectLanguagePair)) }
+      return InstructionsState(
+          canReadInstructionFiles = v.canReadInstructionFiles,
+          canReadInstructionFilesMessage = v.canReadInstructionFilesMessage,
+          instructions = normalizedInstructions.instructions,
+          instructionsBySubjectLanguagePair = normalizedInstructions.instructionsBySubjectLanguagePair,
+          languages = getLanguages(normalizedInstructions.instructionsBySubjectLanguagePair)) }
     else -> state
   }
 }
@@ -64,30 +72,28 @@ fun setInstructionsAndLanguages(canReadInstructionFiles: Boolean,
 }
 
 data class RefreshInstructionsActionValue(
-             val mediaScannerConnection: MediaScannerConnection,
+             val context: Context,
              val appDir: File,
              val instructionsFilesUpdateFn: (ImmutableSet<Instruction>) -> Action<Actions, SetInstructionsAndLanguagesActionValue>)
 
-fun refreshInstructions(mediaScannerConnection: MediaScannerConnection,
+fun refreshInstructions(context: Context,
                         appDir: File,
                         updateFn: (ImmutableSet<Instruction>) -> Action<Actions, SetInstructionsAndLanguagesActionValue>): Action<Actions, RefreshInstructionsActionValue> {
   return Action(Actions.REFRESH_INSTRUCTIONS,
-                RefreshInstructionsActionValue(mediaScannerConnection, appDir, updateFn))
-}
-
-class MediaScannerConnectionClient: MediaScannerConnection.MediaScannerConnectionClient {
-  override fun onMediaScannerConnected() {}
-
-  override fun onScanCompleted(path: String?, uri: Uri?) {
-    Log.d("ExternalStorage", "Scanned ${path}:")
-    Log.d("ExternalStorage", "-> uri=${uri}")
-  }
+                RefreshInstructionsActionValue(context, appDir, updateFn))
 }
 
 class InstructionFiles: Store.Middleware<Action<Actions, *>, State> {
   val tokenFileName = ".tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb"
   val mapper: ObjectMapper = ObjectMapper().registerModule(KotlinModule())
 
+  // 2016-09-02 Cort Spellman
+  // TODO: Check for storage permission and request it if necessary.
+  // If you can't get the permission (i.e., don't have it after requesting),
+  // then give that reason for not being able to make the directory.
+
+  // 2016-09-02 Cort Spellman
+  // TODO: Make part of the state whether the directory exists or not?
   fun isExternalStorageWritable(): Boolean {
     val s = Environment.getExternalStorageState()
     return Environment.MEDIA_MOUNTED == s
@@ -137,7 +143,7 @@ class InstructionFiles: Store.Middleware<Action<Actions, *>, State> {
   }
 
   fun refreshInstructions(store: Store<Action<Actions, *>, State>,
-                          mediaScannerConnection: MediaScannerConnection,
+                          context: Context,
                           appDir: File,
                           instructionsFilesUpdateFn: (ImmutableSet<Instruction>) -> Action<Actions, SetInstructionsAndLanguagesActionValue>) {
     val tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb = File(appDir, tokenFileName)
@@ -181,9 +187,13 @@ class InstructionFiles: Store.Middleware<Action<Actions, *>, State> {
         return
       }
 
-      mediaScannerConnection.connect()
-      mediaScannerConnection.scanFile(tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb.toString(),
-                                      null)
+      MediaScannerConnection.scanFile(context,
+                                      arrayOf(tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb.toString()),
+                                      null,
+                                      { path, uri ->
+                                        Log.d("ExternalStorage", "Scanned ${path}:")
+                                        Log.d("ExternalStorage", "-> uri=${uri}")
+                                      })
 
       Log.d("ExternalStorage", "Made directory ${appDir.absolutePath} and file ${tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb.absolutePath} (to make directory appear when device is mounted via USB).")
     }
@@ -200,7 +210,7 @@ class InstructionFiles: Store.Middleware<Action<Actions, *>, State> {
       Actions.REFRESH_INSTRUCTIONS -> {
         val v = action.value as RefreshInstructionsActionValue
         refreshInstructions(store,
-                            v.mediaScannerConnection,
+                            v.context,
                             v.appDir,
                             v.instructionsFilesUpdateFn)
         next.dispatch(action)

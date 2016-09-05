@@ -4,7 +4,7 @@ import android.util.Log
 import trikita.jedux.Action
 import trikita.jedux.Store
 
-class Logger(val tag: String): Store.Middleware<Action<Actions, *>, State> {
+class Logger(val tag: String) : Store.Middleware<Action<Actions, *>, State> {
   override fun dispatch(store: Store<Action<Actions, *>, State>,
                         action: Action<Actions, *>,
                         next: Store.NextDispatcher<Action<Actions, *>>) {
