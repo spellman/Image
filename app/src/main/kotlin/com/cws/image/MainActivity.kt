@@ -37,19 +37,19 @@ class MainActivity : AppCompatActivity() {
   }
 }
 
-data class LanguagesProps(val languages: ImmutableSet<String>)
-
 class LanguagesView : RenderableView {
   var c: Context
-  var store: Store<Action<Actions, *>, State>
+  lateinit var dispatch: (Action<Actions, *>) -> State
   lateinit var languages: ImmutableSet<String>
 
   constructor(c: Context) : super(c) {
     this.c = c
-    this.store = (c as MainActivity).store
   }
-  constructor(c: Context, props: LanguagesProps) : this(c) {
-    this.languages = props.languages
+  constructor(c: Context,
+              dispatch: (Action<Actions, *>) -> State,
+              languages: ImmutableSet<String>) : this(c) {
+    this.dispatch = dispatch
+    this.languages = languages
   }
 
   override fun view() {
@@ -79,7 +79,7 @@ class LanguagesView : RenderableView {
               ellipsize(TextUtils.TruncateAt.END)
               text(l)
             }
-            onClick { v -> store.dispatch(setLanguage(l)) }
+            onClick { v -> dispatch(setLanguage(l)) }
           }
         }
       }
@@ -87,20 +87,20 @@ class LanguagesView : RenderableView {
   }
 }
 
-data class InstructionsProps(val instructions: ImmutableSet<Instruction>,
-                             val language: String)
-
 class InstructionsView : RenderableView {
   var c: Context
-  var store: Store<Action<Actions, *>, State>
+  lateinit var dispatch: (Action<Actions, *>) -> State
   lateinit var instructions: ImmutableSet<Instruction>
 
   constructor(c: Context) : super(c) {
     this.c = c
-    this.store = (c as MainActivity).store
   }
-  constructor(c: Context, props: InstructionsProps) : this(c) {
-    this.instructions = getVisibleInstructions(props.instructions, props.language)
+  constructor(c: Context,
+              dispatch: (Action<Actions, *>) -> State,
+              instructions: ImmutableSet<Instruction>,
+              language: String) : this(c) {
+    this.dispatch = dispatch
+    this.instructions = getVisibleInstructions(instructions, language)
   }
 
   override fun view() {
@@ -118,7 +118,8 @@ class InstructionsView : RenderableView {
             margin(dip(0), dip(16))
             textColor(android.graphics.Color.BLACK)
             onClick { v ->
-              store.dispatch(navigateTo(NavigationFrame("instruction", InstructionProps(i))))
+              dispatch(setInstruction(i))
+              dispatch(navigateTo("instruction"))
             }
           }
         }
@@ -127,44 +128,39 @@ class InstructionsView : RenderableView {
   }
 }
 
-class MainView : RenderableView {
+abstract class TopLevelView : RenderableView {
   var c: Context
   var store: Store<Action<Actions, *>, State>
+  var dispatch: (Action<Actions, *>) -> State
+
 
   constructor(c: Context) : super(c) {
     this.c = c
-    this.store = (c as MainActivity).store
+    this.store = (c.applicationContext as App).store
+    this.dispatch = { x -> store.dispatch(x) }
   }
+}
 
+class MainView(c: Context) : TopLevelView(c) {
   override fun view() {
     linearLayoutCompat {
       size(FILL, FILL)
       AppCompatv7DSL.orientation(LinearLayoutCompat.VERTICAL)
-      LanguagesView(c, LanguagesProps(getLanguages(store.state))).view()
-      InstructionsView(c, InstructionsProps(getInstructions(store.state),
-                                            getLanguage(store.state))).view()
+      LanguagesView(c,
+                    dispatch,
+                    getLanguages(store.state.instructionsState)).view()
+      InstructionsView(c,
+                       dispatch,
+                       getInstructions(store.state.instructionsState),
+                       getLanguage(store.state)).view()
     }
   }
 }
 
-data class InstructionProps(val instruction: Instruction)
-
-class InstructionView : RenderableView {
-  var c: Context
-  var store: Store<Action<Actions, *>, State>
-  lateinit var instruction: Instruction
-
-  constructor(c: Context) : super(c) {
-    this.c = c
-    this.store = (c as MainActivity).store
-  }
-  constructor(c: Context, props: InstructionProps) : this(c) {
-    this.instruction = props.instruction
-  }
-
+class InstructionView(c: Context) : TopLevelView(c) {
   override fun view() {
     appCompatTextView {
-      text(instruction.toString())
+      text(getInstruction(store.state).toString())
       textColor(android.graphics.Color.BLACK)
     }
   }
