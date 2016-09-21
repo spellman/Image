@@ -1,14 +1,11 @@
 package com.cws.image
 
 import android.util.Log
-import trikita.jedux.Action
-import trikita.jedux.Store
+import com.brianegan.bansa.Middleware
 
-class Logger(val tag: String) : Store.Middleware<Action<Actions, *>, State> {
-  override fun dispatch(store: Store<Action<Actions, *>, State>,
-                        action: Action<Actions, *>,
-                        next: Store.NextDispatcher<Action<Actions, *>>) {
-    Log.d(tag, "--> " + action.type + "\n" + action.value)
+fun logger(tag: String) : Middleware<State> {
+  return Middleware { store, action, next ->
+    Log.d(tag, "--> " + action.toString())
     next.dispatch(action)
     Log.d(tag, "<-- " + store.state)
   }
