@@ -1,162 +1,78 @@
 package com.cws.image
 
+import android.app.Activity
+import android.content.Context
+import com.brianegan.bansa.Reducer
 import com.github.andrewoma.dexx.kollection.*
+import java.io.File
 
 data class Instruction(val subject: String,
                        val language: String,
                        val path: String,
                        val cueTiming: Int)
 
-data class InstructionIdent(val subject: String, val language: String)
+// 2016-09-05 Cort Spellman
+// TODO: Change canReadInstructionFilesMessage to a value (collection?), such
+// that those values are in bijective correspondence with the possible
+// situations involving reading files that I want to recognize / log.
+// I don't want to be restricted to a string message; I probably want to show
+// a certain view or at least format the text a certain way.
+// Moreover, I want to make use of Android's resources localization stuff and
+// change what and how something is displayed like any other view.
+data class State(val navigationStack: NavigationStack,
+                 val activity: Activity?,
+                 val canReadInstructionFiles: Boolean,
+                 val canReadInstructionFilesMessage: String,
+                 val instructions: ImmutableSet<Instruction>,
+                 val languages: ImmutableSet<String>,
+                 val language: String,
+                 val instructionToDisplay: Instruction?,
+                 val instructionToPlay: Instruction?)
 
-fun ident(instruction: Instruction): InstructionIdent {
-  return InstructionIdent(subject = instruction.subject, language = instruction.language)
+sealed class Action : com.brianegan.bansa.Action {
+  data class RefreshInstructions(
+      val context: Context,
+      val appDir: File,
+      val instructionsFilesUpdateFn: (ImmutableSet<Instruction>) -> Action.SetInstructionsAndLanguages
+  ) : com.brianegan.bansa.Action
+
+  data class SetInstructionsAndLanguages(
+      val canReadInstructionFiles: Boolean,
+      val canReadInstructionFilesMessage: String,
+      val instructions: ImmutableSet<Instruction>
+  ) : com.brianegan.bansa.Action
+
+  data class SetActivity(val activity: Activity) : com.brianegan.bansa.Action
+  class ClearActivity() : com.brianegan.bansa.Action
+  class ShowCurrentView() : com.brianegan.bansa.Action
+  data class NavigateTo(val scene: String) : com.brianegan.bansa.Action
+  class NavigateBack() : com.brianegan.bansa.Action
+  data class SetLanguage(val language: String) : com.brianegan.bansa.Action
+  data class SetInstruction(val instruction: Instruction) : com.brianegan.bansa.Action
+  class PrepareInstructionSequence() : com.brianegan.bansa.Action
+  class StartInstructionSequence() : com.brianegan.bansa.Action
+  class FinishInstructionSequence() : com.brianegan.bansa.Action
 }
 
-data class State(val navigationState: NavigationState,
-                 val instructionsState: InstructionsState,
-                 val language: String,
-                 val instruction: Instruction?)
-
-// Dummy data I started with. Keep for running in emulator.
-val languages = immutableSetOf("english",
-//                               "spanish",
-//                               "tagalog",
-//                               "french",
-//                               "german",
-//                               "russian",
-                               "ethiopian")
-
-val instructions =
-    immutableSetOf(
-        InstructionIdent("chest", "english"),
-//        InstructionIdent("leg", "english"),
-        InstructionIdent("arm", "english"),
-//        InstructionIdent("chest", "spanish"),
-//        InstructionIdent("leg", "spanish"),
-//        InstructionIdent("arm", "spanish"),
-//        InstructionIdent("chest", "tagalog"),
-//        InstructionIdent("leg", "tagalog"),
-//        InstructionIdent("arm", "tagalog"),
-//        InstructionIdent("chest", "french"),
-//        InstructionIdent("leg", "french"),
-//        InstructionIdent("arm", "french"),
-//        InstructionIdent("chest", "german"),
-//        InstructionIdent("leg", "german"),
-//        InstructionIdent("arm", "german"),
-//        InstructionIdent("chest", "russian"),
-//        InstructionIdent("leg", "russian"),
-//        InstructionIdent("arm", "russian"),
-        InstructionIdent("chest", "ethiopian"),
-//        InstructionIdent("leg", "ethiopian"),
-        InstructionIdent("arm", "ethiopian")
-    )
-
-val instructionsBySubjectLanguagePair =
-    immutableMapOf(
-        Pair(InstructionIdent("chest", "english"),
-             Instruction(subject = "chest",
-                         language = "english",
-                         path = "chest/english/path",
-                         cueTiming = 1000)),
-//        Pair(InstructionIdent("leg", "english"),
-//             Instruction(subject = "leg",
-//                         language = "english",
-//                         path = "leg/english/path",
-//                         cueTiming = 1000)),
-        Pair(InstructionIdent("arm", "english"),
-             Instruction(subject = "arm",
-                         language = "english",
-                         path = "arm/english/path",
-                         cueTiming = 1000)),
-//        Pair(InstructionIdent("chest", "spanish"),
-//             Instruction(subject = "chest",
-//                         language = "spanish",
-//                         path = "chest/spanish/path",
-//                         cueTiming = 1000)),
-//        Pair(InstructionIdent("leg", "spanish"),
-//             Instruction(subject = "leg",
-//                         language = "spanish",
-//                         path = "leg/spanish/path",
-//                         cueTiming = 1000)),
-//        Pair(InstructionIdent("arm", "spanish"),
-//             Instruction(subject = "arm",
-//                         language = "spanish",
-//                         path = "arm/spanish/path",
-//                         cueTiming = 1000)),
-//        Pair(InstructionIdent("chest", "tagalog"),
-//             Instruction(subject = "chest",
-//                         language = "tagalog",
-//                         path = "chest/tagalog/path",
-//                         cueTiming = 1000)),
-//        Pair(InstructionIdent("leg", "tagalog"),
-//             Instruction(subject = "leg",
-//                         language = "tagalog",
-//                         path = "leg/tagalog/path",
-//                         cueTiming = 1000)),
-//        Pair(InstructionIdent("arm", "tagalog"),
-//             Instruction(subject = "arm",
-//                         language = "tagalog",
-//                         path = "arm/tagalog/path",
-//                         cueTiming = 1000)),
-//        Pair(InstructionIdent("chest", "french"),
-//             Instruction(subject = "chest",
-//                         language = "french",
-//                         path = "chest/french/path",
-//                         cueTiming = 1000)),
-//        Pair(InstructionIdent("leg", "french"),
-//             Instruction(subject = "leg",
-//                         language = "french",
-//                         path = "leg/french/path",
-//                         cueTiming = 1000)),
-//        Pair(InstructionIdent("arm", "french"),
-//             Instruction(subject = "arm",
-//                         language = "french",
-//                         path = "arm/french/path",
-//                         cueTiming = 1000)),
-//        Pair(InstructionIdent("chest", "german"),
-//             Instruction(subject = "chest",
-//                         language = "german",
-//                         path = "chest/german/path",
-//                         cueTiming = 1000)),
-//        Pair(InstructionIdent("leg", "german"),
-//             Instruction(subject = "leg",
-//                         language = "german",
-//                         path = "leg/german/path",
-//                         cueTiming = 1000)),
-//        Pair(InstructionIdent("arm", "german"),
-//             Instruction(subject = "arm",
-//                         language = "german",
-//                         path = "arm/german/path",
-//                         cueTiming = 1000)),
-//        Pair(InstructionIdent("chest", "russian"),
-//             Instruction(subject = "chest",
-//                         language = "russian",
-//                         path = "chest/russian/path",
-//                         cueTiming = 1000)),
-//        Pair(InstructionIdent("leg", "russian"),
-//             Instruction(subject = "leg",
-//                         language = "russian",
-//                         path = "leg/russian/path",
-//                         cueTiming = 1000)),
-//        Pair(InstructionIdent("arm", "russian"),
-//             Instruction(subject = "arm",
-//                         language = "russian",
-//                         path = "arm/russian/path",
-//                         cueTiming = 1000)),
-        Pair(InstructionIdent("chest", "ethiopian"),
-             Instruction(subject = "chest",
-                         language = "ethiopian",
-                         path = "chest/ethiopian/path",
-                         cueTiming = 1000)),
-//        Pair(InstructionIdent("leg", "ethiopian"),
-//             Instruction(subject = "leg",
-//                         language = "ethiopian",
-//                         path = "leg/ethiopian/path",
-//                         cueTiming = 1000)),
-        Pair(InstructionIdent("arm", "ethiopian"),
-             Instruction(subject = "arm",
-                         language = "ethiopian",
-                         path = "arm/ethiopian/path",
-                         cueTiming = 1000))
-    )
+val reducer = Reducer<State> { state, action ->
+  when (action) {
+    is Action.RefreshInstructions -> state
+    is Action.SetInstructionsAndLanguages ->
+      state.copy(canReadInstructionFiles = action.canReadInstructionFiles,
+                 canReadInstructionFilesMessage = action.canReadInstructionFilesMessage,
+                 instructions = action.instructions,
+                 languages = action.instructions.map { i -> i.language }.toImmutableSet())
+    is Action.SetActivity -> state.copy(activity = action.activity)
+    is Action.ClearActivity -> state.copy(activity = null)
+    is Action.ShowCurrentView -> state
+    is Action.NavigateTo -> state.copy(navigationStack = state.navigationStack.push(action.scene))
+    is Action.NavigateBack -> state.copy(navigationStack = state.navigationStack.pop())
+    is Action.SetLanguage -> state.copy(language = action.language)
+    is Action.SetInstruction -> state.copy(instructionToDisplay = action.instruction,
+                                           instructionToPlay = action.instruction)
+    is Action.PrepareInstructionSequence -> state
+    is Action.StartInstructionSequence -> state
+    is Action.FinishInstructionSequence -> state
+    else -> throw IllegalArgumentException("Unhandled action: ${action}")
+  }
+}

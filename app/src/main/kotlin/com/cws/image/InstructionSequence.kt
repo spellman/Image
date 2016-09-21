@@ -1,13 +1,8 @@
 package com.cws.image
 
-import trikita.jedux.Action
-import trikita.jedux.Store
+import com.brianegan.bansa.Middleware
 
-class InstructionSequence: Store.Middleware<Action<Actions, *>, State> {
-  override fun dispatch(store: Store<Action<Actions, *>, State>,
-                        action: Action<Actions, *>,
-                        next: Store.NextDispatcher<Action<Actions, *>>) {
-    throw UnsupportedOperationException(
-        "not implemented") //To change body of created functions use File | Settings | File Templates.
-  }
+val instructionSequence = Middleware<State> { store, action, next ->
+  throw UnsupportedOperationException(
+      "not implemented") //To change body of created functions use File | Settings | File Templates.
 }
