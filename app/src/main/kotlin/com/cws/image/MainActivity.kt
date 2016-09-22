@@ -127,11 +127,12 @@ class RootView : RenderableView {
   }
 
   override fun view() {
-    val scene = store.state.navigationStack.peek()
-    when (scene) {
+    // 2016-09-21 Cort Spellman
+    // Bind the result of the when expression in order to force the compiler to
+    // check for exhaustiveness.
+    val x = when (store.state.navigationStack.peek()) {
       is Scene.Main -> viewMain(c, store)
       is Scene.Instruction -> viewInstruction(store)
-      else -> throw IllegalArgumentException("No view case has been defined for the scene of ${scene}")
     }
   }
 }
