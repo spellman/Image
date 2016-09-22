@@ -20,38 +20,102 @@ data class Instruction(val subject: String,
 // Moreover, I want to make use of Android's resources localization stuff and
 // change what and how something is displayed like any other view.
 data class State(val navigationStack: NavigationStack,
-                 val activity: Activity?,
                  val canReadInstructionFiles: Boolean,
                  val canReadInstructionFilesMessage: String,
                  val instructions: ImmutableSet<Instruction>,
                  val languages: ImmutableSet<String>,
                  val language: String,
                  val instructionToDisplay: Instruction?,
-                 val instructionToPlay: Instruction?)
+                 val instructionToPlay: Instruction?) {
+  override fun toString(): String {
+    return """${this.javaClass.canonicalName}:
+               |navigationStack: ${navigationStack}
+               |canReadInstructionFiles: ${canReadInstructionFiles}
+               |canReadInstructionFilesMessage: ${canReadInstructionFilesMessage}
+               |instructions: ImmutableSet(
+               |              ${instructions.joinToString(",\n              ")})
+               |languages: ${languages}
+               |language: ${language}
+               |instructionToDisplay: ${instructionToDisplay}
+               |instructionToPlay: ${instructionToPlay}""".trimMargin()
+  }
+}
 
 sealed class Action : com.brianegan.bansa.Action {
-  data class RefreshInstructions(
+  class RefreshInstructions(
       val context: Context,
       val appDir: File,
-      val instructionsFilesUpdateFn: (ImmutableSet<Instruction>) -> Action.SetInstructionsAndLanguages
-  ) : com.brianegan.bansa.Action
+      val instructionFilesUpdateFn: (ImmutableSet<Instruction>) -> Action.SetInstructionsAndLanguages
+  ) : Action() {
+    override fun toString(): String {
+      return """${this.javaClass.canonicalName}:
+               |context: ${context.javaClass.canonicalName}
+               |appDir: ${appDir.name}
+               |instructionFilesUpdateFn: ${instructionFilesUpdateFn}""".trimMargin()
+    }
+  }
 
-  data class SetInstructionsAndLanguages(
+  class SetInstructionsAndLanguages(
       val canReadInstructionFiles: Boolean,
       val canReadInstructionFilesMessage: String,
       val instructions: ImmutableSet<Instruction>
-  ) : com.brianegan.bansa.Action
+  ) : Action() {
+    override fun toString(): String {
+      return """${this.javaClass.canonicalName}:
+               |canReadInstructionFiles: ${canReadInstructionFiles}
+               |canReadInstructionFilesMessage: ${canReadInstructionFilesMessage}
+               |instructions: ImmutableSet(
+               |              ${instructions.joinToString(",\n              ")})""".trimMargin()
+    }
+  }
 
-  data class SetActivity(val activity: Activity) : com.brianegan.bansa.Action
-  class ClearActivity() : com.brianegan.bansa.Action
-  class ShowCurrentView() : com.brianegan.bansa.Action
-  data class NavigateTo(val scene: String) : com.brianegan.bansa.Action
-  class NavigateBack() : com.brianegan.bansa.Action
-  data class SetLanguage(val language: String) : com.brianegan.bansa.Action
-  data class SetInstruction(val instruction: Instruction) : com.brianegan.bansa.Action
-  class PrepareInstructionSequence() : com.brianegan.bansa.Action
-  class StartInstructionSequence() : com.brianegan.bansa.Action
-  class FinishInstructionSequence() : com.brianegan.bansa.Action
+  class NavigateTo(val scene: Scene) : Action() {
+    override fun toString(): String {
+      return """${this.javaClass.canonicalName}:
+               |scene: ${scene}""".trimMargin()
+    }
+  }
+
+  class NavigateBack(val activity: Activity) : Action() {
+    override fun toString(): String {
+      return """${this.javaClass.canonicalName}:
+               |activity: ${activity.javaClass.canonicalName}""".trimMargin()
+    }
+  }
+
+  class SetLanguage(val language: String) : Action() {
+    override fun toString(): String {
+      return """${this.javaClass.canonicalName}:
+               |language: ${language}""".trimMargin()
+    }
+  }
+
+  class SetInstruction(val instruction: Instruction) : Action() {
+    override fun toString(): String {
+      return """${this.javaClass.canonicalName}:
+               |instruction: ${instruction}""".trimMargin()
+    }
+  }
+
+  class ClearInstructionToDisplay() : Action() {
+    override fun toString(): String { return this.javaClass.canonicalName }
+  }
+
+  class ClearInstructionToPlay() : Action() {
+    override fun toString(): String { return this.javaClass.canonicalName }
+  }
+
+  class PrepareInstructionSequence() : Action() {
+    override fun toString(): String { return this.javaClass.canonicalName }
+  }
+
+  class StartInstructionSequence() : Action() {
+    override fun toString(): String { return this.javaClass.canonicalName }
+  }
+
+  class FinishInstructionSequence() : Action() {
+    override fun toString(): String { return this.javaClass.canonicalName }
+  }
 }
 
 val reducer = Reducer<State> { state, action ->
@@ -62,17 +126,16 @@ val reducer = Reducer<State> { state, action ->
                  canReadInstructionFilesMessage = action.canReadInstructionFilesMessage,
                  instructions = action.instructions,
                  languages = action.instructions.map { i -> i.language }.toImmutableSet())
-    is Action.SetActivity -> state.copy(activity = action.activity)
-    is Action.ClearActivity -> state.copy(activity = null)
-    is Action.ShowCurrentView -> state
     is Action.NavigateTo -> state.copy(navigationStack = state.navigationStack.push(action.scene))
     is Action.NavigateBack -> state.copy(navigationStack = state.navigationStack.pop())
     is Action.SetLanguage -> state.copy(language = action.language)
     is Action.SetInstruction -> state.copy(instructionToDisplay = action.instruction,
                                            instructionToPlay = action.instruction)
+    is Action.ClearInstructionToDisplay -> state.copy(instructionToDisplay = null)
+    is Action.ClearInstructionToPlay -> state.copy(instructionToPlay = null)
     is Action.PrepareInstructionSequence -> state
     is Action.StartInstructionSequence -> state
     is Action.FinishInstructionSequence -> state
-    else -> throw IllegalArgumentException("Unhandled action: ${action}")
+    else -> throw IllegalArgumentException("No reducer case has been defined for the action of ${action}")
   }
 }

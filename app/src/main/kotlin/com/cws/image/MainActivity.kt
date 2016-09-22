@@ -21,19 +21,12 @@ class MainActivity : AppCompatActivity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
-
     store = (application as App).store
-    store.dispatch(Action.SetActivity(this))
-    store.dispatch(Action.ShowCurrentView())
-  }
-
-  override fun onDestroy() {
-    store.dispatch(Action.ClearActivity())
-    super.onDestroy()
+    setContentView(RootView(this))
   }
 
   override fun onBackPressed() {
-    store.dispatch(Action.NavigateBack())
+    store.dispatch(Action.NavigateBack(this))
   }
 }
 
@@ -76,8 +69,8 @@ fun viewLanguages(dispatch: (com.brianegan.bansa.Action) -> State,
   }
 }
 
-fun viewInstruction(dispatch: (com.brianegan.bansa.Action) -> State,
-                    instruction: Instruction) {
+fun viewSubject(dispatch: (com.brianegan.bansa.Action) -> State,
+                instruction: Instruction) {
   appCompatTextView {
     size(FILL, WRAP)
     text(instruction.subject + " - " + instruction.language)
@@ -85,13 +78,13 @@ fun viewInstruction(dispatch: (com.brianegan.bansa.Action) -> State,
     textColor(android.graphics.Color.BLACK)
     onClick { v ->
       dispatch(Action.SetInstruction(instruction))
-      dispatch(Action.NavigateTo("instruction"))
+      dispatch(Action.NavigateTo(Scene.Instruction()))
     }
   }
 }
 
-fun viewInstructions(dispatch: (com.brianegan.bansa.Action) -> State,
-                     instructions: ImmutableSet<Instruction>) {
+fun viewSubjects(dispatch: (com.brianegan.bansa.Action) -> State,
+                 instructions: ImmutableSet<Instruction>) {
   scrollView {
     size(FILL, dip(0))
     BaseDSL.weight(1f)
@@ -99,42 +92,47 @@ fun viewInstructions(dispatch: (com.brianegan.bansa.Action) -> State,
       size(FILL, WRAP)
       AppCompatv7DSL.orientation(LinearLayoutCompat.VERTICAL)
 //        backgroundColor(android.graphics.Color.argb(32, 0, 0, 255))
-      instructions.map { i -> viewInstruction(dispatch, i)}
+      instructions.map { i -> viewSubject(dispatch, i)}
     }
   }
 }
 
-abstract class TopLevelView : RenderableView {
-  var c: Context
-  var store: Store<State>
-  var dispatch: (com.brianegan.bansa.Action) -> State
+fun viewMain(c: Context, store: Store<State>) {
+  val dispatch = { x: com.brianegan.bansa.Action -> store.dispatch(x)}
 
+  linearLayoutCompat {
+    size(FILL, FILL)
+    AppCompatv7DSL.orientation(LinearLayoutCompat.VERTICAL)
+    viewLanguages(dispatch, c, store.state.languages)
+    viewSubjects(dispatch,
+                 store.state.instructions.filter { i -> i.language == store.state.language }
+                     .toImmutableSet())
+  }
+}
+
+fun viewInstruction(store: Store<State>) {
+  appCompatTextView {
+    text(store.state.instructionToDisplay.toString())
+    textColor(android.graphics.Color.BLACK)
+  }
+}
+
+class RootView : RenderableView {
+  lateinit var c: Context
+  lateinit var store: Store<State>
 
   constructor(c: Context) : super(c) {
     this.c = c
     this.store = (c.applicationContext as App).store
-    this.dispatch = { x -> store.dispatch(x) }
   }
-}
 
-class ViewMain(c: Context) : TopLevelView(c) {
   override fun view() {
-    linearLayoutCompat {
-      size(FILL, FILL)
-      AppCompatv7DSL.orientation(LinearLayoutCompat.VERTICAL)
-      viewLanguages(dispatch, c, store.state.languages)
-      viewInstructions(dispatch,
-                       store.state.instructions.filter { i -> i.language == store.state.language }
-                         .toImmutableSet())
-    }
-  }
-}
-
-class ViewInstruction(c: Context) : TopLevelView(c) {
-  override fun view() {
-    appCompatTextView {
-      text(store.state.instructionToDisplay.toString())
-      textColor(android.graphics.Color.BLACK)
+    // 2016-09-21 Cort Spellman
+    // Bind the result of the when expression in order to force the compiler to
+    // check for exhaustiveness.
+    val x = when (store.state.navigationStack.peek()) {
+      is Scene.Main -> viewMain(c, store)
+      is Scene.Instruction -> viewInstruction(store)
     }
   }
 }

@@ -6,15 +6,12 @@ import android.os.Environment
 import android.util.Log
 import com.brianegan.bansa.Middleware
 import com.brianegan.bansa.Store
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.kotlin.KotlinModule
 import com.github.andrewoma.dexx.kollection.*
 import java.io.File
 import java.net.URLDecoder
 
 val instructionFiles = Middleware<State> { store, action, next ->
   val tokenFileName = ".tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb"
-  val mapper: ObjectMapper = ObjectMapper().registerModule(KotlinModule())
 
   // 2016-09-02 Cort Spellman
   // TODO: Check for storage permission and request it if necessary.
@@ -30,8 +27,10 @@ val instructionFiles = Middleware<State> { store, action, next ->
 
   fun isExternalStorageReadable(): Boolean {
     val s = Environment.getExternalStorageState()
-    return Environment.MEDIA_MOUNTED == s
-        || Environment.MEDIA_MOUNTED_READ_ONLY == s
+    return immutableSetOf(
+             Environment.MEDIA_MOUNTED,
+             Environment.MEDIA_MOUNTED_READ_ONLY
+           ).contains(s)
   }
 
   fun fileToInstruction(file: File): Instruction? {
@@ -47,8 +46,7 @@ val instructionFiles = Middleware<State> { store, action, next ->
                          cueTiming = cueTiming.toInt())
     }
     catch (e: NumberFormatException) {
-      Log.e("parse instructions file",
-            mapper.writerWithDefaultPrettyPrinter().writeValueAsString(e))
+      Log.e("parse instructions file", e.toString())
       return null
     }
   }
@@ -58,8 +56,7 @@ val instructionFiles = Middleware<State> { store, action, next ->
     val r = appDir.listFiles({ file -> !filesToSkip.contains(file) })
                   .mapNotNull {file -> fileToInstruction(file)}
                   .toImmutableSet()
-    Log.d("Parsed instructions",
-          mapper.writerWithDefaultPrettyPrinter().writeValueAsString(r))
+    Log.d("Parsed instructions", r.toString())
     return r
   }
 
@@ -137,7 +134,7 @@ val instructionFiles = Middleware<State> { store, action, next ->
       refreshInstructions(store,
                           action.context,
                           action.appDir,
-                          action.instructionsFilesUpdateFn)
+                          action.instructionFilesUpdateFn)
       next.dispatch(action)
     }
 
