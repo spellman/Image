@@ -5,8 +5,8 @@ import com.brianegan.bansa.Middleware
 
 fun logger(tag: String) : Middleware<State> {
   return Middleware { store, action, next ->
-    Log.d(tag, "--> " + action.toString())
+    Log.d(tag, "--> ${action.javaClass.canonicalName.split(".").last()}\n${action.toString()}")
     next.dispatch(action)
-    Log.d(tag, "<-- " + store.state)
+    Log.d(tag, "<-- ${store.state}")
   }
 }

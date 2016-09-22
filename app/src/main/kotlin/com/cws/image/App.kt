@@ -36,8 +36,7 @@ import java.io.File
 
 val initialState =
     State(
-        activity = null,
-        navigationStack = NavigationStack(immutableListOf("main")),
+        navigationStack = NavigationStack(immutableListOf(Scene.Main())),
         canReadInstructionFiles = false,
         canReadInstructionFilesMessage = "Initially assume instructions dir is not readable because it hasn't been checked for readability.",
         languages = immutableSetOf(),

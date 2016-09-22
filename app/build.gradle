@@ -64,6 +64,4 @@ dependencies {
   compile "com.github.andrewoma.dexx:kollection:0.6"
 
   debugCompile "com.squareup.leakcanary:leakcanary-android:1.4-beta2"
-
-  debugCompile "com.fasterxml.jackson.module:jackson-module-kotlin:2.7.5"
 }
