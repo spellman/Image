@@ -11,6 +11,12 @@ data class Instruction(val subject: String,
                        val path: String,
                        val cueTiming: Int)
 
+// 2016-09-23 Cort Spellman
+// NOTE: All this overriding toString clutters stuff up but it's temporary:
+// I plan to have a server component, running Clojure.
+//   ==> Serialize stuff to EDN to send over the wire.
+//         ==> Log the EDN.
+
 // 2016-09-05 Cort Spellman
 // TODO: Change canReadInstructionFilesMessage to a value (collection?), such
 // that those values are in bijective correspondence with the possible
