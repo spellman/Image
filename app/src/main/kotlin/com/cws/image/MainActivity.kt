@@ -26,7 +26,8 @@ class MainActivity : AppCompatActivity() {
   }
 
   override fun onBackPressed() {
-    store.dispatch(Action.NavigateBack(this))
+    if (store.state.navigationStack.size() > 1) { store.dispatch(Action.NavigateBack()) }
+    else { finish() }
   }
 }
 
@@ -77,7 +78,7 @@ fun viewSubject(dispatch: (com.brianegan.bansa.Action) -> State,
     margin(dip(0), dip(16))
     textColor(android.graphics.Color.BLACK)
     onClick { v ->
-      dispatch(Action.SetInstruction(instruction))
+      dispatch(Action.PlayInstruction(instruction))
       dispatch(Action.NavigateTo(Scene.Instruction()))
     }
   }

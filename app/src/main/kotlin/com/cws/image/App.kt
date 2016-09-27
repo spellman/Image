@@ -19,19 +19,19 @@ import java.io.File
 //        Instruction(subject = "chest",
 //                    language = "english",
 //                    path = "chest/english/path",
-//                    cueTiming = 1000),
+//                    cueTime = 1000),
 //        Instruction(subject = "arm",
 //                    language = "english",
 //                    path = "arm/english/path",
-//                    cueTiming = 1000),
+//                    cueTime = 1000),
 //        Instruction(subject = "chest",
 //                    language = "spanish",
 //                    path = "chest/spanish/path",
-//                    cueTiming = 1000),
+//                    cueTime = 1000),
 //        Instruction(subject = "arm",
 //                    language = "spanish",
 //                    path = "arm/spanish/path",
-//                    cueTiming = 1000)
+//                    cueTime = 1000)
 //    )
 
 val initialState =
@@ -68,9 +68,8 @@ class App : Application() {
 
     store = BaseStore(initialState,
                       reducer,
-//                      instructionSequence,
+                      instructionSequence,
                       instructionFiles,
-                      navigator,
                       logger("Image")
     )
 
