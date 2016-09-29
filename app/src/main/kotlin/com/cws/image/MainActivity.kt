@@ -113,7 +113,8 @@ fun viewMain(c: Context, store: Store<State>) {
 
 fun viewInstruction(store: Store<State>) {
   appCompatTextView {
-    text(store.state.instructionToDisplay.toString())
+    text(store.state.languageToDisplay)
+    text(store.state.subjectToDisplay)
     textColor(android.graphics.Color.BLACK)
   }
 }

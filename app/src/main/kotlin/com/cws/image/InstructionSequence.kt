@@ -2,6 +2,9 @@ package com.cws.image
 
 import android.media.AudioManager
 import android.media.MediaPlayer
+import android.os.Handler
+import android.os.HandlerThread
+import android.os.SystemClock
 import com.brianegan.bansa.Middleware
 
 val instructionSequence = Middleware<State> { store, action, next ->
@@ -48,19 +51,29 @@ val instructionSequence = Middleware<State> { store, action, next ->
     is Action.InstructionSequencePrepared -> {
       if (store.state.isInstructionAudioPrepared &&
           store.state.isInstructionGraphicsPrepared) {
-        val mp = store.state.mediaPlayer
-        if (mp is MediaPlayer) {
-          next.dispatch(action)
-          // 2016-09-26 Cort Spellman
-          // TODO: Make a timer emit ticks.
-          // In each tick, dispatch Action.Tick.
-          mp.start()
-        }
-        else {
-          // 2016-09-26 Cort Spellman
-          // TODO: Dispatch action: Display error to user, alert me to error.
+        next.dispatch(action)
+        store.dispatch(Action.StartInstructionSequence())
+      }
+      else {
+        // 2016-09-26 Cort Spellman
+        // TODO: Dispatch action: Display error to user, alert me to error.
+      }
+    }
+
+    is Action.StartInstructionSequence -> {
+      val instructionSequenceTimingThread = HandlerThread("instructionSequenceTimingThread")
+      instructionSequenceTimingThread.start()
+      val instructionSequenceTimingLooper = instructionSequenceTimingThread.looper
+      val instructionSequenceTimingHandler = Handler(instructionSequenceTimingLooper)
+      val tickDuration: Long = 16
+      val zeroTime = SystemClock.uptimeMillis()
+      class Tick : Runnable {
+        override fun run() {
+          store.dispatch(Action.Tick(SystemClock.uptimeMillis() - zeroTime))
+          instructionSequenceTimingHandler.postDelayed(this, tickDuration)
         }
       }
+      instructionSequenceTimingHandler.post(Tick())
     }
 
     is Action.InstructionAudioFinished -> {

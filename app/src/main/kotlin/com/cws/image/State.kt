@@ -9,7 +9,7 @@ import java.io.File
 data class Instruction(val subject: String,
                        val language: String,
                        val path: String,
-                       val cueTime: Int)
+                       val cueStartTime: Int)
 
 sealed class Scene {
   class Main() : Scene() {
@@ -61,8 +61,8 @@ data class State(val navigationStack: NavigationStack,
                  val language: String,
                  val instructionToPlay: Instruction?,
                  val isInstructionAudioPrepared: Boolean,
-                 val isInstructionGraphicsPrepared: Boolean,
                  val isInstructionAudioFinished: Boolean,
+                 val isInstructionGraphicsPrepared: Boolean,
                  val isInstructionGraphicsFinished: Boolean,
                  val mediaPlayer: MediaPlayer?,
                  val countDownStartTime: Int?,
@@ -167,9 +167,16 @@ sealed class Action : com.brianegan.bansa.Action {
     override fun toString(): String { return this.javaClass.canonicalName }
   }
 
-  // 2016-09-26 Cort Spellman
-  // TODO: You do NOT want to log every tick.
-  class Tick(val time: Int) : Action()
+  class StartInstructionSequence() : Action () {
+    override fun toString(): String { return this.javaClass.canonicalName }
+  }
+
+  class Tick(val time: Long) : Action() {
+    override fun toString(): String {
+      return """${this.javaClass.canonicalName}:
+               |time: ${time}""".trimMargin()
+    }
+  }
 
   class InstructionAudioFinished() : Action () {
     override fun toString(): String { return this.javaClass.canonicalName }
@@ -209,8 +216,11 @@ val reducer = Reducer<State> { state, action ->
                  isInstructionGraphicsFinished = false)
 
     is Action.InstructionAudioPrepared -> {
-      val cueStartTime = state.instructionToPlay?.cueTime
+      val cueStartTime = state.instructionToPlay?.cueStartTime
       if (cueStartTime is Int) {
+        // 2016-09-28 Cort Spellman
+        // TODO: max(0, cueStartTime) is incorrect.
+        //       Do it correctly, like on your paper.
         val countDownStartTime = Math.max(0, cueStartTime)
         state.copy(isInstructionAudioPrepared = true,
                    mediaPlayer = action.mediaPlayer,
@@ -227,7 +237,9 @@ val reducer = Reducer<State> { state, action ->
     is Action.InstructionGraphicsPrepared ->
       state.copy(isInstructionGraphicsPrepared = true)
 
-    is Action.InstructionSequencePrepared -> {
+    is Action.InstructionSequencePrepared -> state
+
+    is Action.StartInstructionSequence -> {
       val i = state.instructionToPlay
       if (i is Instruction) {
         state.copy(subjectToDisplay = i.subject,
@@ -243,6 +255,7 @@ val reducer = Reducer<State> { state, action ->
     is Action.Tick -> {
       // TODO: Check whether tick affects each thing that might be affected,
       // update the state accordingly.
+      state
     }
 
     is Action.InstructionAudioFinished ->

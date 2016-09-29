@@ -2,6 +2,8 @@ package com.cws.image
 
 import android.app.Application
 import android.os.Environment
+import android.os.Handler
+import android.os.HandlerThread
 import com.brianegan.bansa.BaseStore
 import com.brianegan.bansa.Store
 //import com.facebook.stetho.Stetho
@@ -19,19 +21,19 @@ import java.io.File
 //        Instruction(subject = "chest",
 //                    language = "english",
 //                    path = "chest/english/path",
-//                    cueTime = 1000),
+//                    cueStartTime = 1000),
 //        Instruction(subject = "arm",
 //                    language = "english",
 //                    path = "arm/english/path",
-//                    cueTime = 1000),
+//                    cueStartTime = 1000),
 //        Instruction(subject = "chest",
 //                    language = "spanish",
 //                    path = "chest/spanish/path",
-//                    cueTime = 1000),
+//                    cueStartTime = 1000),
 //        Instruction(subject = "arm",
 //                    language = "spanish",
 //                    path = "arm/spanish/path",
-//                    cueTime = 1000)
+//                    cueStartTime = 1000)
 //    )
 
 val initialState =
@@ -39,11 +41,23 @@ val initialState =
         navigationStack = NavigationStack(immutableListOf(Scene.Main())),
         canReadInstructionFiles = false,
         canReadInstructionFilesMessage = "Initially assume instructions dir is not readable because it hasn't been checked for readability.",
-        languages = immutableSetOf(),
         instructions = immutableSetOf(),
+        languages = immutableSetOf(),
         language = "english", // Should be system language. (What if there are no instructions in the system language? Show msg whenever no visible instructions, including then.),
-        instructionToDisplay = null,
-        instructionToPlay = null
+        instructionToPlay = null,
+        isInstructionAudioPrepared = false,
+        isInstructionAudioFinished = false,
+        isInstructionGraphicsPrepared = false,
+        isInstructionGraphicsFinished = false,
+        mediaPlayer = null,
+        countDownStartTime = null,
+        countDownDuration = 5000,
+        countDownValue = null,
+        cueStartTime = null,
+        cueDuration = 3000,
+        cue = null,
+        subjectToDisplay = null,
+        languageToDisplay = null
     )
 
 fun requestUserCopyInstructionsToAppDir(packageName: String, appDir: File): (ImmutableSet<Instruction>) -> Action.SetInstructionsAndLanguages {

@@ -38,12 +38,12 @@ val instructionFiles = Middleware<State> { store, action, next ->
     val (subject, language, cueTime) = n.split('_').map { s -> URLDecoder.decode(s, "UTF-8") }
 
     Log.d("fileToInstruction", "Instructions file to parse: ${file.absolutePath}")
-    Log.d("parsed values", "subject: ${subject}    language: ${language}    cueTime: ${cueTime}")
+    Log.d("parsed values", "subject: ${subject}    language: ${language}    cueStartTime: ${cueTime}")
     try {
       return Instruction(subject = subject,
                          language = language,
                          path = file.absolutePath,
-                         cueTime = cueTime.toInt())
+                         cueStartTime = cueTime.toInt())
     }
     catch (e: NumberFormatException) {
       Log.e("parse instructions file", e.toString())
