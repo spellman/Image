@@ -26,8 +26,18 @@ class MainActivity : AppCompatActivity() {
   }
 
   override fun onBackPressed() {
-    if (store.state.navigationStack.size() > 1) { store.dispatch(Action.NavigateBack()) }
-    else { finish() }
+    if (store.state.navigationStack.size() > 1) {
+
+      // 2016-10-02 Cort Spellman
+      // FIXME: Can this go in a listener on the store or something?
+      if (store.state.navigationStack.peek() is Scene.Instruction) {
+        store.dispatch(Action.AbortInstructionSequence())
+      }
+      store.dispatch(Action.NavigateBack())
+    }
+    else {
+      finish()
+    }
   }
 }
 
@@ -78,8 +88,8 @@ fun viewSubject(dispatch: (com.brianegan.bansa.Action) -> State,
     margin(dip(0), dip(16))
     textColor(android.graphics.Color.BLACK)
     onClick { v ->
-      dispatch(Action.PlayInstruction(instruction))
       dispatch(Action.NavigateTo(Scene.Instruction()))
+      dispatch(Action.PlayInstruction(instruction))
     }
   }
 }

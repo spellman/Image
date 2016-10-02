@@ -2,11 +2,15 @@ package com.cws.image
 
 import android.util.Log
 import com.brianegan.bansa.Middleware
+import com.brianegan.bansa.NextDispatcher
+import com.brianegan.bansa.Store
 
-fun logger(tag: String) : Middleware<State> {
-  return Middleware { store, action, next ->
+class Logger(val tag: String) : Middleware<State> {
+  override fun dispatch(store: Store<State>,
+                        action: com.brianegan.bansa.Action,
+                        next: NextDispatcher) {
     if (action is Action.Tick) {
-      if (action.time % 96 == 0L) {
+      if ((action.time % 1000) <= tickDuration) {
         Log.d(tag, "--> tick: ${action.time}")
       }
     }

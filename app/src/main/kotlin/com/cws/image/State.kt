@@ -1,7 +1,6 @@
 package com.cws.image
 
 import android.content.Context
-import android.media.MediaPlayer
 import com.brianegan.bansa.Reducer
 import com.github.andrewoma.dexx.kollection.*
 import java.io.File
@@ -9,7 +8,7 @@ import java.io.File
 data class Instruction(val subject: String,
                        val language: String,
                        val path: String,
-                       val cueStartTime: Int)
+                       val cueStartTime: Long)
 
 sealed class Scene {
   class Main() : Scene() {
@@ -64,13 +63,11 @@ data class State(val navigationStack: NavigationStack,
                  val isInstructionAudioFinished: Boolean,
                  val isInstructionGraphicsPrepared: Boolean,
                  val isInstructionGraphicsFinished: Boolean,
-                 val mediaPlayer: MediaPlayer?,
-                 val countDownStartTime: Int?,
-                 val countDownDuration: Int,
-                 val countDownValue: Int?,
-                 val cueStartTime: Int?,
-                 val cueDuration: Int,
-                 val cue: String?,
+                 val countDownStartTime: Long?,
+                 val countDownDuration: Long?,
+                 val countDownValue: Long?,
+                 val cueStartTime: Long?,
+                 val cueMessage: String?,
                  val subjectToDisplay: String?,
                  val languageToDisplay: String?) {
   override fun toString(): String {
@@ -87,13 +84,11 @@ data class State(val navigationStack: NavigationStack,
                |isInstructionGraphicsPrepared: ${isInstructionGraphicsPrepared}
                |isInstructionAudioFinished: ${isInstructionAudioFinished}
                |isInstructionGraphicsFinished: ${isInstructionGraphicsFinished}
-               |mediaPlayer: ${mediaPlayer}
                |countDownStartTime: ${countDownStartTime}
                |countDownDuration: ${countDownDuration}
                |countDownValue: ${countDownValue}
                |cueStartTime: ${cueStartTime}
-               |cueDuration: ${cueDuration}
-               |cue: ${cue}
+               |cueMessage: ${cueMessage}
                |subjectToDisplay: ${subjectToDisplay}
                |languageToDisplay: ${languageToDisplay}""".trimMargin()
   }
@@ -152,11 +147,8 @@ sealed class Action : com.brianegan.bansa.Action {
     }
   }
 
-  class InstructionAudioPrepared(val mediaPlayer: MediaPlayer) : Action() {
-    override fun toString(): String {
-      return """${this.javaClass.canonicalName}:
-               |mediaPlayer: ${mediaPlayer}""".trimMargin()
-    }
+  class InstructionAudioPrepared() : Action() {
+    override fun toString(): String { return this.javaClass.canonicalName }
   }
 
   class InstructionGraphicsPrepared() : Action() {
@@ -171,9 +163,11 @@ sealed class Action : com.brianegan.bansa.Action {
     override fun toString(): String { return this.javaClass.canonicalName }
   }
 
-  class Tick(val time: Long) : Action() {
+  class Tick(val tickDuration: Long,
+             val time: Long) : Action() {
     override fun toString(): String {
       return """${this.javaClass.canonicalName}:
+               |tickDuration: ${tickDuration}
                |time: ${time}""".trimMargin()
     }
   }
@@ -189,92 +183,98 @@ sealed class Action : com.brianegan.bansa.Action {
   class InstructionSequenceFinished() : Action () {
     override fun toString(): String { return this.javaClass.canonicalName }
   }
+
+  class AbortInstructionSequence() : Action () {
+    override fun toString(): String { return this.javaClass.canonicalName }
+  }
+
+  class EndInstructionSequence() : Action () {
+    override fun toString(): String { return this.javaClass.canonicalName }
+  }
 }
 
-val reducer = Reducer<State> { state, action ->
-  when (action) {
-    is Action.RefreshInstructions -> state
+class Reducer(val tickDuration: Long) : Reducer<State> {
+ override fun reduce(state: State, action: com.brianegan.bansa.Action): State {
+   return when (action) {
+     is Action.RefreshInstructions -> state
 
-    is Action.SetInstructionsAndLanguages ->
-      state.copy(canReadInstructionFiles = action.canReadInstructionFiles,
-                 canReadInstructionFilesMessage = action.canReadInstructionFilesMessage,
-                 instructions = action.instructions,
-                 languages = action.instructions.map { i -> i.language }.toImmutableSet())
+     is Action.SetInstructionsAndLanguages ->
+       state.copy(canReadInstructionFiles = action.canReadInstructionFiles,
+                  canReadInstructionFilesMessage = action.canReadInstructionFilesMessage,
+                  instructions = action.instructions,
+                  languages = action.instructions.map { i -> i.language }.toImmutableSet())
 
-    is Action.NavigateTo ->
-      state.copy(navigationStack = state.navigationStack.push(action.scene))
+     is Action.NavigateTo ->
+       state.copy(navigationStack = state.navigationStack.push(action.scene))
 
-    is Action.NavigateBack ->
-      state.copy(navigationStack = state.navigationStack.pop())
+     is Action.NavigateBack ->
+       state.copy(navigationStack = state.navigationStack.pop())
 
-    is Action.SetLanguage ->
-      state.copy(language = action.language)
+     is Action.SetLanguage ->
+       state.copy(language = action.language)
 
-    is Action.PlayInstruction ->
-      state.copy(instructionToPlay = action.instruction,
-                 isInstructionAudioFinished = false,
-                 isInstructionGraphicsFinished = false)
+     is Action.PlayInstruction -> {
+       val countDownDuration = if (action.instruction.cueStartTime > idealCountDownDuration) {
+                                 idealCountDownDuration
+                               }
+                               else {
+                                 (action.instruction.cueStartTime / 1000L) * 1000L
+                               }
 
-    is Action.InstructionAudioPrepared -> {
-      val cueStartTime = state.instructionToPlay?.cueStartTime
-      if (cueStartTime is Int) {
-        // 2016-09-28 Cort Spellman
-        // TODO: max(0, cueStartTime) is incorrect.
-        //       Do it correctly, like on your paper.
-        val countDownStartTime = Math.max(0, cueStartTime)
-        state.copy(isInstructionAudioPrepared = true,
-                   mediaPlayer = action.mediaPlayer,
-                   countDownStartTime = countDownStartTime,
-                   cueStartTime = cueStartTime)
-      }
-      else {
-        // 2016-09-26 Cort Spellman
-        // TODO: Dispatch action: Display error to user, alert me to error.
-        state
-      }
-    }
+       state.copy(instructionToPlay = action.instruction,
+                  cueStartTime = action.instruction.cueStartTime,
+                  countDownStartTime = action.instruction.cueStartTime - countDownDuration,
+                  countDownDuration = countDownDuration,
+                  isInstructionAudioFinished = false,
+                  isInstructionGraphicsFinished = false)
+     }
 
-    is Action.InstructionGraphicsPrepared ->
-      state.copy(isInstructionGraphicsPrepared = true)
+     is Action.InstructionAudioPrepared -> {
+       state.copy(isInstructionAudioPrepared = true)
+     }
 
-    is Action.InstructionSequencePrepared -> state
+     is Action.InstructionGraphicsPrepared ->
+       state.copy(isInstructionGraphicsPrepared = true)
 
-    is Action.StartInstructionSequence -> {
-      val i = state.instructionToPlay
-      if (i is Instruction) {
-        state.copy(subjectToDisplay = i.subject,
-                   languageToDisplay = i.language)
-      }
-      else {
-        // 2016-09-26 Cort Spellman
-        // TODO: Dispatch action: Display error to user, alert me to error.
-        state
-      }
-    }
+     is Action.InstructionSequencePrepared -> state
 
-    is Action.Tick -> {
-      // TODO: Check whether tick affects each thing that might be affected,
-      // update the state accordingly.
-      state
-    }
+     is Action.StartInstructionSequence -> state
 
-    is Action.InstructionAudioFinished ->
-      state.copy(isInstructionAudioFinished = true,
-                 mediaPlayer = null)
+     is Action.Tick -> {
+       // TODO: Check whether tick affects each thing that might be affected,
+       // update the state accordingly.
+       state
+     }
 
-    is Action.InstructionGraphicsFinished ->
-      state.copy(isInstructionGraphicsFinished = true,
-                 countDownStartTime = null,
-                 cueStartTime = null,
-                 cue = null,
-                 subjectToDisplay = null,
-                 languageToDisplay = null)
+     is Action.InstructionAudioFinished ->
+       state.copy(isInstructionAudioFinished = true)
 
-    is Action.InstructionSequenceFinished ->
-      state.copy(isInstructionAudioPrepared = false,
-                 isInstructionGraphicsPrepared = false)
+     is Action.InstructionGraphicsFinished ->
+       state.copy(isInstructionGraphicsFinished = true,
+                  countDownStartTime = null,
+                  cueStartTime = null,
+                  cueMessage = null,
+                  subjectToDisplay = null,
+                  languageToDisplay = null)
 
-    else ->
-      throw IllegalArgumentException("No reducer case has been defined for the action of ${action}")
-  }
+     is Action.InstructionSequenceFinished ->
+       state.copy(isInstructionAudioPrepared = false,
+                  isInstructionGraphicsPrepared = false)
+
+     is Action.EndInstructionSequence -> state
+
+     is Action.AbortInstructionSequence ->
+         state.copy(isInstructionAudioFinished = true,
+                    isInstructionGraphicsFinished = true,
+                    isInstructionAudioPrepared = false,
+                    isInstructionGraphicsPrepared = false,
+                    cueStartTime = null,
+                    cueMessage = null,
+                    subjectToDisplay = null,
+                    languageToDisplay = null)
+
+     else ->
+       throw IllegalArgumentException("No reducer case has been defined for the action of ${action}")
+   }
+ }
 }

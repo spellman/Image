@@ -35,6 +35,11 @@ val instructionFiles = Middleware<State> { store, action, next ->
 
   fun fileToInstruction(file: File): Instruction? {
     val n: String = file.name.substringBeforeLast(".")
+    // 2016-10-02 Cort Spellman
+    // This destructuring requires there be at least 3 elements in the vector
+    // produced by split.
+    // TODO: Error handling around this - on error display message to user,
+    // showing problematic file name and required format.
     val (subject, language, cueTime) = n.split('_').map { s -> URLDecoder.decode(s, "UTF-8") }
 
     Log.d("fileToInstruction", "Instructions file to parse: ${file.absolutePath}")
@@ -43,7 +48,7 @@ val instructionFiles = Middleware<State> { store, action, next ->
       return Instruction(subject = subject,
                          language = language,
                          path = file.absolutePath,
-                         cueStartTime = cueTime.toInt())
+                         cueStartTime = cueTime.toLong())
     }
     catch (e: NumberFormatException) {
       Log.e("parse instructions file", e.toString())

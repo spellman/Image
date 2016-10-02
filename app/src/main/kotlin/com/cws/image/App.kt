@@ -4,6 +4,7 @@ import android.app.Application
 import android.os.Environment
 import android.os.Handler
 import android.os.HandlerThread
+import android.os.Looper
 import com.brianegan.bansa.BaseStore
 import com.brianegan.bansa.Store
 //import com.facebook.stetho.Stetho
@@ -49,13 +50,11 @@ val initialState =
         isInstructionAudioFinished = false,
         isInstructionGraphicsPrepared = false,
         isInstructionGraphicsFinished = false,
-        mediaPlayer = null,
         countDownStartTime = null,
-        countDownDuration = 5000,
+        countDownDuration = null,
         countDownValue = null,
         cueStartTime = null,
-        cueDuration = 3000,
-        cue = null,
+        cueMessage = null,
         subjectToDisplay = null,
         languageToDisplay = null
     )
@@ -74,18 +73,31 @@ fun requestUserCopyInstructionsToAppDir(packageName: String, appDir: File): (Imm
   }
 }
 
+val tickDuration: Long = 16L
+val idealCountDownDuration: Long = 5000L
+val idealCueDuration: Long = 3000L
+
 class App : Application() {
   lateinit var store: Store<State>
+
+  val instructionSequenceTimingThread: HandlerThread = run {
+    val ht = HandlerThread("instructionSequenceTimingThread")
+    ht.start()
+    ht
+  }
+  val instructionSequenceTimingLooper: Looper = instructionSequenceTimingThread.looper
+  val instructionSequenceTimingHandler: Handler = Handler(instructionSequenceTimingLooper)
 
   override fun onCreate() {
     super.onCreate()
 
     store = BaseStore(initialState,
-                      reducer,
-                      instructionSequence,
+                      Reducer(tickDuration),
+                      InstructionsSequenceMiddleware(instructionSequenceTimingHandler,
+                                                     tickDuration),
                       instructionFiles,
-                      logger("Image")
-    )
+                      Logger("Image")
+                      )
 
     val appDir: File = File(Environment.getExternalStorageDirectory(), packageName)
 
