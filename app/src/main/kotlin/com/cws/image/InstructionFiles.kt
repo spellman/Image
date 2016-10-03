@@ -136,11 +136,11 @@ val instructionFiles = Middleware<State> { store, action, next ->
 
   when(action) {
     is Action.RefreshInstructions -> {
+      next.dispatch(action)
       refreshInstructions(store,
                           action.context,
                           action.appDir,
                           action.instructionFilesUpdateFn)
-      next.dispatch(action)
     }
 
     else -> next.dispatch(action)

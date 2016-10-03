@@ -78,10 +78,9 @@ class App : Application() {
 
     store = BaseStore(initialState,
                       reducer,
-                      InstructionsSequenceMiddleware(tickDuration),
+                      Logger("Image"),
                       instructionFiles,
-                      Logger("Image")
-                      )
+                      InstructionsSequenceMiddleware(tickDuration))
 
     val appDir: File = File(Environment.getExternalStorageDirectory(), packageName)
 
