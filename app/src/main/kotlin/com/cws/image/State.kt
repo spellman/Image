@@ -59,15 +59,11 @@ data class State(val navigationStack: NavigationStack,
                  val languages: ImmutableSet<String>,
                  val language: String,
                  val instructionToPlay: Instruction?,
-                 val isInstructionAudioPrepared: Boolean,
-                 val isInstructionAudioFinished: Boolean,
-                 val isInstructionGraphicsPrepared: Boolean,
-                 val isInstructionGraphicsFinished: Boolean,
                  val countDownStartTime: Long?,
                  val countDownDuration: Long?,
                  val countDownValue: Long?,
                  val cueStartTime: Long?,
-                 val cueMessage: String?,
+                 val instructionAudioDuration: Long?,
                  val subjectToDisplay: String?,
                  val languageToDisplay: String?) {
   override fun toString(): String {
@@ -80,15 +76,11 @@ data class State(val navigationStack: NavigationStack,
                |languages: ${languages}
                |language: ${language}
                |instructionToPlay: ${instructionToPlay}
-               |isInstructionAudioPrepared: ${isInstructionAudioPrepared}
-               |isInstructionGraphicsPrepared: ${isInstructionGraphicsPrepared}
-               |isInstructionAudioFinished: ${isInstructionAudioFinished}
-               |isInstructionGraphicsFinished: ${isInstructionGraphicsFinished}
                |countDownStartTime: ${countDownStartTime}
                |countDownDuration: ${countDownDuration}
                |countDownValue: ${countDownValue}
                |cueStartTime: ${cueStartTime}
-               |cueMessage: ${cueMessage}
+               |instructionAudioDuration: ${instructionAudioDuration}
                |subjectToDisplay: ${subjectToDisplay}
                |languageToDisplay: ${languageToDisplay}""".trimMargin()
   }
@@ -147,20 +139,11 @@ sealed class Action : com.brianegan.bansa.Action {
     }
   }
 
-  class InstructionAudioPrepared() : Action() {
-    override fun toString(): String { return this.javaClass.canonicalName }
-  }
-
-  class InstructionGraphicsPrepared() : Action() {
-    override fun toString(): String { return this.javaClass.canonicalName }
-  }
-
-  class InstructionSequencePrepared() : Action() {
-    override fun toString(): String { return this.javaClass.canonicalName }
-  }
-
-  class StartInstructionSequence() : Action () {
-    override fun toString(): String { return this.javaClass.canonicalName }
+  class SetInstructionTimings(val instructionAudioDuration: Long) : Action() {
+    override fun toString(): String {
+      return """${this.javaClass.canonicalName}:
+               |instructionAudioDuration: ${instructionAudioDuration}""".trimMargin()
+    }
   }
 
   class Tick(val tickDuration: Long,
@@ -172,109 +155,72 @@ sealed class Action : com.brianegan.bansa.Action {
     }
   }
 
-  class InstructionAudioFinished() : Action () {
-    override fun toString(): String { return this.javaClass.canonicalName }
-  }
-
-  class InstructionGraphicsFinished() : Action () {
-    override fun toString(): String { return this.javaClass.canonicalName }
-  }
-
-  class InstructionSequenceFinished() : Action () {
-    override fun toString(): String { return this.javaClass.canonicalName }
-  }
-
   class AbortInstructionSequence() : Action () {
     override fun toString(): String { return this.javaClass.canonicalName }
   }
 
-  class EndInstructionSequence() : Action () {
+  class EndInstruction() : Action () {
     override fun toString(): String { return this.javaClass.canonicalName }
   }
 }
 
-class Reducer(val tickDuration: Long) : Reducer<State> {
- override fun reduce(state: State, action: com.brianegan.bansa.Action): State {
-   return when (action) {
-     is Action.RefreshInstructions -> state
+val reducer = Reducer<State> { state, action ->
+  when (action) {
+    is Action.RefreshInstructions -> state
 
-     is Action.SetInstructionsAndLanguages ->
-       state.copy(canReadInstructionFiles = action.canReadInstructionFiles,
-                  canReadInstructionFilesMessage = action.canReadInstructionFilesMessage,
-                  instructions = action.instructions,
-                  languages = action.instructions.map { i -> i.language }.toImmutableSet())
+    is Action.SetInstructionsAndLanguages ->
+      state.copy(canReadInstructionFiles = action.canReadInstructionFiles,
+                 canReadInstructionFilesMessage = action.canReadInstructionFilesMessage,
+                 instructions = action.instructions,
+                 languages = action.instructions.map { i -> i.language }.toImmutableSet())
 
-     is Action.NavigateTo ->
-       state.copy(navigationStack = state.navigationStack.push(action.scene))
+    is Action.NavigateTo ->
+      state.copy(navigationStack = state.navigationStack.push(action.scene))
 
-     is Action.NavigateBack ->
-       state.copy(navigationStack = state.navigationStack.pop())
+    is Action.NavigateBack ->
+      state.copy(navigationStack = state.navigationStack.pop())
 
-     is Action.SetLanguage ->
-       state.copy(language = action.language)
+    is Action.SetLanguage ->
+      state.copy(language = action.language)
 
-     is Action.PlayInstruction -> {
-       val countDownDuration = if (action.instruction.cueStartTime > idealCountDownDuration) {
-                                 idealCountDownDuration
-                               }
-                               else {
-                                 (action.instruction.cueStartTime / 1000L) * 1000L
-                               }
+    is Action.PlayInstruction -> state.copy(instructionToPlay = action.instruction)
 
-       state.copy(instructionToPlay = action.instruction,
-                  cueStartTime = action.instruction.cueStartTime,
-                  countDownStartTime = action.instruction.cueStartTime - countDownDuration,
-                  countDownDuration = countDownDuration,
-                  isInstructionAudioFinished = false,
-                  isInstructionGraphicsFinished = false)
-     }
+    is Action.SetInstructionTimings -> {
+      if (state.instructionToPlay is Instruction) {
+        val cueStartTime = state.instructionToPlay.cueStartTime
+        val countDownDuration = if (cueStartTime > idealCountDownDuration) {
+          idealCountDownDuration
+        } else {
+          (cueStartTime / 1000L) * 1000L
+        }
 
-     is Action.InstructionAudioPrepared -> {
-       state.copy(isInstructionAudioPrepared = true)
-     }
+        state.copy(countDownStartTime = cueStartTime - countDownDuration,
+                   countDownDuration = countDownDuration,
+                   cueStartTime = cueStartTime,
+                   instructionAudioDuration = action.instructionAudioDuration)
+      }
+      else {
+        state
+      }
+    }
 
-     is Action.InstructionGraphicsPrepared ->
-       state.copy(isInstructionGraphicsPrepared = true)
+    // TODO: Check whether tick affects each thing that might be affected,
+    // update the state accordingly.
+    is Action.Tick -> state
 
-     is Action.InstructionSequencePrepared -> state
+    is Action.AbortInstructionSequence -> state
 
-     is Action.StartInstructionSequence -> state
+    is Action.EndInstruction ->
+      state.copy(instructionToPlay = null,
+                 countDownStartTime = null,
+                 countDownDuration = null,
+                 countDownValue = null,
+                 cueStartTime = null,
+                 instructionAudioDuration = null,
+                 subjectToDisplay = null,
+                 languageToDisplay = null)
 
-     is Action.Tick -> {
-       // TODO: Check whether tick affects each thing that might be affected,
-       // update the state accordingly.
-       state
-     }
-
-     is Action.InstructionAudioFinished ->
-       state.copy(isInstructionAudioFinished = true)
-
-     is Action.InstructionGraphicsFinished ->
-       state.copy(isInstructionGraphicsFinished = true,
-                  countDownStartTime = null,
-                  cueStartTime = null,
-                  cueMessage = null,
-                  subjectToDisplay = null,
-                  languageToDisplay = null)
-
-     is Action.InstructionSequenceFinished ->
-       state.copy(isInstructionAudioPrepared = false,
-                  isInstructionGraphicsPrepared = false)
-
-     is Action.EndInstructionSequence -> state
-
-     is Action.AbortInstructionSequence ->
-         state.copy(isInstructionAudioFinished = true,
-                    isInstructionGraphicsFinished = true,
-                    isInstructionAudioPrepared = false,
-                    isInstructionGraphicsPrepared = false,
-                    cueStartTime = null,
-                    cueMessage = null,
-                    subjectToDisplay = null,
-                    languageToDisplay = null)
-
-     else ->
-       throw IllegalArgumentException("No reducer case has been defined for the action of ${action}")
-   }
- }
+    else ->
+      throw IllegalArgumentException("No reducer case has been defined for the action of ${action}")
+  }
 }

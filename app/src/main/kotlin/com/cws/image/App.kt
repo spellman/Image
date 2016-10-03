@@ -2,9 +2,6 @@ package com.cws.image
 
 import android.app.Application
 import android.os.Environment
-import android.os.Handler
-import android.os.HandlerThread
-import android.os.Looper
 import com.brianegan.bansa.BaseStore
 import com.brianegan.bansa.Store
 //import com.facebook.stetho.Stetho
@@ -46,15 +43,11 @@ val initialState =
         languages = immutableSetOf(),
         language = "english", // Should be system language. (What if there are no instructions in the system language? Show msg whenever no visible instructions, including then.),
         instructionToPlay = null,
-        isInstructionAudioPrepared = false,
-        isInstructionAudioFinished = false,
-        isInstructionGraphicsPrepared = false,
-        isInstructionGraphicsFinished = false,
         countDownStartTime = null,
         countDownDuration = null,
         countDownValue = null,
         cueStartTime = null,
-        cueMessage = null,
+        instructionAudioDuration = null,
         subjectToDisplay = null,
         languageToDisplay = null
     )
@@ -80,21 +73,12 @@ val idealCueDuration: Long = 3000L
 class App : Application() {
   lateinit var store: Store<State>
 
-  val instructionSequenceTimingThread: HandlerThread = run {
-    val ht = HandlerThread("instructionSequenceTimingThread")
-    ht.start()
-    ht
-  }
-  val instructionSequenceTimingLooper: Looper = instructionSequenceTimingThread.looper
-  val instructionSequenceTimingHandler: Handler = Handler(instructionSequenceTimingLooper)
-
   override fun onCreate() {
     super.onCreate()
 
     store = BaseStore(initialState,
-                      Reducer(tickDuration),
-                      InstructionsSequenceMiddleware(instructionSequenceTimingHandler,
-                                                     tickDuration),
+                      reducer,
+                      InstructionsSequenceMiddleware(tickDuration),
                       instructionFiles,
                       Logger("Image")
                       )
