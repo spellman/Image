@@ -1,6 +1,7 @@
 package com.cws.image
 
 import android.content.Context
+import android.util.Log
 import com.brianegan.bansa.Reducer
 import com.github.andrewoma.dexx.kollection.*
 import java.io.File
@@ -38,6 +39,12 @@ data class NavigationStack(val scenes: ImmutableList<Scene>) {
   }
 }
 
+data class OnTickStateUpdate(val pred: (Long) -> Boolean, val updateFn: (Long, State) -> State)
+
+data class OnTickAction(val pred: (Long) -> Boolean, val action: (Long, State) -> Unit)
+
+
+
 // 2016-09-23 Cort Spellman
 // NOTE: All this overriding toString clutters stuff up but it's temporary:
 // I plan to have a server component, running Clojure.
@@ -59,13 +66,16 @@ data class State(val navigationStack: NavigationStack,
                  val languages: ImmutableSet<String>,
                  val language: String,
                  val instructionToPlay: Instruction?,
-                 val countDownStartTime: Long?,
-                 val countDownDuration: Long?,
+                 val instructionLoadingMessage: String?,
+                 val countDownStartTime: Long,
+                 val countDownDuration: Long,
                  val countDownValue: Long?,
-                 val cueStartTime: Long?,
-                 val instructionAudioDuration: Long?,
+                 val cueStartTime: Long,
+                 val cueStopTime: Long,
+                 val instructionAudioDuration: Long,
                  val subjectToDisplay: String?,
-                 val languageToDisplay: String?) {
+                 val languageToDisplay: String?,
+                 val cueMessage: String?) {
   override fun toString(): String {
     return """${this.javaClass.canonicalName}:
                |navigationStack: ${navigationStack}
@@ -76,15 +86,20 @@ data class State(val navigationStack: NavigationStack,
                |languages: ${languages}
                |language: ${language}
                |instructionToPlay: ${instructionToPlay}
+               |instructionLoadingMessage: ${instructionLoadingMessage}
                |countDownStartTime: ${countDownStartTime}
                |countDownDuration: ${countDownDuration}
                |countDownValue: ${countDownValue}
                |cueStartTime: ${cueStartTime}
+               |cueStopTime: ${cueStopTime}
                |instructionAudioDuration: ${instructionAudioDuration}
                |subjectToDisplay: ${subjectToDisplay}
-               |languageToDisplay: ${languageToDisplay}""".trimMargin()
+               |languageToDisplay: ${languageToDisplay}
+               |cueMessage: ${cueMessage}""".trimMargin()
   }
 }
+
+
 
 sealed class Action : com.brianegan.bansa.Action {
   class RefreshInstructions(
@@ -164,6 +179,8 @@ sealed class Action : com.brianegan.bansa.Action {
   }
 }
 
+
+
 val reducer = Reducer<State> { state, action ->
   when (action) {
     is Action.RefreshInstructions -> state
@@ -183,42 +200,97 @@ val reducer = Reducer<State> { state, action ->
     is Action.SetLanguage ->
       state.copy(language = action.language)
 
-    is Action.PlayInstruction -> state.copy(instructionToPlay = action.instruction)
+    is Action.PlayInstruction ->
+      state.copy(instructionToPlay = action.instruction,
+                 instructionLoadingMessage = "loading",
+                 subjectToDisplay = action.instruction.subject,
+                 languageToDisplay = action.instruction.language)
 
     is Action.SetInstructionTimings -> {
-      if (state.instructionToPlay is Instruction) {
-        val cueStartTime = state.instructionToPlay.cueStartTime
-        val countDownDuration = if (cueStartTime > idealCountDownDuration) {
-          idealCountDownDuration
-        } else {
-          (cueStartTime / 1000L) * 1000L
-        }
+      // 2016-10-05 Cort Spellman
+      // TODO: Check if state.instructionToPlay is an instruction.
+      // Dispatch an action to trigger an error message if not.
+      state.instructionToPlay as Instruction
+      val instructionAudioDuration = action.instructionAudioDuration
+      val cueStartTime = state.instructionToPlay.cueStartTime
+      val countDownDuration = if (cueStartTime > idealCountDownDuration) {
+                                idealCountDownDuration
+                              } else {
+                                (cueStartTime / 1000L) * 1000L
+                              }
 
-        state.copy(countDownStartTime = cueStartTime - countDownDuration,
-                   countDownDuration = countDownDuration,
-                   cueStartTime = cueStartTime,
-                   instructionAudioDuration = action.instructionAudioDuration)
-      }
-      else {
-        state
-      }
+      val cueStopTime =
+          if (instructionAudioDuration > cueStartTime + idealCueDuration) {
+            cueStartTime + idealCueDuration
+          }
+          else {
+            instructionAudioDuration
+          }
+
+      state.copy(countDownStartTime = cueStartTime - countDownDuration,
+                 countDownDuration = countDownDuration,
+                 cueStartTime = cueStartTime,
+                 cueStopTime = cueStopTime,
+                 instructionAudioDuration = instructionAudioDuration)
     }
 
-    // TODO: Check whether tick affects each thing that might be affected,
-    // update the state accordingly.
-    is Action.Tick -> state
+    is Action.Tick -> {
+      // 2016-10-05 Cort Spellman
+      // TODO: Assertions on sequence of play, prep, start, finish, end?
+      val time = action.time
+      val timeIs = isWithin(action.tickDuration, time)
+      val updates =
+          immutableListOf(
+              OnTickStateUpdate(
+                { t -> timeIs(0) },
+                { t, state -> state.copy(instructionLoadingMessage = null) }
+              ),
+
+              OnTickStateUpdate(
+                { t ->
+                    t % 1000 <= tickDuration
+                      && Interval("[", state.countDownStartTime, state.cueStartTime - 1000, "]")
+                       .contains(t, tickDuration) },
+                { t, state ->
+                    state.copy(
+                      countDownValue = Math.round((state.countDownStartTime  - t + state.countDownDuration) / 1000.0).toLong()) }),
+
+              OnTickStateUpdate(
+                { t -> timeIs(state.cueStartTime) },
+                { t, state ->
+                    state.copy(countDownValue = null,
+                               cueMessage = "Take the image now.") }),
+
+              OnTickStateUpdate(
+                { t -> timeIs(state.cueStopTime) },
+                { t, state -> state.copy(cueMessage = null) })
+      )
+
+      updates.fold(state) { acc: State, onTickStateUpdate: OnTickStateUpdate ->
+                            if (onTickStateUpdate.pred(time)) {
+                              Log.d("ON-TICK ST UPDATE", "time: ${time}")
+                              Log.d("ON-TICK ST UPDATE", acc.toString())
+                              onTickStateUpdate.updateFn(time, acc)
+                            }
+                            else {
+                              acc
+                            } }
+    }
 
     is Action.AbortInstructionSequence -> state
 
     is Action.EndInstruction ->
       state.copy(instructionToPlay = null,
-                 countDownStartTime = null,
-                 countDownDuration = null,
+                 instructionLoadingMessage = null,
+                 countDownStartTime = 0,
+                 countDownDuration = 0,
                  countDownValue = null,
-                 cueStartTime = null,
-                 instructionAudioDuration = null,
+                 cueStartTime = 0,
+                 cueStopTime = 0,
+                 instructionAudioDuration = 0,
                  subjectToDisplay = null,
-                 languageToDisplay = null)
+                 languageToDisplay = null,
+                 cueMessage = null)
 
     else ->
       throw IllegalArgumentException("No reducer case has been defined for the action of ${action}")

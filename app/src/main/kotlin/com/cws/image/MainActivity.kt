@@ -7,10 +7,12 @@ import android.support.v7.app.AppCompatActivity
 import android.support.v7.widget.LinearLayoutCompat
 import android.text.TextUtils
 import android.view.View
+import android.widget.LinearLayout
 import com.brianegan.bansa.Store
 import com.github.andrewoma.dexx.kollection.ImmutableSet
 import com.github.andrewoma.dexx.kollection.toImmutableSet
 import trikita.anvil.BaseDSL
+import trikita.anvil.DSL
 import trikita.anvil.DSL.*
 import trikita.anvil.RenderableView
 import trikita.anvil.appcompat.v7.AppCompatv7DSL
@@ -48,13 +50,13 @@ fun viewLanguage(dispatch: (com.brianegan.bansa.Action) -> State,
     appCompatTextView {
       size(WRAP, WRAP)
       minimumWidth(dip(72))
-      BaseDSL.layoutGravity(BaseDSL.BOTTOM)
+      layoutGravity(BOTTOM)
       textAlignment(View.TEXT_ALIGNMENT_CENTER)
 //              backgroundColor(android.graphics.Color.argb(32, 0, 255, 0))
       textColor(android.graphics.Color.WHITE)
-      BaseDSL.margin(dip(16), dip(0))
+      margin(dip(16), dip(0))
       // TODO: Bottom padding should be 12px if l spans two lines.
-      BaseDSL.padding(dip(12), dip(0), dip(12), dip(20))
+      padding(dip(12), dip(0), dip(12), dip(20))
       minLines(1)
       maxLines(2)
       ellipsize(TextUtils.TruncateAt.END)
@@ -98,7 +100,7 @@ fun viewSubjects(dispatch: (com.brianegan.bansa.Action) -> State,
                  instructions: ImmutableSet<Instruction>) {
   scrollView {
     size(FILL, dip(0))
-    BaseDSL.weight(1f)
+    weight(1f)
     linearLayoutCompat {
       size(FILL, WRAP)
       AppCompatv7DSL.orientation(LinearLayoutCompat.VERTICAL)
@@ -122,10 +124,41 @@ fun viewMain(c: Context, store: Store<State>) {
 }
 
 fun viewInstruction(store: Store<State>) {
-  appCompatTextView {
-    text(store.state.languageToDisplay)
-    text(store.state.subjectToDisplay)
-    textColor(android.graphics.Color.BLACK)
+  linearLayoutCompat {
+    linearLayoutCompat {
+      size(WRAP, WRAP)
+      layoutGravity(LEFT)
+      trikita.anvil.appcompat.v7.AppCompatv7DSL.orientation(LinearLayout.VERTICAL)
+      appCompatTextView {
+        text(store.state.subjectToDisplay)
+        textColor(android.graphics.Color.BLACK)
+      }
+      appCompatTextView {
+        text(store.state.languageToDisplay)
+        textColor(android.graphics.Color.BLACK)
+      }
+    }
+
+    store.state.instructionLoadingMessage?.let {
+      text(store.state.instructionLoadingMessage)
+      textColor(android.graphics.Color.BLACK)
+    }
+
+    store.state.countDownValue?.let {
+      appCompatTextView {
+        text(store.state.countDownValue.toString())
+        textColor(android.graphics.Color.BLACK)
+        textSize(sip(32F))
+      }
+    }
+
+    store.state.cueMessage?.let {
+      appCompatTextView {
+        text(store.state.cueMessage)
+        textColor(android.graphics.Color.BLACK)
+        textSize(sip(32F))
+      }
+    }
   }
 }
 

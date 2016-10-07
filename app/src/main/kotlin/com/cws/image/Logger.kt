@@ -13,6 +13,7 @@ class Logger(val tag: String) : Middleware<State> {
       if ((action.time % 1000) <= tickDuration) {
         Log.d(tag, "--> tick: ${action.time}")
       }
+      next.dispatch(action)
     }
     else {
       Log.d(tag, "--> ${action.javaClass.canonicalName.split(".").last()}\n${action}")

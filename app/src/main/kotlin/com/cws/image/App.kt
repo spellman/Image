@@ -43,13 +43,16 @@ val initialState =
         languages = immutableSetOf(),
         language = "english", // Should be system language. (What if there are no instructions in the system language? Show msg whenever no visible instructions, including then.),
         instructionToPlay = null,
-        countDownStartTime = null,
-        countDownDuration = null,
+        instructionLoadingMessage = null,
+        countDownStartTime = 0,
+        countDownDuration = 0,
         countDownValue = null,
-        cueStartTime = null,
-        instructionAudioDuration = null,
+        cueStartTime = 0,
+        cueStopTime = 0,
+        instructionAudioDuration = 0,
         subjectToDisplay = null,
-        languageToDisplay = null
+        languageToDisplay = null,
+        cueMessage = null
     )
 
 fun requestUserCopyInstructionsToAppDir(packageName: String, appDir: File): (ImmutableSet<Instruction>) -> Action.SetInstructionsAndLanguages {

@@ -8,21 +8,70 @@ import android.os.SystemClock
 import com.brianegan.bansa.Middleware
 import com.brianegan.bansa.NextDispatcher
 import com.brianegan.bansa.Store
+import com.github.andrewoma.dexx.kollection.immutableListOf
+import com.github.andrewoma.dexx.kollection.immutableSetOf
+
+data class Interval(val lowerDelimiter: String,
+                    val lowerEndPoint: Long,
+                    val upperEndPoint: Long,
+                    val upperDelimiter: String) {
+
+  val lowerDelimiters = immutableSetOf("[", "(")
+  val upperDelimiters = immutableSetOf("]", ")")
+
+  init {
+    assert(lowerEndPoint <= upperEndPoint)
+    assert(lowerDelimiters.contains(lowerDelimiter))
+    assert(upperDelimiters.contains(upperDelimiter))
+  }
+
+  fun contains(x: Long, error: Long): Boolean {
+    val xPlusError = x + error
+    val upperEndPointPlusError = upperEndPoint + error
+    return when {
+      (lowerDelimiter == "[" && upperDelimiter == "]") ->
+        lowerEndPoint <= xPlusError && x <= upperEndPointPlusError
+
+      (lowerDelimiter == "[" && upperDelimiter == ")") ->
+        lowerEndPoint <= xPlusError && x < upperEndPointPlusError
+
+      (lowerDelimiter == "(" && upperDelimiter == "]") ->
+        lowerEndPoint < xPlusError && x <= upperEndPointPlusError
+
+      (lowerDelimiter == "(" && upperDelimiter == ")") ->
+        lowerEndPoint < xPlusError && x < upperEndPointPlusError
+
+      else -> throw IllegalArgumentException("Unhandled interval delimiters. lowerDelimiter: ${lowerDelimiter}, upperDelimiter: ${upperDelimiter}")
+    }
+  }
+}
+
+fun isWithin(delta: Long, x1: Long, x2: Long): Boolean {
+  return Interval("[", x1, x1, "]").contains(x2, delta)
+}
+
+fun isWithin(delta: Long, x1: Long): (x2: Long) -> Boolean {
+  return { x2 -> isWithin(delta, x1, x2) }
+}
+
+
 
 class Tick(val store: Store<State>,
            val instructionSequenceTimingHandler: Handler,
            val tickDuration: Long,
            val zeroTime: Long) : Runnable {
-
   override fun run() {
+    val start = SystemClock.uptimeMillis() - zeroTime
     try {
-      store.dispatch(Action.Tick(tickDuration, SystemClock.uptimeMillis() - zeroTime))
+      store.dispatch(Action.Tick(tickDuration, start))
     }
     finally {
-      instructionSequenceTimingHandler.postDelayed(this, tickDuration)
+      instructionSequenceTimingHandler.postDelayed(this, tickDuration - (SystemClock.uptimeMillis() - zeroTime - start))
     }
   }
 }
+
+
 
 class InstructionsSequenceMiddleware(val tickDuration: Long): Middleware<State> {
   private var mediaPlayer: MediaPlayer? = null
@@ -34,7 +83,7 @@ class InstructionsSequenceMiddleware(val tickDuration: Long): Middleware<State> 
   private var isInstructionGraphicsFinished: Boolean = true
   private lateinit var tick: Tick
 
-  fun onInstructionSequencePrepared(store: Store<State>) {
+  fun startInstructionSequence(store: Store<State>) {
     println("isInstructionAudioPrepared: ${isInstructionAudioPrepared}, isInstructionGraphicsPrepared: ${isInstructionGraphicsPrepared}")
     if (isInstructionAudioPrepared && isInstructionGraphicsPrepared) {
       // 2016-10-02 Cort Spellman
@@ -50,12 +99,8 @@ class InstructionsSequenceMiddleware(val tickDuration: Long): Middleware<State> 
                   zeroTime = SystemClock.uptimeMillis())
 
       instructionSequenceTimingThread = ht
-      instructionSequenceTimingHandler =h
+      instructionSequenceTimingHandler = h
       h.post(tick)
-      mediaPlayer?.start()
-    } else {
-      // 2016-09-26 Cort Spellman
-      // TODO: Dispatch action: Display error to user, alert me to error.
     }
   }
 
@@ -65,14 +110,11 @@ class InstructionsSequenceMiddleware(val tickDuration: Long): Middleware<State> 
     instructionSequenceTimingHandler = null
   }
 
-  fun onInstructionSequenceFinished(store: Store<State>) {
+  fun endInstructionSequence(store: Store<State>) {
     if (isInstructionAudioFinished && isInstructionGraphicsFinished) {
       stopTicks()
       store.dispatch(Action.EndInstruction())
       store.dispatch(Action.NavigateBack())
-    } else {
-      // 2016-09-26 Cort Spellman
-      // TODO: Dispatch action: Display error to user, alert me to error.
     }
   }
 
@@ -93,8 +135,8 @@ class InstructionsSequenceMiddleware(val tickDuration: Long): Middleware<State> 
 
         mediaPlayer.setOnPreparedListener { mp ->
           isInstructionAudioPrepared = true
+          startInstructionSequence(store)
           store.dispatch(Action.SetInstructionTimings(mp.duration.toLong()))
-          onInstructionSequencePrepared(store)
         }
 
         // 2016-09-26 Cort Spellman
@@ -108,24 +150,46 @@ class InstructionsSequenceMiddleware(val tickDuration: Long): Middleware<State> 
           mp.release()
           this.mediaPlayer = null
           isInstructionAudioPrepared = false
-          onInstructionSequenceFinished(store)
+          endInstructionSequence(store)
         }
 
         this.mediaPlayer = mediaPlayer
         mediaPlayer.prepareAsync()
         next.dispatch(action)
+      }
 
+      is Action.SetInstructionTimings -> {
+        next.dispatch(action)
         isInstructionGraphicsPrepared = true
-        onInstructionSequencePrepared(store)
+        startInstructionSequence(store)
       }
 
       is Action.Tick -> {
-        // 2016-10-02 Cort Spellman
-        // TODO: Set property values at end of graphics stuff:
-//        isInstructionGraphicsFinished = true
-//        isInstructionGraphicsPrepared = false
-//        next.dispatch(action)
-//        onInstructionSequenceFinished(store)
+        // 2016-10-05 Cort Spellman
+        // TODO: Assertions on sequence of play, prep, start, finish, end?
+        val time = action.time
+        val timeIs = isWithin(action.tickDuration, time)
+        val actions =
+          immutableListOf(
+              OnTickAction(
+                  { t -> timeIs(0) },
+                  { t, state -> run { mediaPlayer?.start() } }),
+
+              OnTickAction(
+                  { t -> timeIs(store.state.instructionAudioDuration) },
+                  { t, state -> run {
+                      isInstructionGraphicsFinished = true
+                      isInstructionGraphicsPrepared = false
+                      endInstructionSequence(store)
+                    }
+                  })
+          )
+
+        actions.forEach { onTickAction: OnTickAction ->
+                          if (onTickAction.pred(time)) {
+                            onTickAction.action(time, store.state)
+                          } }
+
         next.dispatch(action)
       }
 
