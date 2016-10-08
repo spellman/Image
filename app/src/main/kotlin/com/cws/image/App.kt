@@ -69,7 +69,6 @@ fun requestUserCopyInstructionsToAppDir(packageName: String, appDir: File): (Imm
   }
 }
 
-val tickDuration: Long = 16L
 val idealCountDownDuration: Long = 5000L
 val idealCueDuration: Long = 3000L
 
@@ -83,7 +82,7 @@ class App : Application() {
                       reducer,
                       Logger("Image"),
                       instructionFiles,
-                      InstructionsSequenceMiddleware(tickDuration))
+                      InstructionsSequenceMiddleware())
 
     val appDir: File = File(Environment.getExternalStorageDirectory(), packageName)
 

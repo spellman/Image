@@ -1,7 +1,6 @@
 package com.cws.image
 
 import android.content.Context
-import android.util.Log
 import com.brianegan.bansa.Reducer
 import com.github.andrewoma.dexx.kollection.*
 import java.io.File
@@ -38,10 +37,6 @@ data class NavigationStack(val scenes: ImmutableList<Scene>) {
     return scenes.size
   }
 }
-
-data class OnTickStateUpdate(val pred: (Long) -> Boolean, val updateFn: (Long, State) -> State, val tag: String)
-
-data class OnTickAction(val pred: (Long) -> Boolean, val action: (Long, State) -> Unit, val tag: String)
 
 
 
@@ -161,6 +156,28 @@ sealed class Action : com.brianegan.bansa.Action {
     }
   }
 
+  class ClearInstructionLoadingMessage() : Action() {
+    override fun toString(): String { return this.javaClass.canonicalName }
+  }
+
+  class SetCountDownValue(val countDownValue: Long) : Action() {
+    override fun toString(): String {
+      return """${this.javaClass.canonicalName}:
+               |countDownValue: ${countDownValue}""".trimMargin()
+    }
+  }
+
+  class SetCueMessage(val cueMessage: String) : Action() {
+    override fun toString(): String {
+      return """${this.javaClass.canonicalName}:
+               |cueMessage: ${cueMessage}""".trimMargin()
+    }
+  }
+
+  class ClearCueMessage() : Action() {
+    override fun toString(): String { return this.javaClass.canonicalName }
+  }
+
   class Tick(val tickDuration: Long,
              val time: Long) : Action() {
     override fun toString(): String {
@@ -234,54 +251,18 @@ val reducer = Reducer<State> { state, action ->
                  instructionAudioDuration = instructionAudioDuration)
     }
 
-    is Action.Tick -> {
-      // 2016-10-05 Cort Spellman
-      // TODO: Assertions on sequence of play, prep, start, finish, end?
-      val time = action.time
-      val timeIs = isWithin(action.tickDuration / 2, time)
-      val updates =
-          immutableListOf(
-              OnTickStateUpdate(
-                { t -> timeIs(0) },
-                { t, state -> state.copy(instructionLoadingMessage = null) },
-                "hide instruction-loading message"
-              ),
+    is Action.ClearInstructionLoadingMessage ->
+        state.copy(instructionLoadingMessage = null)
 
-              OnTickStateUpdate(
-                { t ->
-                    t % 1000 < tickDuration
-                      && Interval("[", state.countDownStartTime, state.cueStartTime - 1000, "]")
-                       .contains(t, tickDuration) },
-                { t, state ->
-                    state.copy(
-                      countDownValue = Math.round((state.countDownStartTime  - t + state.countDownDuration) / 1000.0).toLong()) },
-                "update countdown to ${Math.round((state.countDownStartTime  - time + state.countDownDuration) / 1000.0)}"),
+    is Action.SetCountDownValue ->
+        state.copy(countDownValue = action.countDownValue)
 
-              OnTickStateUpdate(
-                { t -> timeIs(state.cueStartTime) },
-                { t, state ->
-                    state.copy(countDownValue = null,
-                               cueMessage = "Take the image now.") },
-                "end and hide countdown, show cue"),
+    is Action.SetCueMessage ->
+      state.copy(countDownValue = null,
+                 cueMessage = action.cueMessage)
 
-              OnTickStateUpdate(
-                { t -> timeIs(state.cueStopTime) },
-                { t, state -> state.copy(cueMessage = null) },
-                "hide cue")
-      )
-
-      println("${time}")
-      updates.fold(state) { acc: State, onTickStateUpdate: OnTickStateUpdate ->
-                            if (onTickStateUpdate.pred(time)) {
-                              println("${time}: ${onTickStateUpdate.tag}")
-                              val r = onTickStateUpdate.updateFn(time, acc)
-                              println(r.toString())
-                              r
-                            }
-                            else {
-                              acc
-                            } }
-    }
+    is Action.ClearCueMessage ->
+      state.copy(cueMessage = null)
 
     is Action.AbortInstructionSequence -> state
 
