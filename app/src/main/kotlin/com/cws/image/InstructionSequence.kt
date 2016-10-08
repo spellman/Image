@@ -47,7 +47,7 @@ data class Interval(val lowerDelimiter: String,
 }
 
 fun isWithin(delta: Long, x1: Long, x2: Long): Boolean {
-  return Interval("[", x1, x1, "]").contains(x2, delta)
+  return Interval("[", x1, x1, ")").contains(x2, delta)
 }
 
 fun isWithin(delta: Long, x1: Long): (x2: Long) -> Boolean {
@@ -165,15 +165,16 @@ class InstructionsSequenceMiddleware(val tickDuration: Long): Middleware<State> 
       }
 
       is Action.Tick -> {
-        // 2016-10-05 Cort Spellman
-        // TODO: Assertions on sequence of play, prep, start, finish, end?
+//        // 2016-10-05 Cort Spellman
+//        // TODO: Assertions on sequence of play, prep, start, finish, end?
         val time = action.time
         val timeIs = isWithin(action.tickDuration, time)
         val actions =
           immutableListOf(
               OnTickAction(
                   { t -> timeIs(0) },
-                  { t, state -> run { mediaPlayer?.start() } }),
+                  { t, state -> run { mediaPlayer?.start() } },
+                  "start media player"),
 
               OnTickAction(
                   { t -> timeIs(store.state.instructionAudioDuration) },
@@ -182,7 +183,8 @@ class InstructionsSequenceMiddleware(val tickDuration: Long): Middleware<State> 
                       isInstructionGraphicsPrepared = false
                       endInstructionSequence(store)
                     }
-                  })
+                  },
+                  "end of audio - end instruction sequence")
           )
 
         actions.forEach { onTickAction: OnTickAction ->

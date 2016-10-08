@@ -39,9 +39,9 @@ data class NavigationStack(val scenes: ImmutableList<Scene>) {
   }
 }
 
-data class OnTickStateUpdate(val pred: (Long) -> Boolean, val updateFn: (Long, State) -> State)
+data class OnTickStateUpdate(val pred: (Long) -> Boolean, val updateFn: (Long, State) -> State, val tag: String)
 
-data class OnTickAction(val pred: (Long) -> Boolean, val action: (Long, State) -> Unit)
+data class OnTickAction(val pred: (Long) -> Boolean, val action: (Long, State) -> Unit, val tag: String)
 
 
 
@@ -238,39 +238,45 @@ val reducer = Reducer<State> { state, action ->
       // 2016-10-05 Cort Spellman
       // TODO: Assertions on sequence of play, prep, start, finish, end?
       val time = action.time
-      val timeIs = isWithin(action.tickDuration, time)
+      val timeIs = isWithin(action.tickDuration / 2, time)
       val updates =
           immutableListOf(
               OnTickStateUpdate(
                 { t -> timeIs(0) },
-                { t, state -> state.copy(instructionLoadingMessage = null) }
+                { t, state -> state.copy(instructionLoadingMessage = null) },
+                "hide instruction-loading message"
               ),
 
               OnTickStateUpdate(
                 { t ->
-                    t % 1000 <= tickDuration
+                    t % 1000 < tickDuration
                       && Interval("[", state.countDownStartTime, state.cueStartTime - 1000, "]")
                        .contains(t, tickDuration) },
                 { t, state ->
                     state.copy(
-                      countDownValue = Math.round((state.countDownStartTime  - t + state.countDownDuration) / 1000.0).toLong()) }),
+                      countDownValue = Math.round((state.countDownStartTime  - t + state.countDownDuration) / 1000.0).toLong()) },
+                "update countdown to ${Math.round((state.countDownStartTime  - time + state.countDownDuration) / 1000.0)}"),
 
               OnTickStateUpdate(
                 { t -> timeIs(state.cueStartTime) },
                 { t, state ->
                     state.copy(countDownValue = null,
-                               cueMessage = "Take the image now.") }),
+                               cueMessage = "Take the image now.") },
+                "end and hide countdown, show cue"),
 
               OnTickStateUpdate(
                 { t -> timeIs(state.cueStopTime) },
-                { t, state -> state.copy(cueMessage = null) })
+                { t, state -> state.copy(cueMessage = null) },
+                "hide cue")
       )
 
+      println("${time}")
       updates.fold(state) { acc: State, onTickStateUpdate: OnTickStateUpdate ->
                             if (onTickStateUpdate.pred(time)) {
-                              Log.d("ON-TICK ST UPDATE", "time: ${time}")
-                              Log.d("ON-TICK ST UPDATE", acc.toString())
-                              onTickStateUpdate.updateFn(time, acc)
+                              println("${time}: ${onTickStateUpdate.tag}")
+                              val r = onTickStateUpdate.updateFn(time, acc)
+                              println(r.toString())
+                              r
                             }
                             else {
                               acc

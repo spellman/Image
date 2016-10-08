@@ -10,7 +10,7 @@ class Logger(val tag: String) : Middleware<State> {
                         action: com.brianegan.bansa.Action,
                         next: NextDispatcher) {
     if (action is Action.Tick) {
-      if ((action.time % 1000) <= tickDuration) {
+      if ((action.time % 1000) < tickDuration) {
         Log.d(tag, "--> tick: ${action.time}")
       }
       next.dispatch(action)
