@@ -101,6 +101,13 @@ class InstructionsSequenceMiddleware : Middleware<State> {
         startInstructionSequence(store)
       }
 
+      is Action.NavigateBack -> {
+        if (store.state.navigationStack.peek() is Scene.Instruction) {
+          store.dispatch(Action.AbortInstructionSequence())
+        }
+        next.dispatch(action)
+      }
+
       is Action.AbortInstructionSequence -> {
         isInstructionAudioFinished = true
         isInstructionGraphicsFinished = true
