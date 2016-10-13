@@ -34,65 +34,56 @@ import java.io.File
 //                    cueStartTime = 1000)
 //    )
 
-val initialState =
-    State(
-        navigationStack = NavigationStack(immutableListOf(Scene.Main())),
-        canReadInstructionFiles = false,
-        canReadInstructionFilesMessage = "Initially assume instructions dir is not readable because it hasn't been checked for readability.",
-        instructions = immutableSetOf(),
-        languages = immutableSetOf(),
-        language = "english", // Should be system language. (What if there are no instructions in the system language? Show msg whenever no visible instructions, including then.),
-        instructionToPlay = null,
-        instructionLoadingMessage = null,
-        countDownStartTime = 0,
-        countDownDuration = 0,
-        countDownValue = null,
-        cueStartTime = 0,
-        cueStopTime = 0,
-        instructionAudioDuration = 0,
-        subjectToDisplay = null,
-        languageToDisplay = null,
-        cueMessage = null
-    )
-
-fun requestUserCopyInstructionsToAppDir(packageName: String, appDir: File): (ImmutableSet<Instruction>) -> Action.SetInstructionsAndLanguages {
-  return  { instructions: ImmutableSet<Instruction> ->
-    if (instructions.isEmpty()) {
-      Action.SetInstructionsAndLanguages(canReadInstructionFiles = true,
-                                         canReadInstructionFilesMessage = "No instructions found. We're loading files manually for now so do the following to get started: 1. Connect the device to your computer via USB. 2. Ensure the device is in file transfer mode: Swipe down from the top of the device screen; one of the notifications should say \"USB for charging\" or \"USB for photo transfer\" or \"USB for file transfers\" or something like that. If it isn't \"USB for file transfers\", then touch the notification and then select \"USB for file transfers\". 3. Open the device in your file explorer (Windows Explorer on Windows, Finder on Mac, etc.). 4. Copy your instruction sound-files to <device>/InternalStorage/${packageName}.",
-                                         instructions = immutableSetOf())
-    } else {
-      Action.SetInstructionsAndLanguages(canReadInstructionFiles = true,
-                                         canReadInstructionFilesMessage = "Found instructions in ${appDir.absolutePath}.",
-                                         instructions = instructions)
-    }
-  }
-}
-
 val idealCountDownDuration: Long = 5000L
 val idealCueDuration: Long = 3000L
 
 class App : Application() {
+  lateinit var appDir: File
   lateinit var store: Store<State>
+
+  // 2016-10-12 Cort Spellman
+  // TODO: Use locales instead of string languages. The method of getting the
+  // current locale depends on the Android API version of the device:
+  // https://developer.android.com/reference/android/content/res/Configuration.html#locale
+  // resources.configuration.locale is deprecated in API level 24 (7.0).
+  // resources.configuration.locales() was added in 24 and
+  // resources.configuration.locales().get(0) is the new way to get the primary
+  // current locale.
+
+  val initialState =
+      State(
+          isInitializing = true,
+          navigationStack = NavigationStack(immutableListOf(Scene.Main())),
+          needToRefreshInstructions = true,
+          canReadInstructionFiles = false,
+          canReadInstructionFilesMessage = "Initially assume instructions dir is not readable because it hasn't been checked for readability.",
+          instructions = immutableSetOf(),
+          languages = immutableSetOf(),
+          language = "english", // Should be the language for the current system locale. (What if there are no instructions in the system language? Show a msg whenever there are no visible instructions, including then.),
+          instructionToPlay = null,
+          instructionLoadingMessage = null,
+          countDownStartTime = 0,
+          countDownDuration = 0,
+          countDownValue = null,
+          cueStartTime = 0,
+          cueStopTime = 0,
+          instructionAudioDuration = 0,
+          subjectToDisplay = null,
+          languageToDisplay = null,
+          cueMessage = null
+      )
 
   override fun onCreate() {
     super.onCreate()
-
+    appDir = File(Environment.getExternalStorageDirectory(), packageName)
     store = BaseStore(initialState,
                       reducer,
                       Logger("Image"),
                       instructionFiles,
                       InstructionsSequenceMiddleware())
 
-    val appDir: File = File(Environment.getExternalStorageDirectory(), packageName)
-
     LeakCanary.install(this)
 //    Stetho.initializeWithDefaults(this)
     store.subscribe { Anvil.render() }
-    store.dispatch(
-        Action.RefreshInstructions(
-            this,
-            appDir,
-            requestUserCopyInstructionsToAppDir(packageName, appDir)))
   }
 }

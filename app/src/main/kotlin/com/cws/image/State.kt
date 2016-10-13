@@ -54,7 +54,9 @@ data class NavigationStack(val scenes: ImmutableList<Scene>) {
 // a certain view or at least format the text a certain way.
 // Moreover, I want to make use of Android's resources localization stuff and
 // change what and how something is displayed like any other view.
-data class State(val navigationStack: NavigationStack,
+data class State(val isInitializing: Boolean,
+                 val navigationStack: NavigationStack,
+                 val needToRefreshInstructions: Boolean,
                  val canReadInstructionFiles: Boolean,
                  val canReadInstructionFilesMessage: String,
                  val instructions: ImmutableSet<Instruction>,
@@ -73,7 +75,9 @@ data class State(val navigationStack: NavigationStack,
                  val cueMessage: String?) {
   override fun toString(): String {
     return """${this.javaClass.canonicalName}:
+               |isInitializing: ${isInitializing}
                |navigationStack: ${navigationStack}
+               |needToRefreshInstructions: ${needToRefreshInstructions}
                |canReadInstructionFiles: ${canReadInstructionFiles}
                |canReadInstructionFilesMessage: ${canReadInstructionFilesMessage}
                |instructions: ImmutableSet(
@@ -97,6 +101,14 @@ data class State(val navigationStack: NavigationStack,
 
 
 sealed class Action : com.brianegan.bansa.Action {
+  class DidInitialize() : Action() {
+    override fun toString(): String { return this.javaClass.canonicalName }
+  }
+
+  class DoNeedToRefreshInstructions() : Action() {
+    override fun toString(): String { return this.javaClass.canonicalName }
+  }
+
   class RefreshInstructions(
       val context: Context,
       val appDir: File,
@@ -178,15 +190,6 @@ sealed class Action : com.brianegan.bansa.Action {
     override fun toString(): String { return this.javaClass.canonicalName }
   }
 
-  class Tick(val tickDuration: Long,
-             val time: Long) : Action() {
-    override fun toString(): String {
-      return """${this.javaClass.canonicalName}:
-               |tickDuration: ${tickDuration}
-               |time: ${time}""".trimMargin()
-    }
-  }
-
   class AbortInstructionSequence() : Action () {
     override fun toString(): String { return this.javaClass.canonicalName }
   }
@@ -200,10 +203,17 @@ sealed class Action : com.brianegan.bansa.Action {
 
 val reducer = Reducer<State> { state, action ->
   when (action) {
+    is Action.DidInitialize ->
+      state.copy(isInitializing = false)
+
+    is Action.DoNeedToRefreshInstructions ->
+        state.copy(needToRefreshInstructions = true)
+
     is Action.RefreshInstructions -> state
 
     is Action.SetInstructionsAndLanguages ->
-      state.copy(canReadInstructionFiles = action.canReadInstructionFiles,
+      state.copy(needToRefreshInstructions = false,
+                 canReadInstructionFiles = action.canReadInstructionFiles,
                  canReadInstructionFilesMessage = action.canReadInstructionFilesMessage,
                  instructions = action.instructions,
                  languages = action.instructions.map { i -> i.language }.toImmutableSet())
