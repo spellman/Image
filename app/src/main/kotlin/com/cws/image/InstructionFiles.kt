@@ -35,15 +35,20 @@ val instructionFiles = Middleware<State> { store, action, next ->
 
   fun fileToInstruction(file: File): Instruction? {
     val n: String = file.name.substringBeforeLast(".")
-    val (subject, language, cueTiming) = n.split('_').map { s -> URLDecoder.decode(s, "UTF-8") }
+    // 2016-10-02 Cort Spellman
+    // This destructuring requires there be at least 3 elements in the vector
+    // produced by split.
+    // TODO: Error handling around this - on error display message to user,
+    // showing problematic file name and required format.
+    val (subject, language, cueTime) = n.split('_').map { s -> URLDecoder.decode(s, "UTF-8") }
 
     Log.d("fileToInstruction", "Instructions file to parse: ${file.absolutePath}")
-    Log.d("parsed values", "subject: ${subject}    language: ${language}    cueTiming: ${cueTiming}")
+    Log.d("parsed values", "subject: ${subject}    language: ${language}    cueStartTime: ${cueTime}")
     try {
       return Instruction(subject = subject,
                          language = language,
                          path = file.absolutePath,
-                         cueTiming = cueTiming.toInt())
+                         cueStartTime = cueTime.toLong())
     }
     catch (e: NumberFormatException) {
       Log.e("parse instructions file", e.toString())
@@ -54,14 +59,14 @@ val instructionFiles = Middleware<State> { store, action, next ->
   fun readInstructionsFromStorage(appDir: File, filesToSkip: ImmutableSet<File>): ImmutableSet<Instruction> {
     appDir.listFiles().forEach { file -> Log.d("appDir file", file.absolutePath) }
     val r = appDir.listFiles({ file -> !filesToSkip.contains(file) })
-                  .mapNotNull {file -> fileToInstruction(file)}
+                  .mapNotNull { file -> fileToInstruction(file) }
                   .toImmutableSet()
     Log.d("Parsed instructions", r.toString())
     return r
   }
 
   fun haveInstructionsFilesToRead(dir: File): Boolean {
-    return dir.isDirectory && dir.listFiles().isNotEmpty()
+    return dir.isDirectory && dir.listFiles()?.isNotEmpty() ?: false
   }
 
   fun create(file: File): Boolean {
@@ -87,9 +92,9 @@ val instructionFiles = Middleware<State> { store, action, next ->
       if (!isExternalStorageWritable()) {
         store.dispatch(
             Action.SetInstructionsAndLanguages(
-                false,
-                "There is no directory at instructions-directory path, ${appDir.absolutePath} or the directory is empty; it can't be created because external storage is not writable.",
-                immutableSetOf()))
+                canReadInstructionFiles = false,
+                canReadInstructionFilesMessage = "There is no directory at instructions-directory path, ${appDir.absolutePath} or the directory is empty; it can't be created because external storage is not writable.",
+                instructions = immutableSetOf()))
         return
       }
 
@@ -98,18 +103,18 @@ val instructionFiles = Middleware<State> { store, action, next ->
       if (!appDir.mkdirs()) {
         store.dispatch(
             Action.SetInstructionsAndLanguages(
-                false,
-                "Could not make directory ${appDir.absolutePath}, even though external storage is writable.",
-                immutableSetOf()))
+                canReadInstructionFiles = false,
+                canReadInstructionFilesMessage = "Could not make directory ${appDir.absolutePath}, even though external storage is writable.",
+                instructions = immutableSetOf()))
         return
       }
 
       if (!create(tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb)) {
         store.dispatch(
             Action.SetInstructionsAndLanguages(
-                false,
-                "Could not make file ${tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb.absolutePath}, even though external storage is writable.",
-                immutableSetOf()))
+                canReadInstructionFiles = false,
+                canReadInstructionFilesMessage = "Could not make file ${tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb.absolutePath}, even though external storage is writable.",
+                instructions = immutableSetOf()))
         return
       }
 
@@ -131,11 +136,12 @@ val instructionFiles = Middleware<State> { store, action, next ->
 
   when(action) {
     is Action.RefreshInstructions -> {
+      next.dispatch(action)
       refreshInstructions(store,
                           action.context,
                           action.appDir,
                           action.instructionFilesUpdateFn)
-      next.dispatch(action)
+      store.dispatch(Action.DidInitialize())
     }
 
     else -> next.dispatch(action)

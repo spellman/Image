@@ -1,6 +1,5 @@
 package com.cws.image
 
-import android.app.Activity
 import android.content.Context
 import com.brianegan.bansa.Reducer
 import com.github.andrewoma.dexx.kollection.*
@@ -9,7 +8,37 @@ import java.io.File
 data class Instruction(val subject: String,
                        val language: String,
                        val path: String,
-                       val cueTiming: Int)
+                       val cueStartTime: Long)
+
+sealed class Scene {
+  class Main() : Scene() {
+    override fun toString(): String { return this.javaClass.canonicalName.split(".").last() }
+  }
+
+  class Instruction() : Scene() {
+    override fun toString(): String { return this.javaClass.canonicalName.split(".").last() }
+  }
+}
+
+data class NavigationStack(val scenes: ImmutableList<Scene>) {
+  fun push(scene: Scene): NavigationStack {
+    return this.copy(scenes = scenes.plus(scene))
+  }
+
+  fun pop(): NavigationStack {
+    return this.copy(scenes = scenes.dropLast(1))
+  }
+
+  fun peek(): Scene {
+    return scenes.last()
+  }
+
+  fun size(): Int {
+    return scenes.size
+  }
+}
+
+
 
 // 2016-09-23 Cort Spellman
 // NOTE: All this overriding toString clutters stuff up but it's temporary:
@@ -25,29 +54,61 @@ data class Instruction(val subject: String,
 // a certain view or at least format the text a certain way.
 // Moreover, I want to make use of Android's resources localization stuff and
 // change what and how something is displayed like any other view.
-data class State(val navigationStack: NavigationStack,
+data class State(val isInitializing: Boolean,
+                 val navigationStack: NavigationStack,
+                 val needToRefreshInstructions: Boolean,
                  val canReadInstructionFiles: Boolean,
                  val canReadInstructionFilesMessage: String,
                  val instructions: ImmutableSet<Instruction>,
                  val languages: ImmutableSet<String>,
                  val language: String,
-                 val instructionToDisplay: Instruction?,
-                 val instructionToPlay: Instruction?) {
+                 val instructionToPlay: Instruction?,
+                 val instructionLoadingMessage: String?,
+                 val countDownStartTime: Long,
+                 val countDownDuration: Long,
+                 val countDownValue: Long?,
+                 val cueStartTime: Long,
+                 val cueStopTime: Long,
+                 val instructionAudioDuration: Long,
+                 val subjectToDisplay: String?,
+                 val languageToDisplay: String?,
+                 val cueMessage: String?) {
   override fun toString(): String {
     return """${this.javaClass.canonicalName}:
+               |isInitializing: ${isInitializing}
                |navigationStack: ${navigationStack}
+               |needToRefreshInstructions: ${needToRefreshInstructions}
                |canReadInstructionFiles: ${canReadInstructionFiles}
                |canReadInstructionFilesMessage: ${canReadInstructionFilesMessage}
                |instructions: ImmutableSet(
                |              ${instructions.joinToString(",\n              ")})
                |languages: ${languages}
                |language: ${language}
-               |instructionToDisplay: ${instructionToDisplay}
-               |instructionToPlay: ${instructionToPlay}""".trimMargin()
+               |instructionToPlay: ${instructionToPlay}
+               |instructionLoadingMessage: ${instructionLoadingMessage}
+               |countDownStartTime: ${countDownStartTime}
+               |countDownDuration: ${countDownDuration}
+               |countDownValue: ${countDownValue}
+               |cueStartTime: ${cueStartTime}
+               |cueStopTime: ${cueStopTime}
+               |instructionAudioDuration: ${instructionAudioDuration}
+               |subjectToDisplay: ${subjectToDisplay}
+               |languageToDisplay: ${languageToDisplay}
+               |cueMessage: ${cueMessage}""".trimMargin()
   }
 }
 
+
+
 sealed class Action : com.brianegan.bansa.Action {
+  class DidInitialize() : Action() {
+    override fun toString(): String { return this.javaClass.canonicalName }
+  }
+
+  class DoNeedToRefreshInstructions() : Action() {
+    override fun toString(): String { return this.javaClass.canonicalName }
+  }
+
   class RefreshInstructions(
       val context: Context,
       val appDir: File,
@@ -82,11 +143,8 @@ sealed class Action : com.brianegan.bansa.Action {
     }
   }
 
-  class NavigateBack(val activity: Activity) : Action() {
-    override fun toString(): String {
-      return """${this.javaClass.canonicalName}:
-               |activity: ${activity.javaClass.canonicalName}""".trimMargin()
-    }
+  class NavigateBack() : Action() {
+    override fun toString(): String { return this.javaClass.canonicalName }
   }
 
   class SetLanguage(val language: String) : Action() {
@@ -96,52 +154,142 @@ sealed class Action : com.brianegan.bansa.Action {
     }
   }
 
-  class SetInstruction(val instruction: Instruction) : Action() {
+  class PlayInstruction(val instruction: Instruction) : Action() {
     override fun toString(): String {
       return """${this.javaClass.canonicalName}:
                |instruction: ${instruction}""".trimMargin()
     }
   }
 
-  class ClearInstructionToDisplay() : Action() {
+  class SetInstructionTimings(val instructionAudioDuration: Long) : Action() {
+    override fun toString(): String {
+      return """${this.javaClass.canonicalName}:
+               |instructionAudioDuration: ${instructionAudioDuration}""".trimMargin()
+    }
+  }
+
+  class ClearInstructionLoadingMessage() : Action() {
     override fun toString(): String { return this.javaClass.canonicalName }
   }
 
-  class ClearInstructionToPlay() : Action() {
+  class SetCountDownValue(val countDownValue: Long) : Action() {
+    override fun toString(): String {
+      return """${this.javaClass.canonicalName}:
+               |countDownValue: ${countDownValue}""".trimMargin()
+    }
+  }
+
+  class SetCueMessage(val cueMessage: String) : Action() {
+    override fun toString(): String {
+      return """${this.javaClass.canonicalName}:
+               |cueMessage: ${cueMessage}""".trimMargin()
+    }
+  }
+
+  class ClearCueMessage() : Action() {
     override fun toString(): String { return this.javaClass.canonicalName }
   }
 
-  class PrepareInstructionSequence() : Action() {
+  class AbortInstructionSequence() : Action () {
     override fun toString(): String { return this.javaClass.canonicalName }
   }
 
-  class StartInstructionSequence() : Action() {
-    override fun toString(): String { return this.javaClass.canonicalName }
-  }
-
-  class FinishInstructionSequence() : Action() {
+  class EndInstruction() : Action () {
     override fun toString(): String { return this.javaClass.canonicalName }
   }
 }
 
+
+
 val reducer = Reducer<State> { state, action ->
   when (action) {
+    is Action.DidInitialize ->
+      state.copy(isInitializing = false)
+
+    is Action.DoNeedToRefreshInstructions ->
+        state.copy(needToRefreshInstructions = true)
+
     is Action.RefreshInstructions -> state
+
     is Action.SetInstructionsAndLanguages ->
-      state.copy(canReadInstructionFiles = action.canReadInstructionFiles,
+      state.copy(needToRefreshInstructions = false,
+                 canReadInstructionFiles = action.canReadInstructionFiles,
                  canReadInstructionFilesMessage = action.canReadInstructionFilesMessage,
                  instructions = action.instructions,
                  languages = action.instructions.map { i -> i.language }.toImmutableSet())
-    is Action.NavigateTo -> state.copy(navigationStack = state.navigationStack.push(action.scene))
-    is Action.NavigateBack -> state.copy(navigationStack = state.navigationStack.pop())
-    is Action.SetLanguage -> state.copy(language = action.language)
-    is Action.SetInstruction -> state.copy(instructionToDisplay = action.instruction,
-                                           instructionToPlay = action.instruction)
-    is Action.ClearInstructionToDisplay -> state.copy(instructionToDisplay = null)
-    is Action.ClearInstructionToPlay -> state.copy(instructionToPlay = null)
-    is Action.PrepareInstructionSequence -> state
-    is Action.StartInstructionSequence -> state
-    is Action.FinishInstructionSequence -> state
-    else -> throw IllegalArgumentException("No reducer case has been defined for the action of ${action}")
+
+    is Action.NavigateTo ->
+      state.copy(navigationStack = state.navigationStack.push(action.scene))
+
+    is Action.NavigateBack ->
+      state.copy(navigationStack = state.navigationStack.pop())
+
+    is Action.SetLanguage ->
+      state.copy(language = action.language)
+
+    is Action.PlayInstruction ->
+      state.copy(instructionToPlay = action.instruction,
+                 instructionLoadingMessage = "loading",
+                 subjectToDisplay = action.instruction.subject,
+                 languageToDisplay = action.instruction.language)
+
+    is Action.SetInstructionTimings -> {
+      // 2016-10-05 Cort Spellman
+      // TODO: Check if state.instructionToPlay is an instruction.
+      // Dispatch an action to trigger an error message if not.
+      state.instructionToPlay as Instruction
+      val instructionAudioDuration = action.instructionAudioDuration
+      val cueStartTime = state.instructionToPlay.cueStartTime
+      val countDownDuration = if (cueStartTime > idealCountDownDuration) {
+                                idealCountDownDuration
+                              } else {
+                                (cueStartTime / 1000L) * 1000L
+                              }
+
+      val cueStopTime =
+          if (instructionAudioDuration > cueStartTime + idealCueDuration) {
+            cueStartTime + idealCueDuration
+          }
+          else {
+            instructionAudioDuration
+          }
+
+      state.copy(countDownStartTime = cueStartTime - countDownDuration,
+                 countDownDuration = countDownDuration,
+                 cueStartTime = cueStartTime,
+                 cueStopTime = cueStopTime,
+                 instructionAudioDuration = instructionAudioDuration)
+    }
+
+    is Action.ClearInstructionLoadingMessage ->
+        state.copy(instructionLoadingMessage = null)
+
+    is Action.SetCountDownValue ->
+        state.copy(countDownValue = action.countDownValue)
+
+    is Action.SetCueMessage ->
+      state.copy(countDownValue = null,
+                 cueMessage = action.cueMessage)
+
+    is Action.ClearCueMessage ->
+      state.copy(cueMessage = null)
+
+    is Action.AbortInstructionSequence -> state
+
+    is Action.EndInstruction ->
+      state.copy(instructionToPlay = null,
+                 instructionLoadingMessage = null,
+                 countDownStartTime = 0,
+                 countDownDuration = 0,
+                 countDownValue = null,
+                 cueStartTime = 0,
+                 cueStopTime = 0,
+                 instructionAudioDuration = 0,
+                 subjectToDisplay = null,
+                 languageToDisplay = null,
+                 cueMessage = null)
+
+    else ->
+      throw IllegalArgumentException("No reducer case has been defined for the action of ${action}")
   }
 }
