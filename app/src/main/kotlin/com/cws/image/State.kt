@@ -1,9 +1,7 @@
 package com.cws.image
 
-import android.content.Context
 import com.brianegan.bansa.Reducer
 import com.github.andrewoma.dexx.kollection.*
-import java.io.File
 
 data class Instruction(val subject: String,
                        val language: String,
@@ -60,6 +58,7 @@ data class State(val isInitializing: Boolean,
                  val canReadInstructionFiles: Boolean,
                  val canReadInstructionFilesMessage: String,
                  val instructions: ImmutableSet<Instruction>,
+                 val unparsableInstructions: ImmutableSet<String>,
                  val languages: ImmutableSet<String>,
                  val language: String,
                  val instructionToPlay: Instruction?,
@@ -81,7 +80,9 @@ data class State(val isInitializing: Boolean,
                |canReadInstructionFiles: ${canReadInstructionFiles}
                |canReadInstructionFilesMessage: ${canReadInstructionFilesMessage}
                |instructions: ImmutableSet(
-               |              ${instructions.joinToString(",\n              ")})
+               |        ${instructions.joinToString(",\n              ")})
+               |unparsableInstructions: ImmutableSet(
+               |                  ${unparsableInstructions.joinToString(",\n              ")})
                |languages: ${languages}
                |language: ${language}
                |instructionToPlay: ${instructionToPlay}
@@ -109,30 +110,23 @@ sealed class Action : com.brianegan.bansa.Action {
     override fun toString(): String { return this.javaClass.canonicalName }
   }
 
-  class RefreshInstructions(
-      val context: Context,
-      val appDir: File,
-      val instructionFilesUpdateFn: (ImmutableSet<Instruction>) -> Action.SetInstructionsAndLanguages
-  ) : Action() {
-    override fun toString(): String {
-      return """${this.javaClass.canonicalName}:
-               |context: ${context.javaClass.canonicalName}
-               |appDir: ${appDir.name}
-               |instructionFilesUpdateFn: ${instructionFilesUpdateFn}""".trimMargin()
-    }
+  class RefreshInstructions() : Action() {
+    override fun toString(): String { return this.javaClass.canonicalName }
   }
 
   class SetInstructionsAndLanguages(
       val canReadInstructionFiles: Boolean,
       val canReadInstructionFilesMessage: String,
-      val instructions: ImmutableSet<Instruction>
-  ) : Action() {
+      val instructions: ImmutableSet<Instruction>,
+      val unparsableInstructions: ImmutableSet<String>) : Action() {
     override fun toString(): String {
       return """${this.javaClass.canonicalName}:
                |canReadInstructionFiles: ${canReadInstructionFiles}
                |canReadInstructionFilesMessage: ${canReadInstructionFilesMessage}
                |instructions: ImmutableSet(
-               |              ${instructions.joinToString(",\n              ")})""".trimMargin()
+               |        ${instructions.joinToString(",\n              ")})
+               |unparsableInstructions: ImmutableSet(
+               |                  ${unparsableInstructions.joinToString(",\n              ")})""".trimMargin()
     }
   }
 
@@ -216,6 +210,7 @@ val reducer = Reducer<State> { state, action ->
                  canReadInstructionFiles = action.canReadInstructionFiles,
                  canReadInstructionFilesMessage = action.canReadInstructionFilesMessage,
                  instructions = action.instructions,
+                 unparsableInstructions = action.unparsableInstructions,
                  languages = action.instructions.map { i -> i.language }.toImmutableSet())
 
     is Action.NavigateTo ->

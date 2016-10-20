@@ -19,26 +19,10 @@ import trikita.anvil.DSL.*
 import trikita.anvil.RenderableView
 import trikita.anvil.appcompat.v7.AppCompatv7DSL
 import trikita.anvil.appcompat.v7.AppCompatv7DSL.*
-import java.io.File
 
 class MainActivity : AppCompatActivity() {
-  lateinit var appDir: File
-  lateinit var store: Store<State>
   val PERMISSION_REQUEST_FOR_WRITE_EXTERNAL_STORAGE = 0
-
-  fun requestUserCopyInstructionsToAppDir(packageName: String, appDir: File): (ImmutableSet<Instruction>) -> Action.SetInstructionsAndLanguages {
-    return  { instructions: ImmutableSet<Instruction> ->
-      if (instructions.isEmpty()) {
-        Action.SetInstructionsAndLanguages(canReadInstructionFiles = true,
-                                           canReadInstructionFilesMessage = "No instructions found. We're loading files manually for now so do the following to get started:\n1. Close the app: touch the menu button (square) on the device > either touch the x in the app window's title bar or swipe the app window to the left.\n2. Ensure your instruction sound-files are in .ogg format (or one of the audio formats listed at\nhttps://developer.android.com/guide/appendix/media-formats.html\nthough .ogg is said to play best).\n3. Ensure your instruction audio-files are named <x-ray subject>_<language>_<cue time in milliseconds>.ogg (or appropriate file extension)\n     Ex: chest_english_9000.ogg\nInclude spaces and/or punctuation in the subject or language via URI encoding:\nhttps://en.wikipedia.org/wiki/Percent-encoding\n     Ex: one%20%2f%20two%20%28three%29_english_1000.ogg will be parsed to\n             subject: one / two (three)\n             language: english\n             cue time: 1000\n4. Connect the device to your computer via USB.\n5. Ensure the device is in file transfer mode: Swipe down from the top of the device screen; one of the notifications should say \"USB for charging\" or \"USB for photo transfer\" or \"USB for file transfers\" or something like that. If the current mode isn't \"USB for file transfers\", then touch the notification and then select \"USB for file transfers\".\n6. Open the device in your file explorer (e.g., Windows Explorer on Windows, Finder on Mac, etc.) and copy the instructions to <device>/InternalStorage/${packageName}.\n7. Re-launch the app.\nIf this procedure doesn't result in the main app-screen displaying languages and x-ray subjects that can be touched to play their respective instruction files, then call me: 979-436-2192.",
-                                           instructions = immutableSetOf())
-      } else {
-        Action.SetInstructionsAndLanguages(canReadInstructionFiles = true,
-                                           canReadInstructionFilesMessage = "Found instructions in ${appDir.absolutePath}.",
-                                           instructions = instructions)
-      }
-    }
-  }
+  lateinit var store: Store<State>
 
   fun requestWriteExternalStoragePermission() {
     ActivityCompat.requestPermissions(this,
@@ -47,16 +31,11 @@ class MainActivity : AppCompatActivity() {
   }
 
   fun refreshInstructions() {
-    store.dispatch(
-        Action.RefreshInstructions(
-            this,
-            appDir,
-            requestUserCopyInstructionsToAppDir(packageName, appDir)))
+    store.dispatch(Action.RefreshInstructions())
   }
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
-    appDir = (application as App).appDir
     store = (application as App).store
 
     if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
@@ -79,7 +58,8 @@ class MainActivity : AppCompatActivity() {
           refreshInstructions()
         }
         setContentView(RootView(this))
-      } else {
+      }
+      else {
         requestWriteExternalStoragePermission()
       }
 
@@ -180,13 +160,51 @@ fun viewSubjects(dispatch: (com.brianegan.bansa.Action) -> State,
   }
 }
 
+fun viewUnparsableSubject(dispatch: (com.brianegan.bansa.Action) -> State,
+                          unparsableInstruction: String) {
+  appCompatTextView {
+    size(FILL, WRAP)
+    text(unparsableInstruction)
+    margin(dip(0), dip(16))
+    textColor(android.graphics.Color.RED)
+  }
+}
+
+fun viewUnparsableSubjects(dispatch: (com.brianegan.bansa.Action) -> State,
+                           unparsableInstructions: ImmutableSet<String>) {
+  scrollView {
+    size(FILL, dip(100))
+    weight(1f)
+    linearLayoutCompat {
+      size(FILL, WRAP)
+      AppCompatv7DSL.orientation(LinearLayoutCompat.VERTICAL)
+      backgroundColor(android.graphics.Color.argb(0, 32, 0, 255))
+      appCompatTextView {
+        size(FILL, WRAP)
+        text("The following instruction files could not be read:")
+        margin(dip(0), dip(0))
+        textColor(android.graphics.Color.RED)
+      }
+      unparsableInstructions.map { u -> viewUnparsableSubject(dispatch, u) }
+    }
+  }
+}
+
 fun viewMainSuccess(c: Context, store: Store<State>) {
   val dispatch = { x: com.brianegan.bansa.Action -> store.dispatch(x) }
 
   if (store.state.instructions.isEmpty()) {
-    appCompatTextView {
-      text(store.state.canReadInstructionFilesMessage)
-      textColor(android.graphics.Color.BLACK)
+    linearLayoutCompat {
+      size(FILL, WRAP)
+      AppCompatv7DSL.orientation(LinearLayoutCompat.VERTICAL)
+      appCompatTextView {
+        text(store.state.canReadInstructionFilesMessage)
+        textColor(android.graphics.Color.BLACK)
+      }
+      appCompatTextView {
+        text("We're loading files manually for now so do the following to get started:\n1. Close the app: touch the menu button (square) on the device > either touch the x in the app window's title bar or swipe the app window to the left.\n2. Ensure your instruction sound-files are in .ogg format (or one of the audio formats listed at\nhttps://developer.android.com/guide/appendix/media-formats.html\nthough .ogg is said to play best).\n3. Ensure your instruction audio-files are named <x-ray subject>_<language>_<cue time in milliseconds>.ogg (or appropriate file extension)\n     Ex: chest_english_9000.ogg\nInclude spaces and/or punctuation in the subject or language via URI encoding:\nhttps://en.wikipedia.org/wiki/Percent-encoding\n     Ex: one%20%2f%20two%20%28three%29_english_1000.ogg will be parsed to\n             subject: one / two (three)\n             language: english\n             cue time: 1000\n4. Connect the device to your computer via USB.\n5. Ensure the device is in file transfer mode: Swipe down from the top of the device screen; one of the notifications should say \"USB for charging\" or \"USB for photo transfer\" or \"USB for file transfers\" or something like that. If the current mode isn't \"USB for file transfers\", then touch the notification and then select \"USB for file transfers\".\n6. Open the device in your file explorer (e.g., Windows Explorer on Windows, Finder on Mac, etc.) and copy the instructions to <device>/InternalStorage/${c.packageName}.\n7. Re-launch the app.\nIf this procedure doesn't result in the main app-screen displaying languages and x-ray subjects that can be touched to play their respective instruction files, then call me: 979-436-2192.")
+        textColor(android.graphics.Color.BLACK)
+      }
     }
   }
   else {
@@ -198,6 +216,8 @@ fun viewMainSuccess(c: Context, store: Store<State>) {
                    store.state.instructions.filter { i ->
                      i.language == store.state.language
                    }.toImmutableSet())
+      viewUnparsableSubjects(dispatch,
+                             store.state.unparsableInstructions)
     }
   }
 }
@@ -280,15 +300,15 @@ class RootView : RenderableView {
   }
 
   override fun view() {
-    // 2016-09-21 Cort Spellman
-    // Bind the result of the when expression in order to force the compiler to
-    // check for exhaustiveness.
-    // Be on the lookout for sealed whens in Kotlin, which always check for
-    // exhaustiveness.
     if (store.state.isInitializing) {
       viewInitializing()
     }
     else {
+      // 2016-09-21 Cort Spellman
+      // Bind the result of the when expression in order to force the compiler to
+      // check for exhaustiveness.
+      // Be on the lookout for sealed whens in Kotlin, which always check for
+      // exhaustiveness.
       val x = when (store.state.navigationStack.peek()) {
         is Scene.Main -> viewMain(c, store)
         is Scene.Instruction -> viewInstruction(store)

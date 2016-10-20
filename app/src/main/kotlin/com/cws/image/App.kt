@@ -1,7 +1,6 @@
 package com.cws.image
 
 import android.app.Application
-import android.os.Environment
 import com.brianegan.bansa.BaseStore
 import com.brianegan.bansa.Store
 //import com.facebook.stetho.Stetho
@@ -14,7 +13,7 @@ import java.io.File
 //val languages = immutableSetOf("english",
 //                               "spanish")
 //
-//val instructions =
+//val parsedInstructions =
 //    immutableSetOf(
 //        Instruction(subject = "chest",
 //                    language = "english",
@@ -38,7 +37,6 @@ val idealCountDownDuration: Long = 5000L
 val idealCueDuration: Long = 3000L
 
 class App : Application() {
-  lateinit var appDir: File
   lateinit var store: Store<State>
 
   // 2016-10-12 Cort Spellman
@@ -56,10 +54,11 @@ class App : Application() {
           navigationStack = NavigationStack(immutableListOf(Scene.Main())),
           needToRefreshInstructions = true,
           canReadInstructionFiles = false,
-          canReadInstructionFilesMessage = "Initially assume instructions dir is not readable because it hasn't been checked for readability.",
+          canReadInstructionFilesMessage = "Initially assume parsedInstructions dir is not readable because it hasn't been checked for readability.",
           instructions = immutableSetOf(),
+          unparsableInstructions = immutableSetOf(),
           languages = immutableSetOf(),
-          language = "english", // Should be the language for the current system locale. (What if there are no instructions in the system language? Show a msg whenever there are no visible instructions, including then.),
+          language = "english", // Should be the language for the current system locale. (What if there are no parsedInstructions in the system language? Show a msg whenever there are no visible parsedInstructions, including then.),
           instructionToPlay = null,
           instructionLoadingMessage = null,
           countDownStartTime = 0,
@@ -75,11 +74,10 @@ class App : Application() {
 
   override fun onCreate() {
     super.onCreate()
-    appDir = File(Environment.getExternalStorageDirectory(), packageName)
     store = BaseStore(initialState,
                       reducer,
                       Logger("Image"),
-                      instructionFiles,
+                      InstructionFiles(this),
                       InstructionsSequenceMiddleware())
 
     LeakCanary.install(this)
