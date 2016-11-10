@@ -132,6 +132,21 @@ fun viewLanguages(dispatch: (com.brianegan.bansa.Action) -> State,
   }
 }
 
+fun viewNoSubjects (message: String, storageDirPath: String) {
+  linearLayoutCompat {
+    size(FILL, WRAP)
+    AppCompatv7DSL.orientation(LinearLayoutCompat.VERTICAL)
+    appCompatTextView {
+      text(message)
+      textColor(android.graphics.Color.BLACK)
+    }
+    appCompatTextView {
+      text("We're loading files manually for now so do the following to get started:\n1. Close the app: touch the menu button (square) on the device > either touch the x in the app window's title bar or swipe the app window to the left.\n2. Ensure your instruction sound-files are in .ogg format (or one of the audio formats listed at\nhttps://developer.android.com/guide/appendix/media-formats.html\nthough .ogg is said to play best).\n3. Ensure your instruction audio-files are named <x-ray subject>_<language>_<cue time in milliseconds>.ogg (or appropriate file extension)\n     Ex: chest_english_9000.ogg\nInclude spaces and/or punctuation in the subject or language via URI encoding:\nhttps://en.wikipedia.org/wiki/Percent-encoding\n     Ex: one%20%2f%20two%20%28three%29_english_1000.ogg will be parsed to\n             subject: one / two (three)\n             language: english\n             cue time: 1000\n4. Connect the device to your computer via USB.\n5. Ensure the device is in file transfer mode: Swipe down from the top of the device screen; one of the notifications should say \"USB for charging\" or \"USB for photo transfer\" or \"USB for file transfers\" or something like that. If the current mode isn't \"USB for file transfers\", then touch the notification and then select \"USB for file transfers\".\n6. Open the device in your file explorer (e.g., Windows Explorer on Windows, Finder on Mac, etc.) and copy the instructions to ${storageDirPath}.\n7. Re-launch the app.\nIf this procedure doesn't result in the main app-screen displaying languages and x-ray subjects that can be touched to play their respective instruction files, then call me: 979-436-2192.")
+      textColor(android.graphics.Color.BLACK)
+    }
+  }
+}
+
 fun viewSubject(dispatch: (com.brianegan.bansa.Action) -> State,
                 instruction: Instruction) {
   appCompatTextView {
@@ -160,20 +175,28 @@ fun viewSubjects(dispatch: (com.brianegan.bansa.Action) -> State,
   }
 }
 
-fun viewUnparsableSubject(dispatch: (com.brianegan.bansa.Action) -> State,
-                          unparsableInstruction: String) {
+fun failureMessage(unparsableInstruction: UnparsableInstruction): String {
+  return when (unparsableInstruction.failure) {
+    is InstructionParsingFailure.FileNameFormatFailure ->
+      "${unparsableInstruction.fileName}: Not of the format <x-ray subject>_<language>_<cue time in milliseconds>.ogg (or appropriate file extension)."
+
+    is InstructionParsingFailure.CueTimeFailure ->
+      "${unparsableInstruction.fileName}: Segment following the second underscore, which needs to be the cue time in milliseconds, cannot be parsed to a number."
+  }
+}
+
+fun viewUnparsableSubject(unparsableInstruction: UnparsableInstruction) {
   appCompatTextView {
     size(FILL, WRAP)
-    text(unparsableInstruction)
-    margin(dip(0), dip(16))
+    text(failureMessage(unparsableInstruction))
+    margin(dip(0), dip(0), dip(0), dip(8))
     textColor(android.graphics.Color.RED)
   }
 }
 
-fun viewUnparsableSubjects(dispatch: (com.brianegan.bansa.Action) -> State,
-                           unparsableInstructions: ImmutableSet<String>) {
+fun viewUnparsableSubjects(unparsableInstructions: ImmutableSet<UnparsableInstruction>) {
   scrollView {
-    size(FILL, dip(100))
+    size(FILL, dip(200))
     weight(1f)
     linearLayoutCompat {
       size(FILL, WRAP)
@@ -185,39 +208,42 @@ fun viewUnparsableSubjects(dispatch: (com.brianegan.bansa.Action) -> State,
         margin(dip(0), dip(0))
         textColor(android.graphics.Color.RED)
       }
-      unparsableInstructions.map { u -> viewUnparsableSubject(dispatch, u) }
+
+      unparsableInstructions.map { u -> viewUnparsableSubject(u) }
+
+      appCompatTextView {
+        size(FILL, WRAP)
+        text("Ensure the instruction audio-files are named <x-ray subject>_<language>_<cue time in milliseconds>.ogg (or appropriate file extension)\n     Ex: chest_english_9000.ogg\nInclude spaces and/or punctuation in the subject or language via URI encoding:\nhttps://en.wikipedia.org/wiki/Percent-encoding\n     Ex: one%20%2f%20two%20%28three%29_english_1000.ogg will be parsed to\n             subject: one / two (three)\n             language: english\n             cue time: 1000")
+        margin(dip(0), dip(10), dip(0), dip(0))
+        textColor(android.graphics.Color.RED)
+      }
     }
   }
 }
 
-fun viewMainSuccess(c: Context, store: Store<State>) {
-  val dispatch = { x: com.brianegan.bansa.Action -> store.dispatch(x) }
 
-  if (store.state.instructions.isEmpty()) {
-    linearLayoutCompat {
-      size(FILL, WRAP)
-      AppCompatv7DSL.orientation(LinearLayoutCompat.VERTICAL)
-      appCompatTextView {
-        text(store.state.canReadInstructionFilesMessage)
-        textColor(android.graphics.Color.BLACK)
-      }
-      appCompatTextView {
-        text("We're loading files manually for now so do the following to get started:\n1. Close the app: touch the menu button (square) on the device > either touch the x in the app window's title bar or swipe the app window to the left.\n2. Ensure your instruction sound-files are in .ogg format (or one of the audio formats listed at\nhttps://developer.android.com/guide/appendix/media-formats.html\nthough .ogg is said to play best).\n3. Ensure your instruction audio-files are named <x-ray subject>_<language>_<cue time in milliseconds>.ogg (or appropriate file extension)\n     Ex: chest_english_9000.ogg\nInclude spaces and/or punctuation in the subject or language via URI encoding:\nhttps://en.wikipedia.org/wiki/Percent-encoding\n     Ex: one%20%2f%20two%20%28three%29_english_1000.ogg will be parsed to\n             subject: one / two (three)\n             language: english\n             cue time: 1000\n4. Connect the device to your computer via USB.\n5. Ensure the device is in file transfer mode: Swipe down from the top of the device screen; one of the notifications should say \"USB for charging\" or \"USB for photo transfer\" or \"USB for file transfers\" or something like that. If the current mode isn't \"USB for file transfers\", then touch the notification and then select \"USB for file transfers\".\n6. Open the device in your file explorer (e.g., Windows Explorer on Windows, Finder on Mac, etc.) and copy the instructions to <device>/InternalStorage/${c.packageName}.\n7. Re-launch the app.\nIf this procedure doesn't result in the main app-screen displaying languages and x-ray subjects that can be touched to play their respective instruction files, then call me: 979-436-2192.")
-        textColor(android.graphics.Color.BLACK)
-      }
+
+fun viewMainSuccess(c: Context, store: Store<State>) {
+  linearLayoutCompat {
+    size(FILL, WRAP)
+    AppCompatv7DSL.orientation(LinearLayoutCompat.VERTICAL)
+    if (store.state.instructions.isEmpty()) {
+      viewNoSubjects(store.state.canReadInstructionFilesMessage,
+                     "<device>/InternalStorage/${c.packageName}")
+
     }
-  }
-  else {
-    linearLayoutCompat {
-      size(FILL, WRAP)
-      AppCompatv7DSL.orientation(LinearLayoutCompat.VERTICAL)
+    else {
+      val dispatch = { x: com.brianegan.bansa.Action -> store.dispatch(x) }
+
       viewLanguages(dispatch, c, store.state.languages)
       viewSubjects(dispatch,
                    store.state.instructions.filter { i ->
                      i.language == store.state.language
                    }.toImmutableSet())
-      viewUnparsableSubjects(dispatch,
-                             store.state.unparsableInstructions)
+    }
+
+    if (store.state.unparsableInstructions.isNotEmpty()) {
+      viewUnparsableSubjects(store.state.unparsableInstructions)
     }
   }
 }

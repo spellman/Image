@@ -44,11 +44,19 @@ sealed class Result<out A, out B> {
   }
 }
 
+sealed class InstructionParsingFailure {
+  class FileNameFormatFailure() : InstructionParsingFailure()
+  class CueTimeFailure() : InstructionParsingFailure()
+}
+
+data class UnparsableInstruction(val fileName: String,
+                                 val failure: InstructionParsingFailure)
+
 data class GetInstructionsPartialResult(
                val storageDir: File,
                var tokenFile: File,
                var parsedInstructions: ImmutableSet<Instruction>,
-               var parseFailures: ImmutableSet<String>)
+               var parseFailures: ImmutableSet<UnparsableInstruction>)
 
 class InstructionFiles(val context: Context) : Middleware<State> {
   fun isExternalStorageWritable(): Boolean {
@@ -60,10 +68,10 @@ class InstructionFiles(val context: Context) : Middleware<State> {
     val s = Environment.getExternalStorageState()
     return immutableSetOf(Environment.MEDIA_MOUNTED,
                           Environment.MEDIA_MOUNTED_READ_ONLY
-                          ).contains(s)
+                         ).contains(s)
   }
 
-  fun fileToInstruction(file: File): Result<String, Instruction> {
+  fun fileToInstruction(file: File): Result<UnparsableInstruction, Instruction> {
     Log.d("fileToInstruction", "Instructions file to parse: ${file.absolutePath}")
     return try {
       val (subject, language, cueTime) =
@@ -82,203 +90,121 @@ class InstructionFiles(val context: Context) : Middleware<State> {
     }
     catch (e: IndexOutOfBoundsException) {
       Log.e("parse failure", e.toString())
-      Result.Err("Instruction file name ${file.name} cannot be interpreted because it is not of the format <x-ray subject>_<language>_<cue time in milliseconds>.ogg (or appropriate file extension)\n     Ex: chest_english_9000.ogg\nInclude spaces and/or punctuation in the subject or language via URI encoding:\nhttps://en.wikipedia.org/wiki/Percent-encoding\n     Ex: one%20%2f%20two%20%28three%29_english_1000.ogg will be parsed to\n             subject: one / two (three)\n             language: english\n             cue time: 1000")
+      Result.Err(
+          UnparsableInstruction(file.name,
+                                InstructionParsingFailure.FileNameFormatFailure()))
     }
     catch (e: NumberFormatException) {
       e.printStackTrace()
       Log.e("parse failure", e.toString())
-      Result.Err("Instruction file name ${file.name} cannot be interpreted because the segment following the second underscore, which needs to be the cue time in milliseconds, cannot be parsed to a number.\nEnsure your instruction audio-files are named <x-ray subject>_<language>_<cue time in milliseconds>.ogg (or appropriate file extension)\n     Ex: chest_english_9000.ogg\nInclude spaces and/or punctuation in the subject or language via URI encoding:\nhttps://en.wikipedia.org/wiki/Percent-encoding\n     Ex: one%20%2f%20two%20%28three%29_english_1000.ogg will be parsed to\n             subject: one / two (three)\n             language: english\n             cue time: 1000")
+      Result.Err(
+          UnparsableInstruction(file.name,
+                                InstructionParsingFailure.CueTimeFailure()))
     }
   }
 
-  val getStorageDir: (String) -> Observable<Result<Action, File>> = { packageName ->
+  val getStorageDir: (String) -> Observable<File> = { packageName ->
     if (!isExternalStorageReadable()) {
       throw IOException("External storage is not readable.")
-//      Observable.just<Result<Action, File>>(
-//          Result.Err(
-//              Action.SetInstructionsAndLanguages(
-//                  canReadInstructionFiles = false,
-//                  canReadInstructionFilesMessage = "External storage is not readable.",
-//                  parsedInstructions = immutableSetOf())))
 
     }
     else {
       val rootDir = Environment.getExternalStorageDirectory()
       if (!rootDir.isDirectory) {
         throw IOException("External storage is not readable.")
-//        Observable.just<Result<Action, File>>(
-//            Result.Err(
-//                Action.SetInstructionsAndLanguages(
-//                    canReadInstructionFiles = false,
-//                    canReadInstructionFilesMessage = "External storage is not readable.",
-//                    parsedInstructions = immutableSetOf())))
       }
       else {
         val storageDir = File(rootDir, packageName)
         if (!storageDir.isDirectory) {
           if (!isExternalStorageWritable()) {
             throw IOException("There is no directory at instructions-directory path, ${storageDir.absolutePath} and it can't be created because external storage is not writable.")
-//            Observable.just<Result<Action, File>>(
-//                Result.Err(
-//                    Action.SetInstructionsAndLanguages(
-//                        canReadInstructionFiles = false,
-//                        canReadInstructionFilesMessage = "There is no directory at instructions-directory path, ${storageDir.absolutePath} and it can't be created because external storage is not writable.",
-//                        parsedInstructions = immutableSetOf())))
 
           }
           else {
             if (!storageDir.mkdirs()) {
               throw IOException("Could not create directory ${storageDir.absolutePath}, even though external storage is writable.")
-//              Observable.just<Result<Action, File>>(
-//                  Result.Err(
-//                      Action.SetInstructionsAndLanguages(
-//                          canReadInstructionFiles = false,
-//                          canReadInstructionFilesMessage = "Could not create directory ${storageDir.absolutePath}, even though external storage is writable.",
-//                          parsedInstructions = immutableSetOf())))
             }
             else {
-              Observable.just<Result<Action, File>>(Result.Ok(storageDir))
+              Observable.just<File>(storageDir)
             }
           }
         }
         else {
-          Observable.just<Result<Action, File>>(Result.Ok(storageDir))
+          Observable.just<File>(storageDir)
         }
       }
     }
   }
 
-  val ensureTokenFileExists: (Result<Action, File>) -> Observable<Result<Action, GetInstructionsPartialResult>> = { res ->
-    when (res) {
-      is Result.Err -> Observable.just<Result<Action, GetInstructionsPartialResult>>(
-                           Result.Err(res.errValue))
+  val ensureTokenFileExists: (File) -> Observable<GetInstructionsPartialResult> = { storageDir ->
+    val tokenFileName = ".tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb"
+    val tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb =
+        File(storageDir, tokenFileName)
 
-      is Result.Ok -> {
-        val storageDir = res.okValue
-        val tokenFileName = ".tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb"
-        val tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb =
-            File(storageDir, tokenFileName)
-
-        if (!tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb.isFile) {
-          if (!isExternalStorageWritable()) {
-            throw IOException("There is no token file in the instructions directory, ${storageDir.absolutePath} and it can't be created because external storage is not writable.")
-//            Observable.just<Result<Action, GetInstructionsPartialResult>>(
-//                Result.Err(
-//                    Action.SetInstructionsAndLanguages(
-//                        canReadInstructionFiles = false,
-//                        canReadInstructionFilesMessage = "There is no token file in the instructions directory, ${storageDir.absolutePath} and it can't be created because external storage is not writable.",
-//                        parsedInstructions = immutableSetOf())))
-          }
-          else {
-            if (!tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb.createNewFile()) {
-              throw IOException("Could not create file ${tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb.absolutePath}, even though external storage is writable.")
-//              Observable.just<Result<Action, GetInstructionsPartialResult>>(
-//                  Result.Err(
-//                      Action.SetInstructionsAndLanguages(
-//                          canReadInstructionFiles = false,
-//                          canReadInstructionFilesMessage = "Could not create file ${tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb.absolutePath}, even though external storage is writable.",
-//                          parsedInstructions = immutableSetOf())))
-            }
-            else {
-              Log.d("ExternalStorage",
-                    "Created file ${tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb.absolutePath} (to make directory appear when device is mounted via USB).")
-              Observable.create<Result<Action, GetInstructionsPartialResult>> { emitter ->
-                MediaScannerConnection.scanFile(
-                    context,
-                    arrayOf(tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb.toString()),
-                    null,
-                    { path, uri ->
-                      if (uri is Uri) {
-                        Log.d("ExternalStorage", "Scanned ${path}:")
-                        Log.d("ExternalStorage", "-> uri=${uri}")
-                        emitter.onNext(
-                            Result.Ok(
-                                GetInstructionsPartialResult(
-                                    storageDir = res.okValue,
-                                    tokenFile = tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb,
-                                    parsedInstructions = immutableSetOf(),
-                                    parseFailures = immutableSetOf())))
-                      }
-                      else {
-                        emitter.onError(IOException("A token file, ${tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb.absolutePath}, was created but scanning it failed."))
-//                        emitter.onNext(
-//                            Result.Err(
-//                                Action.SetInstructionsAndLanguages(
-//                                    canReadInstructionFiles = false,
-//                                    canReadInstructionFilesMessage = "A token file, ${tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb.absolutePath}, was created but scanning it failed.",
-//                                    parsedInstructions = immutableSetOf())))
-                      }
-                    })
-              }
-            }
-          }
+    if (!tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb.isFile) {
+      if (!isExternalStorageWritable()) {
+        throw IOException("There is no token file in the instructions directory, ${storageDir.absolutePath} and it can't be created because external storage is not writable.")
+      }
+      else {
+        if (!tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb.createNewFile()) {
+          throw IOException("Could not create file ${tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb.absolutePath}, even though external storage is writable.")
         }
         else {
-          Observable.just<Result<Action, GetInstructionsPartialResult>>(
-              Result.Ok(
-                  GetInstructionsPartialResult(
-                      storageDir = res.okValue,
-                      tokenFile = tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb,
-                      parsedInstructions = immutableSetOf(),
-                      parseFailures = immutableSetOf())))
-        }
-      }
-    }
-  }
-
-  val readInstructionsFromStorage: (Result<Action, GetInstructionsPartialResult>) -> Observable<Result<Action, GetInstructionsPartialResult>> = { res ->
-    when (res) {
-      is Result.Err -> Observable.just<Result<Action, GetInstructionsPartialResult>>(
-                         Result.Err(res.errValue))
-
-      is Result.Ok -> {
-        val storageDir = res.okValue.storageDir
-        val filesToSkip = immutableSetOf(res.okValue.tokenFile)
-
-        storageDir.listFiles().forEach { file ->
-          Log.d("storageDir file", file.absolutePath) }
-
-        val parseResults: List<Result<String, Instruction>> =
-            storageDir.listFiles()
-                .filter { file -> !filesToSkip.contains(file) }
-                .map { file -> fileToInstruction(file) }
-
-        Observable.just<Result<Action, GetInstructionsPartialResult>>(
-            Result.Ok(
-                res.okValue.copy(
-                    parsedInstructions =
-                        parseResults.filterIsInstance<Result.Ok<String, Instruction>>()
-                            .map { x -> x.okValue }.toImmutableSet(),
-                    parseFailures =
-                        parseResults.filterIsInstance<Result.Err<String, Instruction>>()
-                            .map { x -> x.errValue }.toImmutableSet())))
-      }
-    }
-  }
-
-  val ensureFilesAreUpToDate: (Result<Action, GetInstructionsPartialResult>) -> Observable<Action> = { res ->
-    when (res) {
-      is Result.Err -> Observable.just<Action>(res.errValue)
-
-      is Result.Ok -> {
-        val parsedInstructions = res.okValue.parsedInstructions
-        val parseFailures = res.okValue.parseFailures
-
-        val msg = if (parsedInstructions.isEmpty()) {
-                    "No instructions found in ${res.okValue.storageDir.absolutePath}."
+          Log.d("ExternalStorage",
+                "Created file ${tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb.absolutePath} (to make directory appear when device is mounted via USB).")
+          Observable.create<GetInstructionsPartialResult> { emitter ->
+            MediaScannerConnection.scanFile(
+                context,
+                arrayOf(tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb.toString()),
+                null,
+                { path, uri ->
+                  if (uri is Uri) {
+                    Log.d("ExternalStorage", "Scanned ${path}:")
+                    Log.d("ExternalStorage", "-> uri=${uri}")
+                    emitter.onNext(
+                        GetInstructionsPartialResult(
+                            storageDir = storageDir,
+                            tokenFile = tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb,
+                            parsedInstructions = immutableSetOf(),
+                            parseFailures = immutableSetOf()))
                   }
                   else {
-                    "Read instructions from ${res.okValue.storageDir.absolutePath}."
+                    emitter.onError(IOException("A token file, ${tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb.absolutePath}, was created but scanning it failed."))
                   }
-
-        Observable.just<Action>(
-            Action.SetInstructionsAndLanguages(
-                canReadInstructionFiles = true,
-                canReadInstructionFilesMessage = msg,
-                instructions = parsedInstructions,
-                unparsableInstructions = parseFailures))
+                })
+          }
+        }
       }
     }
+    else {
+      Observable.just<GetInstructionsPartialResult>(
+          GetInstructionsPartialResult(
+              storageDir = storageDir,
+              tokenFile = tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb,
+              parsedInstructions = immutableSetOf(),
+              parseFailures = immutableSetOf()))
+    }
+  }
+
+  val readInstructionsFromStorage: (GetInstructionsPartialResult) -> GetInstructionsPartialResult = { r ->
+    val storageDir = r.storageDir
+    val filesToSkip = immutableSetOf(r.tokenFile)
+
+    storageDir.listFiles().forEach { file ->
+      Log.d("storageDir file", file.absolutePath) }
+
+    val parseResults: List<Result<UnparsableInstruction, Instruction>> =
+        storageDir.listFiles()
+            .filter { file -> !filesToSkip.contains(file) }
+            .map { file -> fileToInstruction(file) }
+
+    r.copy(
+        parsedInstructions =
+        parseResults.filterIsInstance<Result.Ok<String, Instruction>>()
+            .map { x -> x.okValue }.toImmutableSet(),
+        parseFailures =
+        parseResults.filterIsInstance<Result.Err<UnparsableInstruction, Instruction>>()
+            .map { x -> x.errValue }.toImmutableSet())
   }
 
   fun refreshInstructions(store: Store<State>) {
@@ -288,7 +214,7 @@ class InstructionFiles(val context: Context) : Middleware<State> {
       store.dispatch(
           Action.SetInstructionsAndLanguages(
               canReadInstructionFiles = false,
-              canReadInstructionFilesMessage = "Permission to write to external storage is required and not granted.",
+              canReadInstructionFilesMessage = "Permission to write to external storage is required and has not been granted.",
               instructions = immutableSetOf(),
               unparsableInstructions = immutableSetOf()))
     }
@@ -296,10 +222,15 @@ class InstructionFiles(val context: Context) : Middleware<State> {
       getStorageDir(context.packageName)
           .flatMap(ensureTokenFileExists)
           .retry(5)
-          .flatMap(readInstructionsFromStorage)
-          .flatMap(ensureFilesAreUpToDate)
+          .map(readInstructionsFromStorage)
           .subscribe(
-              { action -> store.dispatch(action) },
+              { r ->
+                store.dispatch(
+                    Action.SetInstructionsAndLanguages(
+                        canReadInstructionFiles = true,
+                        canReadInstructionFilesMessage = "Read instructions from ${r.storageDir.absolutePath}.",
+                        instructions = r.parsedInstructions,
+                        unparsableInstructions = r.parseFailures)) },
               { err ->
                   store.dispatch(
                       Action.SetInstructionsAndLanguages(

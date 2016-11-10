@@ -58,7 +58,7 @@ data class State(val isInitializing: Boolean,
                  val canReadInstructionFiles: Boolean,
                  val canReadInstructionFilesMessage: String,
                  val instructions: ImmutableSet<Instruction>,
-                 val unparsableInstructions: ImmutableSet<String>,
+                 val unparsableInstructions: ImmutableSet<UnparsableInstruction>,
                  val languages: ImmutableSet<String>,
                  val language: String,
                  val instructionToPlay: Instruction?,
@@ -80,9 +80,9 @@ data class State(val isInitializing: Boolean,
                |canReadInstructionFiles: ${canReadInstructionFiles}
                |canReadInstructionFilesMessage: ${canReadInstructionFilesMessage}
                |instructions: ImmutableSet(
-               |        ${instructions.joinToString(",\n              ")})
+               |                ${instructions.joinToString(",\n                ")})
                |unparsableInstructions: ImmutableSet(
-               |                  ${unparsableInstructions.joinToString(",\n              ")})
+               |                          ${unparsableInstructions.joinToString(",\n                          ")})
                |languages: ${languages}
                |language: ${language}
                |instructionToPlay: ${instructionToPlay}
@@ -118,7 +118,7 @@ sealed class Action : com.brianegan.bansa.Action {
       val canReadInstructionFiles: Boolean,
       val canReadInstructionFilesMessage: String,
       val instructions: ImmutableSet<Instruction>,
-      val unparsableInstructions: ImmutableSet<String>) : Action() {
+      val unparsableInstructions: ImmutableSet<UnparsableInstruction>) : Action() {
     override fun toString(): String {
       return """${this.javaClass.canonicalName}:
                |canReadInstructionFiles: ${canReadInstructionFiles}
