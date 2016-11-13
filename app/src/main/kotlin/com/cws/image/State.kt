@@ -5,16 +5,16 @@ import com.github.andrewoma.dexx.kollection.*
 
 data class Instruction(val subject: String,
                        val language: String,
-                       val path: String,
+                       val absolutePath: String,
                        val cueStartTime: Long)
 
 sealed class Scene {
   class Main() : Scene() {
-    override fun toString(): String { return this.javaClass.canonicalName.split(".").last() }
+    override fun toString(): String { return this.javaClass.simpleName }
   }
 
   class Instruction() : Scene() {
-    override fun toString(): String { return this.javaClass.canonicalName.split(".").last() }
+    override fun toString(): String { return this.javaClass.simpleName }
   }
 }
 
@@ -61,7 +61,6 @@ data class State(val isInitializing: Boolean,
                  val unparsableInstructions: ImmutableSet<UnparsableInstruction>,
                  val languages: ImmutableSet<String>,
                  val language: String,
-                 val instructionToPlay: Instruction?,
                  val instructionLoadingMessage: String?,
                  val countDownStartTime: Long,
                  val countDownDuration: Long,
@@ -85,7 +84,6 @@ data class State(val isInitializing: Boolean,
                |                          ${unparsableInstructions.joinToString(",\n                          ")})
                |languages: ${languages}
                |language: ${language}
-               |instructionToPlay: ${instructionToPlay}
                |instructionLoadingMessage: ${instructionLoadingMessage}
                |countDownStartTime: ${countDownStartTime}
                |countDownDuration: ${countDownDuration}
@@ -155,9 +153,18 @@ sealed class Action : com.brianegan.bansa.Action {
     }
   }
 
-  class SetInstructionTimings(val instructionAudioDuration: Long) : Action() {
+  class CouldNotPlayInstruction(val instruction: Instruction) : Action() {
     override fun toString(): String {
       return """${this.javaClass.canonicalName}:
+               |instruction: ${instruction}""".trimMargin()
+    }
+  }
+
+  class SetInstructionTimings(val cueStartTime: Long,
+                              val instructionAudioDuration: Long) : Action() {
+    override fun toString(): String {
+      return """${this.javaClass.canonicalName}:
+               |cueStartTime: ${cueStartTime}
                |instructionAudioDuration: ${instructionAudioDuration}""".trimMargin()
     }
   }
@@ -184,10 +191,6 @@ sealed class Action : com.brianegan.bansa.Action {
     override fun toString(): String { return this.javaClass.canonicalName }
   }
 
-  class AbortInstructionSequence() : Action () {
-    override fun toString(): String { return this.javaClass.canonicalName }
-  }
-
   class EndInstruction() : Action () {
     override fun toString(): String { return this.javaClass.canonicalName }
   }
@@ -201,7 +204,7 @@ val reducer = Reducer<State> { state, action ->
       state.copy(isInitializing = false)
 
     is Action.DoNeedToRefreshInstructions ->
-        state.copy(needToRefreshInstructions = true)
+      state.copy(needToRefreshInstructions = true)
 
     is Action.RefreshInstructions -> state
 
@@ -223,23 +226,21 @@ val reducer = Reducer<State> { state, action ->
       state.copy(language = action.language)
 
     is Action.PlayInstruction ->
-      state.copy(instructionToPlay = action.instruction,
-                 instructionLoadingMessage = "loading",
+      state.copy(instructionLoadingMessage = "loading",
                  subjectToDisplay = action.instruction.subject,
                  languageToDisplay = action.instruction.language)
 
+    is Action.CouldNotPlayInstruction -> state
+
     is Action.SetInstructionTimings -> {
-      // 2016-10-05 Cort Spellman
-      // TODO: Check if state.instructionToPlay is an instruction.
-      // Dispatch an action to trigger an error message if not.
-      state.instructionToPlay as Instruction
       val instructionAudioDuration = action.instructionAudioDuration
-      val cueStartTime = state.instructionToPlay.cueStartTime
+      val cueStartTime = action.cueStartTime
       val countDownDuration = if (cueStartTime > idealCountDownDuration) {
-                                idealCountDownDuration
-                              } else {
-                                (cueStartTime / 1000L) * 1000L
-                              }
+        idealCountDownDuration
+      }
+      else {
+        (cueStartTime / 1000L) * 1000L
+      }
 
       val cueStopTime =
           if (instructionAudioDuration > cueStartTime + idealCueDuration) {
@@ -257,10 +258,10 @@ val reducer = Reducer<State> { state, action ->
     }
 
     is Action.ClearInstructionLoadingMessage ->
-        state.copy(instructionLoadingMessage = null)
+      state.copy(instructionLoadingMessage = null)
 
     is Action.SetCountDownValue ->
-        state.copy(countDownValue = action.countDownValue)
+      state.copy(countDownValue = action.countDownValue)
 
     is Action.SetCueMessage ->
       state.copy(countDownValue = null,
@@ -269,11 +270,8 @@ val reducer = Reducer<State> { state, action ->
     is Action.ClearCueMessage ->
       state.copy(cueMessage = null)
 
-    is Action.AbortInstructionSequence -> state
-
     is Action.EndInstruction ->
-      state.copy(instructionToPlay = null,
-                 instructionLoadingMessage = null,
+      state.copy(instructionLoadingMessage = null,
                  countDownStartTime = 0,
                  countDownDuration = 0,
                  countDownValue = null,

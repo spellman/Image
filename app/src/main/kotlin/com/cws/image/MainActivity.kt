@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.support.design.widget.Snackbar
 import android.support.v4.app.ActivityCompat
 import android.support.v4.content.ContextCompat
 import android.support.v7.app.AppCompatActivity
@@ -11,18 +12,22 @@ import android.support.v7.widget.LinearLayoutCompat
 import android.text.TextUtils
 import android.view.View
 import android.widget.LinearLayout
+import android.widget.TextView
 import com.brianegan.bansa.Store
 import com.github.andrewoma.dexx.kollection.*
+import io.reactivex.disposables.Disposable
+import io.reactivex.subjects.PublishSubject
 import trikita.anvil.BaseDSL
 import trikita.anvil.DSL
 import trikita.anvil.DSL.*
-import trikita.anvil.RenderableView
 import trikita.anvil.appcompat.v7.AppCompatv7DSL
 import trikita.anvil.appcompat.v7.AppCompatv7DSL.*
 
 class MainActivity : AppCompatActivity() {
   val PERMISSION_REQUEST_FOR_WRITE_EXTERNAL_STORAGE = 0
   lateinit var store: Store<State>
+  lateinit var snackbarObservable: PublishSubject<SnackbarMessage>
+  lateinit var snackbarSubscription: Disposable
 
   fun requestWriteExternalStoragePermission() {
     ActivityCompat.requestPermissions(this,
@@ -34,30 +39,52 @@ class MainActivity : AppCompatActivity() {
     store.dispatch(Action.RefreshInstructions())
   }
 
+  fun makeSnackbar(view: View, snackbarMessage: SnackbarMessage) {
+    when (snackbarMessage) {
+      is SnackbarMessage.CouldNotPlayInstruction -> {
+        val message = "The ${snackbarMessage.language} ${snackbarMessage.subject} instruction could not by played.\n(${snackbarMessage.absolutePath})"
+        val snackbar = Snackbar.make(view, message, 5000)
+        val snackbarTextView = snackbar.view.findViewById(android.support.design.R.id.snackbar_text) as TextView
+        snackbarTextView.maxLines = 3
+
+        snackbar.show()
+      }
+
+      else -> {}
+    }
+  }
+
+  fun setUpActivity() {
+    if (store.state.needToRefreshInstructions) {
+      refreshInstructions()
+    }
+
+    val rootView = RootView(this)
+    setContentView(rootView)
+    snackbarSubscription = snackbarObservable.subscribe { snackbarContent ->
+      makeSnackbar(rootView, snackbarContent)
+    }
+  }
+
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
-    store = (application as App).store
+    val app = application as App
+    store = app.store
+    snackbarObservable = app.snackbarSubject
 
     if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
         != PackageManager.PERMISSION_GRANTED) {
       requestWriteExternalStoragePermission()
     }
     else {
-      if (store.state.needToRefreshInstructions) {
-        refreshInstructions()
-      }
-      setContentView(RootView(this))
+      setUpActivity()
     }
-
   }
 
   override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
     if (requestCode == PERMISSION_REQUEST_FOR_WRITE_EXTERNAL_STORAGE) {
       if (grantResults.size == 1 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-        if (store.state.needToRefreshInstructions) {
-          refreshInstructions()
-        }
-        setContentView(RootView(this))
+        setUpActivity()
       }
       else {
         requestWriteExternalStoragePermission()
@@ -77,6 +104,11 @@ class MainActivity : AppCompatActivity() {
       finish()
     }
   }
+
+  override fun onDestroy() {
+    snackbarSubscription.dispose()
+    super.onDestroy()
+  }
 }
 
 
@@ -85,6 +117,7 @@ fun viewInitializing() {
   frameLayout {
     size(FILL, FILL)
     DSL.gravity(CENTER)
+
     appCompatTextView {
       size(WRAP, WRAP)
       text("loading")
@@ -97,6 +130,7 @@ fun viewLanguage(dispatch: (com.brianegan.bansa.Action) -> State,
                  language: String) {
   frameLayout {
     size(WRAP, FILL)
+
     appCompatTextView {
       size(WRAP, WRAP)
       minimumWidth(dip(72))
@@ -112,6 +146,7 @@ fun viewLanguage(dispatch: (com.brianegan.bansa.Action) -> State,
       ellipsize(TextUtils.TruncateAt.END)
       text(language)
     }
+
     onClick { v -> dispatch(Action.SetLanguage(language)) }
   }
 }
@@ -123,6 +158,7 @@ fun viewLanguages(dispatch: (com.brianegan.bansa.Action) -> State,
     size(FILL, dip(48))
     AppCompatv7DSL.gravity(LEFT)
     backgroundColor(ContextCompat.getColor(c, R.color.colorPrimary))
+
     linearLayoutCompat {
       size(WRAP, FILL)
       AppCompatv7DSL.orientation(LinearLayoutCompat.HORIZONTAL)
@@ -136,10 +172,12 @@ fun viewNoSubjects (message: String, storageDirPath: String) {
   linearLayoutCompat {
     size(FILL, WRAP)
     AppCompatv7DSL.orientation(LinearLayoutCompat.VERTICAL)
+
     appCompatTextView {
       text(message)
       textColor(android.graphics.Color.BLACK)
     }
+
     appCompatTextView {
       text("We're loading files manually for now so do the following to get started:\n1. Close the app: touch the menu button (square) on the device > either touch the x in the app window's title bar or swipe the app window to the left.\n2. Ensure your instruction sound-files are in .ogg format (or one of the audio formats listed at\nhttps://developer.android.com/guide/appendix/media-formats.html\nthough .ogg is said to play best).\n3. Ensure your instruction audio-files are named <x-ray subject>_<language>_<cue time in milliseconds>.ogg (or appropriate file extension)\n     Ex: chest_english_9000.ogg\nInclude spaces and/or punctuation in the subject or language via URI encoding:\nhttps://en.wikipedia.org/wiki/Percent-encoding\n     Ex: one%20%2f%20two%20%28three%29_english_1000.ogg will be parsed to\n             subject: one / two (three)\n             language: english\n             cue time: 1000\n4. Connect the device to your computer via USB.\n5. Ensure the device is in file transfer mode: Swipe down from the top of the device screen; one of the notifications should say \"USB for charging\" or \"USB for photo transfer\" or \"USB for file transfers\" or something like that. If the current mode isn't \"USB for file transfers\", then touch the notification and then select \"USB for file transfers\".\n6. Open the device in your file explorer (e.g., Windows Explorer on Windows, Finder on Mac, etc.) and copy the instructions to ${storageDirPath}.\n7. Re-launch the app.\nIf this procedure doesn't result in the main app-screen displaying languages and x-ray subjects that can be touched to play their respective instruction files, then call me: 979-436-2192.")
       textColor(android.graphics.Color.BLACK)
@@ -166,6 +204,7 @@ fun viewSubjects(dispatch: (com.brianegan.bansa.Action) -> State,
   scrollView {
     size(FILL, dip(0))
     weight(1f)
+
     linearLayoutCompat {
       size(FILL, WRAP)
       AppCompatv7DSL.orientation(LinearLayoutCompat.VERTICAL)
@@ -198,10 +237,12 @@ fun viewUnparsableSubjects(unparsableInstructions: ImmutableSet<UnparsableInstru
   scrollView {
     size(FILL, dip(200))
     weight(1f)
+
     linearLayoutCompat {
       size(FILL, WRAP)
       AppCompatv7DSL.orientation(LinearLayoutCompat.VERTICAL)
       backgroundColor(android.graphics.Color.argb(0, 32, 0, 255))
+
       appCompatTextView {
         size(FILL, WRAP)
         text("The following instruction files could not be read:")
@@ -227,6 +268,7 @@ fun viewMainSuccess(c: Context, store: Store<State>) {
   linearLayoutCompat {
     size(FILL, WRAP)
     AppCompatv7DSL.orientation(LinearLayoutCompat.VERTICAL)
+
     if (store.state.instructions.isEmpty()) {
       viewNoSubjects(store.state.canReadInstructionFilesMessage,
                      "<device>/InternalStorage/${c.packageName}")
@@ -267,7 +309,7 @@ fun viewMain(c: Context, store: Store<State>) {
     }
 
     appCompatTextView {
-      text("DON'T USE THIS VERSION OF THE APPLICATION!\n\nTHERE IS NO ERROR-HANDLING (SEVERAL THINGS WILL CRASH THE APP, LIKE GIVING IT AN EMPTY AUDIO FILE) AND THERE IS NO INSTRUMENTATION TO TRACK USAGE.\n\nPLAN TO UNINSTALL THIS VERSION BEFORE INSTALLING THE NEXT VERSION.")
+      text("THIS VERSION SHOULDN'T CRASH BUT IT STILL LOOKS TERRIBLE AND THERE IS NO INSTRUMENTATION TO TRACK USAGE.")
       textColor(android.graphics.Color.RED)
       DSL.gravity(BaseDSL.CENTER)
       BaseDSL.textSize(BaseDSL.sip(25F))
@@ -283,10 +325,12 @@ fun viewInstruction(store: Store<State>) {
       size(WRAP, WRAP)
       layoutGravity(LEFT)
       AppCompatv7DSL.orientation(LinearLayout.VERTICAL)
+
       appCompatTextView {
         text(store.state.subjectToDisplay)
         textColor(android.graphics.Color.BLACK)
       }
+
       appCompatTextView {
         text(store.state.languageToDisplay)
         textColor(android.graphics.Color.BLACK)
@@ -316,12 +360,10 @@ fun viewInstruction(store: Store<State>) {
   }
 }
 
-class RootView : RenderableView {
-  lateinit var c: Context
-  lateinit var store: Store<State>
+class RootView(val c: Context) : RenderableViewCoordinatorLayout(c) {
+  var store: Store<State>
 
-  constructor(c: Context) : super(c) {
-    this.c = c
+  init {
     this.store = (c.applicationContext as App).store
   }
 

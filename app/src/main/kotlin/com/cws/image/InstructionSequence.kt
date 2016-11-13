@@ -6,14 +6,14 @@ import android.os.Handler
 import com.brianegan.bansa.Middleware
 import com.brianegan.bansa.NextDispatcher
 import com.brianegan.bansa.Store
+import io.reactivex.subjects.PublishSubject
+import java.io.IOException
 
-class InstructionsSequenceMiddleware : Middleware<State> {
+class InstructionsSequenceMiddleware(val snackbarSubject: PublishSubject<SnackbarMessage>) : Middleware<State> {
   private var mediaPlayer: MediaPlayer? = null
   private val instructionSequenceTimingHandler: Handler = Handler()
   private var isInstructionAudioPrepared: Boolean = false
   private var isInstructionGraphicsPrepared: Boolean = false
-  private var isInstructionAudioFinished: Boolean = true
-  private var isInstructionGraphicsFinished: Boolean = true
 
   fun startInstructionSequence(store: Store<State>) {
     println("isInstructionAudioPrepared: ${isInstructionAudioPrepared}, isInstructionGraphicsPrepared: ${isInstructionGraphicsPrepared}")
@@ -46,53 +46,53 @@ class InstructionsSequenceMiddleware : Middleware<State> {
     }
   }
 
-  fun endInstructionSequence(store: Store<State>) {
-    if (isInstructionAudioFinished && isInstructionGraphicsFinished) {
-      store.dispatch(Action.EndInstruction())
-      store.dispatch(Action.NavigateBack())
-    }
-  }
-
   override fun dispatch(store: Store<State>,
                         action: com.brianegan.bansa.Action,
                         next: NextDispatcher) {
     when (action) {
       is Action.PlayInstruction -> {
-        isInstructionAudioFinished = false
-        isInstructionGraphicsFinished = false
+        next.dispatch(action)
 
         val mp = MediaPlayer()
         mp.setAudioStreamType(AudioManager.STREAM_MUSIC)
-        // 2016-09-26 Cort Spellman
-        // TODO: Wrap setDataSource in try, catch IllegalArgumentException, IOException.
-        //       Dispatch action: Display error to user, alert me to error.
-        mp.setDataSource(action.instruction.path)
-
         mp.setOnPreparedListener { mp ->
           isInstructionAudioPrepared = true
           startInstructionSequence(store)
-          store.dispatch(Action.SetInstructionTimings(mp.duration.toLong()))
+          store.dispatch(
+            Action.SetInstructionTimings(action.instruction.cueStartTime,
+                                         mp.duration.toLong()))
         }
-
         // 2016-09-26 Cort Spellman
-        // TODO: This.
+        // TODO: Flesh this out.
         mp.setOnErrorListener { mp, what, extra ->
           false
         }
-
         mp.setOnCompletionListener { mp ->
-          isInstructionAudioFinished = true
-          mp.release()
-          mediaPlayer = null
-          isInstructionAudioPrepared = false
-          isInstructionGraphicsFinished = true
-          isInstructionGraphicsPrepared = false
-          endInstructionSequence(store)
+          store.dispatch(Action.NavigateBack())
         }
 
-        mediaPlayer = mp
-        mp.prepareAsync()
+        try {
+          mp.setDataSource(action.instruction.absolutePath)
+          mediaPlayer = mp
+          mp.prepareAsync()
+        }
+        catch (e: IOException) {
+          store.dispatch(
+              Action.CouldNotPlayInstruction(action.instruction))
+        }
+        catch (e: IllegalArgumentException) {
+          store.dispatch(
+              Action.CouldNotPlayInstruction(action.instruction))
+        }
+      }
+
+      is Action.CouldNotPlayInstruction -> {
         next.dispatch(action)
+        store.dispatch(Action.NavigateBack())
+        snackbarSubject.onNext(
+          SnackbarMessage.CouldNotPlayInstruction(action.instruction.subject,
+                                                  action.instruction.language,
+                                                  action.instruction.absolutePath))
       }
 
       is Action.SetInstructionTimings -> {
@@ -103,25 +103,16 @@ class InstructionsSequenceMiddleware : Middleware<State> {
 
       is Action.NavigateBack -> {
         if (store.state.navigationStack.peek() is Scene.Instruction) {
-          store.dispatch(Action.AbortInstructionSequence())
+          instructionSequenceTimingHandler.removeCallbacksAndMessages(null)
+
+          mediaPlayer?.release()
+          mediaPlayer = null
+          isInstructionAudioPrepared = false
+          isInstructionGraphicsPrepared = false
+
+          store.dispatch(Action.EndInstruction())
         }
-        next.dispatch(action)
-      }
 
-      is Action.AbortInstructionSequence -> {
-        isInstructionAudioFinished = true
-        isInstructionGraphicsFinished = true
-        mediaPlayer?.release()
-        mediaPlayer = null
-        isInstructionAudioPrepared = false
-        isInstructionGraphicsPrepared = false
-
-        next.dispatch(action)
-        store.dispatch(Action.EndInstruction())
-      }
-
-      is Action.EndInstruction -> {
-        instructionSequenceTimingHandler.removeCallbacksAndMessages(null)
         next.dispatch(action)
       }
 

@@ -6,8 +6,8 @@ import com.brianegan.bansa.Store
 //import com.facebook.stetho.Stetho
 import com.github.andrewoma.dexx.kollection.*
 import com.squareup.leakcanary.LeakCanary
+import io.reactivex.subjects.PublishSubject
 import trikita.anvil.Anvil
-import java.io.File
 
 // Dummy data I started with. Keep for running in emulator.
 //val languages = immutableSetOf("english",
@@ -17,27 +17,34 @@ import java.io.File
 //    immutableSetOf(
 //        Instruction(subject = "chest",
 //                    language = "english",
-//                    path = "chest/english/path",
+//                    absolutePath = "chest/english/absolutePath",
 //                    cueStartTime = 1000),
 //        Instruction(subject = "arm",
 //                    language = "english",
-//                    path = "arm/english/path",
+//                    absolutePath = "arm/english/absolutePath",
 //                    cueStartTime = 1000),
 //        Instruction(subject = "chest",
 //                    language = "spanish",
-//                    path = "chest/spanish/path",
+//                    absolutePath = "chest/spanish/absolutePath",
 //                    cueStartTime = 1000),
 //        Instruction(subject = "arm",
 //                    language = "spanish",
-//                    path = "arm/spanish/path",
+//                    absolutePath = "arm/spanish/absolutePath",
 //                    cueStartTime = 1000)
 //    )
+
+sealed class SnackbarMessage {
+  class CouldNotPlayInstruction(val subject: String,
+                                val language: String,
+                                val absolutePath: String) : SnackbarMessage()
+}
 
 val idealCountDownDuration: Long = 5000L
 val idealCueDuration: Long = 3000L
 
 class App : Application() {
   lateinit var store: Store<State>
+  val snackbarSubject: PublishSubject<SnackbarMessage> = PublishSubject.create()
 
   // 2016-10-12 Cort Spellman
   // TODO: Use locales instead of string languages. The method of getting the
@@ -49,27 +56,26 @@ class App : Application() {
   // current locale.
 
   val initialState =
-      State(
-          isInitializing = true,
-          navigationStack = NavigationStack(immutableListOf(Scene.Main())),
-          needToRefreshInstructions = true,
-          canReadInstructionFiles = false,
-          canReadInstructionFilesMessage = "Initially assume parsedInstructions dir is not readable because it hasn't been checked for readability.",
-          instructions = immutableSetOf(),
-          unparsableInstructions = immutableSetOf(),
-          languages = immutableSetOf(),
-          language = "english", // Should be the language for the current system locale. (What if there are no parsedInstructions in the system language? Show a msg whenever there are no visible parsedInstructions, including then.),
-          instructionToPlay = null,
-          instructionLoadingMessage = null,
-          countDownStartTime = 0,
-          countDownDuration = 0,
-          countDownValue = null,
-          cueStartTime = 0,
-          cueStopTime = 0,
-          instructionAudioDuration = 0,
-          subjectToDisplay = null,
-          languageToDisplay = null,
-          cueMessage = null
+    State(
+      isInitializing = true,
+      navigationStack = NavigationStack(immutableListOf(Scene.Main())),
+      needToRefreshInstructions = true,
+      canReadInstructionFiles = false,
+      canReadInstructionFilesMessage = "Initially assume parsedInstructions dir is not readable because it hasn't been checked for readability.",
+      instructions = immutableSetOf(),
+      unparsableInstructions = immutableSetOf(),
+      languages = immutableSetOf(),
+      language = "english", // Should be the language for the current system locale. (What if there are no parsedInstructions in the system language? Show a msg whenever there are no visible parsedInstructions, including then.),
+      instructionLoadingMessage = null,
+      countDownStartTime = 0,
+      countDownDuration = 0,
+      countDownValue = null,
+      cueStartTime = 0,
+      cueStopTime = 0,
+      instructionAudioDuration = 0,
+      subjectToDisplay = null,
+      languageToDisplay = null,
+      cueMessage = null
       )
 
   override fun onCreate() {
@@ -78,7 +84,7 @@ class App : Application() {
                       reducer,
                       Logger("Image"),
                       InstructionFiles(this),
-                      InstructionsSequenceMiddleware())
+                      InstructionsSequenceMiddleware(snackbarSubject))
 
     LeakCanary.install(this)
 //    Stetho.initializeWithDefaults(this)
