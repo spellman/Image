@@ -298,22 +298,10 @@ fun viewMainError(message: String) {
 }
 
 fun viewMain(c: Context, store: Store<State>) {
-  linearLayoutCompat {
-    size(FILL, FILL)
-    AppCompatv7DSL.orientation(LinearLayout.VERTICAL)
-
-    if (store.state.canReadInstructionFiles) {
-      viewMainSuccess(c, store)
-    } else {
-      viewMainError(store.state.canReadInstructionFilesMessage)
-    }
-
-    appCompatTextView {
-      text("THIS VERSION SHOULDN'T CRASH BUT IT STILL LOOKS TERRIBLE AND THERE IS NO INSTRUMENTATION TO TRACK USAGE.")
-      textColor(android.graphics.Color.RED)
-      DSL.gravity(BaseDSL.CENTER)
-      BaseDSL.textSize(BaseDSL.sip(25F))
-    }
+  if (store.state.canReadInstructionFiles) {
+    viewMainSuccess(c, store)
+  } else {
+    viewMainError(store.state.canReadInstructionFilesMessage)
   }
 }
 
@@ -368,18 +356,37 @@ class RootView(val c: Context) : RenderableViewCoordinatorLayout(c) {
   }
 
   override fun view() {
-    if (store.state.isInitializing) {
-      viewInitializing()
-    }
-    else {
-      // 2016-09-21 Cort Spellman
-      // Bind the result of the when expression in order to force the compiler to
-      // check for exhaustiveness.
-      // Be on the lookout for sealed whens in Kotlin, which always check for
-      // exhaustiveness.
-      val x = when (store.state.navigationStack.peek()) {
-        is Scene.Main -> viewMain(c, store)
-        is Scene.Instruction -> viewInstruction(store)
+    linearLayoutCompat {
+      size(FILL, FILL)
+      AppCompatv7DSL.orientation(LinearLayout.VERTICAL)
+
+      if (store.state.isInitializing) {
+        viewInitializing()
+      }
+      else {
+        // 2016-09-21 Cort Spellman
+        // Bind the result of the when expression in order to force the compiler to
+        // check for exhaustiveness.
+        // Be on the lookout for sealed whens in Kotlin, which always check for
+        // exhaustiveness.
+        val x = when (store.state.navigationStack.peek()) {
+          is Scene.Main -> viewMain(c, store)
+          is Scene.Instruction -> viewInstruction(store)
+        }
+      }
+
+      appCompatTextView {
+        text("THIS VERSION SHOULDN'T CRASH BUT IT STILL LOOKS TERRIBLE AND THERE IS NO INSTRUMENTATION TO TRACK USAGE.")
+        textColor(android.graphics.Color.RED)
+        DSL.gravity(BaseDSL.CENTER)
+        BaseDSL.textSize(BaseDSL.sip(25F))
+      }
+
+      appCompatTextView {
+        text("Version ${BuildConfig.VERSION_NAME} | Version Code ${BuildConfig.VERSION_CODE} | Commit ${BuildConfig.GIT_SHA}")
+        textColor(android.graphics.Color.BLACK)
+        DSL.gravity(BaseDSL.CENTER)
+        BaseDSL.textSize(BaseDSL.sip(12F))
       }
     }
   }
