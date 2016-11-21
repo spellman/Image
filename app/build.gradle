@@ -1,5 +1,10 @@
-apply plugin: 'com.android.application'
-apply plugin: 'kotlin-android'
+apply plugin: "com.android.application"
+apply plugin: "kotlin-android"
+
+def versionMajor = 0
+def versionMinor = 0
+def versionPatch = 1
+def versionBuild = 2 // bump for dogfood builds, public betas, etc.
 
 android {
   compileSdkVersion 25
@@ -9,8 +14,9 @@ android {
     applicationId "com.cws.image"
     minSdkVersion 19
     targetSdkVersion 25
-    versionCode 1
-    versionName "0.0.1"
+
+    versionCode 3
+    versionName "${versionMajor}.${versionMinor}.${versionPatch}.${versionBuild}"
   }
   buildTypes {
     release {
