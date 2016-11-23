@@ -9,7 +9,7 @@ import com.brianegan.bansa.Store
 import io.reactivex.subjects.PublishSubject
 import java.io.IOException
 
-class InstructionsSequenceMiddleware(val snackbarSubject: PublishSubject<SnackbarMessage>) : Middleware<State> {
+class PlayInstructionSequence(val snackbarSubject: PublishSubject<SnackbarMessage>) : Middleware<State> {
   private var mediaPlayer: MediaPlayer? = null
   private val instructionSequenceTimingHandler: Handler = Handler()
   private var isInstructionAudioPrepared: Boolean = false

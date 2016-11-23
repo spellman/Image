@@ -83,8 +83,8 @@ class App : Application() {
     store = BaseStore(initialState,
                       reducer,
                       Logger("Image"),
-                      InstructionFiles(this),
-                      InstructionsSequenceMiddleware(snackbarSubject))
+                      ReadInstructionFiles(this),
+                      PlayInstructionSequence(snackbarSubject))
 
     LeakCanary.install(this)
 //    Stetho.initializeWithDefaults(this)

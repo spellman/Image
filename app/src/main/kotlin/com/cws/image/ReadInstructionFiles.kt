@@ -31,7 +31,7 @@ data class GetInstructionsPartialResult(
                var parsedInstructions: ImmutableSet<Instruction>,
                var parseFailures: ImmutableSet<UnparsableInstruction>)
 
-class InstructionFiles(val context: Context) : Middleware<State> {
+class ReadInstructionFiles(val context: Context) : Middleware<State> {
   fun isExternalStorageWritable(): Boolean {
     val s = Environment.getExternalStorageState()
     return Environment.MEDIA_MOUNTED == s
