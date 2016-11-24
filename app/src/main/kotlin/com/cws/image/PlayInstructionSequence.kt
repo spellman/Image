@@ -62,10 +62,15 @@ class PlayInstructionSequence(val snackbarSubject: PublishSubject<SnackbarMessag
             Action.SetInstructionTimings(action.instruction.cueStartTime,
                                          mp.duration.toLong()))
         }
-        // 2016-09-26 Cort Spellman
-        // TODO: Flesh this out.
         mp.setOnErrorListener { mp, what, extra ->
-          false
+          // 2016-11-23 Cort Spellman
+          // TODO: This is too coarse - recover from errors as appropriate
+          //       and tailor the message/log to the error:
+          // See the possible values of what and extra at
+          // https://developer.android.com/reference/android/media/MediaPlayer.OnErrorListener.html
+          store.dispatch(
+            Action.CouldNotPlayInstruction(action.instruction))
+          true
         }
         mp.setOnCompletionListener { mp ->
           store.dispatch(Action.NavigateBack())
@@ -78,11 +83,11 @@ class PlayInstructionSequence(val snackbarSubject: PublishSubject<SnackbarMessag
         }
         catch (e: IOException) {
           store.dispatch(
-              Action.CouldNotPlayInstruction(action.instruction))
+            Action.CouldNotPlayInstruction(action.instruction))
         }
         catch (e: IllegalArgumentException) {
           store.dispatch(
-              Action.CouldNotPlayInstruction(action.instruction))
+            Action.CouldNotPlayInstruction(action.instruction))
         }
       }
 
