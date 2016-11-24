@@ -8,7 +8,7 @@ def versionBuild = 2 // bump for dogfood builds, public betas, etc.
 
 // From https://github.com/JakeWharton/u2020/blob/1712f903084703059b9a4316b63fa9a29b4559cd/build.gradle
 def gitSha() {
-  def p = "git rev-parse HEAD".execute([], project.rootDir)
+  def p = "git rev-parse --short HEAD".execute([], project.rootDir)
   p.waitFor()
   if (p.exitValue() != 0) {
     throw new RuntimeException(p.errorStream.text)
