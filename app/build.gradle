@@ -4,7 +4,7 @@ apply plugin: "kotlin-android"
 def versionMajor = 0
 def versionMinor = 0
 def versionPatch = 1
-def versionBuild = 2 // bump for dogfood builds, public betas, etc.
+def versionBuild = 3 // bump for dogfood builds, public betas, etc.
 
 // From https://github.com/JakeWharton/u2020/blob/1712f903084703059b9a4316b63fa9a29b4559cd/build.gradle
 def gitSha() {
@@ -37,7 +37,7 @@ android {
     minSdkVersion 19
     targetSdkVersion 25
 
-    versionCode 3
+    versionCode 4
     versionName "${versionMajor}.${versionMinor}.${versionPatch}.${versionBuild}"
 
     buildConfigField 'String', 'GIT_SHA', "\"${gitSha()}\""
