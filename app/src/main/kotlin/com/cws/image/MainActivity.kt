@@ -359,6 +359,7 @@ class RootView(val c: Context) : RenderableViewCoordinatorLayout(c) {
     linearLayoutCompat {
       size(FILL, FILL)
       AppCompatv7DSL.orientation(LinearLayout.VERTICAL)
+      BaseDSL.layoutGravity(BaseDSL.TOP)
 
       if (store.state.isInitializing) {
         viewInitializing()
@@ -374,20 +375,15 @@ class RootView(val c: Context) : RenderableViewCoordinatorLayout(c) {
           is Scene.Instruction -> viewInstruction(store)
         }
       }
+    }
 
-      appCompatTextView {
-        text("THIS VERSION SHOULDN'T CRASH BUT IT STILL LOOKS TERRIBLE AND THERE IS NO INSTRUMENTATION TO TRACK USAGE.")
-        textColor(android.graphics.Color.RED)
-        DSL.gravity(BaseDSL.CENTER)
-        BaseDSL.textSize(BaseDSL.sip(25F))
-      }
-
-      appCompatTextView {
-        text("Version ${BuildConfig.VERSION_NAME} | Version Code ${BuildConfig.VERSION_CODE} | Commit ${BuildConfig.GIT_SHA}")
-        textColor(android.graphics.Color.BLACK)
-        DSL.gravity(BaseDSL.CENTER)
-        BaseDSL.textSize(BaseDSL.sip(12F))
-      }
+    appCompatTextView {
+      size(FILL, WRAP)
+      BaseDSL.layoutGravity(BaseDSL.BOTTOM)
+      text("Version ${BuildConfig.VERSION_NAME} | Version Code ${BuildConfig.VERSION_CODE} | Commit ${BuildConfig.GIT_SHA}")
+      textColor(android.graphics.Color.BLACK)
+      DSL.gravity(BaseDSL.CENTER)
+      BaseDSL.textSize(BaseDSL.sip(12F))
     }
   }
 }
