@@ -4,11 +4,13 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.support.design.widget.FloatingActionButton
 import android.support.design.widget.Snackbar
 import android.support.v4.app.ActivityCompat
 import android.support.v4.content.ContextCompat
 import android.support.v7.app.AppCompatActivity
 import android.support.v7.widget.LinearLayoutCompat
+import android.support.v7.widget.Toolbar
 import android.text.TextUtils
 import android.view.View
 import android.widget.LinearLayout
@@ -17,6 +19,7 @@ import com.brianegan.bansa.Store
 import com.github.andrewoma.dexx.kollection.*
 import io.reactivex.disposables.Disposable
 import io.reactivex.subjects.PublishSubject
+import kotlinx.android.synthetic.main.content_main.*
 import trikita.anvil.BaseDSL
 import trikita.anvil.DSL
 import trikita.anvil.DSL.*
@@ -59,10 +62,18 @@ class MainActivity : AppCompatActivity() {
       refreshInstructions()
     }
 
-    val rootView = RootView(this)
-    setContentView(rootView)
+    setContentView(R.layout.main_activity)
+    val toolbar: Toolbar = findViewById(R.id.toolbar) as Toolbar
+    setSupportActionBar(toolbar)
+
     snackbarSubscription = snackbarObservable.subscribe { snackbarContent ->
-      makeSnackbar(rootView, snackbarContent)
+      makeSnackbar(content_main, snackbarContent)
+    }
+
+    val fab: FloatingActionButton = findViewById(R.id.fab) as FloatingActionButton
+    fab.setOnClickListener { view: View ->
+      Snackbar.make(view, "Replace with your own action",
+                    Snackbar.LENGTH_LONG).setAction("Action", null).show()
     }
   }
 
