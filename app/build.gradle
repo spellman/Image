@@ -89,10 +89,10 @@ dependencies {
   compile "co.trikita:anvil-design:$anvil_version"
   compile "co.trikita:anvil-recyclerview-v7:$anvil_version"
 
-  compile 'com.github.brianegan.bansa:bansa:1.0.0-beta'
-  compile 'com.github.brianegan.bansa:bansaKotlin:1.0.0-beta'
-  debugCompile 'com.github.brianegan.bansa:bansaDevTools:1.0.0-beta'
-  debugCompile 'com.github.brianegan.bansa:bansaDevToolsUi:1.0.0-beta'
+  compile "com.github.brianegan.bansa:bansa:1.0.0-beta"
+  compile "com.github.brianegan.bansa:bansaKotlin:1.0.0-beta"
+  debugCompile "com.github.brianegan.bansa:bansaDevTools:1.0.0-beta"
+  debugCompile "com.github.brianegan.bansa:bansaDevToolsUi:1.0.0-beta"
 
   compile "com.github.andrewoma.dexx:kollection:0.6"
 
