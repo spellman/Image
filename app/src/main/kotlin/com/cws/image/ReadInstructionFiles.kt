@@ -17,31 +17,23 @@ import java.net.URLDecoder
 import io.reactivex.Observable
 import java.io.IOException
 
-sealed class InstructionParsingFailure {
-  class FileNameFormatFailure() : InstructionParsingFailure()
-  class CueTimeFailure() : InstructionParsingFailure()
-}
-
-data class UnparsableInstruction(val fileName: String,
-                                 val failure: InstructionParsingFailure)
-
 data class GetInstructionsPartialResult(
                val storageDir: File,
                var tokenFile: File,
                var parsedInstructions: ImmutableSet<Instruction>,
                var parseFailures: ImmutableSet<UnparsableInstruction>)
 
-  fun isExternalStorageWritable(): Boolean {
-    val s = Environment.getExternalStorageState()
-    return Environment.MEDIA_MOUNTED == s
-  }
+fun isExternalStorageWritable(): Boolean {
+  val s = Environment.getExternalStorageState()
+  return Environment.MEDIA_MOUNTED == s
+}
 
-  fun isExternalStorageReadable(): Boolean {
-    val s = Environment.getExternalStorageState()
-    return immutableSetOf(Environment.MEDIA_MOUNTED,
-                          Environment.MEDIA_MOUNTED_READ_ONLY
-                         ).contains(s)
-  }
+fun isExternalStorageReadable(): Boolean {
+  val s = Environment.getExternalStorageState()
+  return immutableSetOf(Environment.MEDIA_MOUNTED,
+                        Environment.MEDIA_MOUNTED_READ_ONLY
+                       ).contains(s)
+}
 
 class ReadInstructionFiles(val context: Context) : Middleware<BansaState> {
   fun fileToInstruction(file: File): Result<UnparsableInstruction, Instruction> {

@@ -3,11 +3,6 @@ package com.cws.image
 import com.brianegan.bansa.Reducer
 import com.github.andrewoma.dexx.kollection.*
 
-data class Instruction(val subject: String,
-                       val language: String,
-                       val absolutePath: String,
-                       val cueStartTime: Long)
-
 sealed class Scene {
   class Main() : Scene() {
     override fun toString(): String { return this.javaClass.simpleName }
