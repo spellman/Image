@@ -25,7 +25,7 @@ import trikita.anvil.appcompat.v7.AppCompatv7DSL.*
 
 class MainActivity : AppCompatActivity() {
   val PERMISSION_REQUEST_FOR_WRITE_EXTERNAL_STORAGE = 0
-  lateinit var store: Store<State>
+  lateinit var store: Store<BansaState>
   lateinit var snackbarObservable: PublishSubject<SnackbarMessage>
   lateinit var snackbarSubscription: Disposable
 
@@ -126,7 +126,7 @@ fun viewInitializing() {
   }
 }
 
-fun viewLanguage(dispatch: (com.brianegan.bansa.Action) -> State,
+fun viewLanguage(dispatch: (com.brianegan.bansa.Action) -> BansaState,
                  language: String) {
   frameLayout {
     size(WRAP, FILL)
@@ -151,7 +151,7 @@ fun viewLanguage(dispatch: (com.brianegan.bansa.Action) -> State,
   }
 }
 
-fun viewLanguages(dispatch: (com.brianegan.bansa.Action) -> State,
+fun viewLanguages(dispatch: (com.brianegan.bansa.Action) -> BansaState,
                   c: Context,
                   languages: ImmutableSet<String>) {
   horizontalScrollView {
@@ -185,7 +185,7 @@ fun viewNoSubjects (message: String, storageDirPath: String) {
   }
 }
 
-fun viewSubject(dispatch: (com.brianegan.bansa.Action) -> State,
+fun viewSubject(dispatch: (com.brianegan.bansa.Action) -> BansaState,
                 instruction: Instruction) {
   appCompatTextView {
     size(FILL, WRAP)
@@ -199,7 +199,7 @@ fun viewSubject(dispatch: (com.brianegan.bansa.Action) -> State,
   }
 }
 
-fun viewSubjects(dispatch: (com.brianegan.bansa.Action) -> State,
+fun viewSubjects(dispatch: (com.brianegan.bansa.Action) -> BansaState,
                  instructions: ImmutableSet<Instruction>) {
   scrollView {
     size(FILL, dip(0))
@@ -264,7 +264,7 @@ fun viewUnparsableSubjects(unparsableInstructions: ImmutableSet<UnparsableInstru
 
 
 
-fun viewMainSuccess(c: Context, store: Store<State>) {
+fun viewMainSuccess(c: Context, store: Store<BansaState>) {
   linearLayoutCompat {
     size(FILL, WRAP)
     AppCompatv7DSL.orientation(LinearLayoutCompat.VERTICAL)
@@ -297,7 +297,7 @@ fun viewMainError(message: String) {
   }
 }
 
-fun viewMain(c: Context, store: Store<State>) {
+fun viewMain(c: Context, store: Store<BansaState>) {
   if (store.state.canReadInstructionFiles) {
     viewMainSuccess(c, store)
   } else {
@@ -305,7 +305,7 @@ fun viewMain(c: Context, store: Store<State>) {
   }
 }
 
-fun viewInstruction(store: Store<State>) {
+fun viewInstruction(store: Store<BansaState>) {
   linearLayoutCompat {
     AppCompatv7DSL.orientation(LinearLayout.VERTICAL)
 
@@ -349,7 +349,7 @@ fun viewInstruction(store: Store<State>) {
 }
 
 class RootView(val c: Context) : RenderableViewCoordinatorLayout(c) {
-  var store: Store<State>
+  var store: Store<BansaState>
 
   init {
     this.store = (c.applicationContext as App).store

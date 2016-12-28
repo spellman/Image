@@ -9,13 +9,13 @@ import com.brianegan.bansa.Store
 import io.reactivex.subjects.PublishSubject
 import java.io.IOException
 
-class PlayInstructionSequence(val snackbarSubject: PublishSubject<SnackbarMessage>) : Middleware<State> {
+class PlayInstructionSequence(val snackbarSubject: PublishSubject<SnackbarMessage>) : Middleware<BansaState> {
   private var mediaPlayer: MediaPlayer? = null
   private val instructionSequenceTimingHandler: Handler = Handler()
   private var isInstructionAudioPrepared: Boolean = false
   private var isInstructionGraphicsPrepared: Boolean = false
 
-  fun startInstructionSequence(store: Store<State>) {
+  fun startInstructionSequence(store: Store<BansaState>) {
     println("isInstructionAudioPrepared: ${isInstructionAudioPrepared}, isInstructionGraphicsPrepared: ${isInstructionGraphicsPrepared}")
     if (isInstructionAudioPrepared && isInstructionGraphicsPrepared) {
       // 2016-10-02 Cort Spellman
@@ -46,7 +46,7 @@ class PlayInstructionSequence(val snackbarSubject: PublishSubject<SnackbarMessag
     }
   }
 
-  override fun dispatch(store: Store<State>,
+  override fun dispatch(store: Store<BansaState>,
                         action: com.brianegan.bansa.Action,
                         next: NextDispatcher) {
     when (action) {

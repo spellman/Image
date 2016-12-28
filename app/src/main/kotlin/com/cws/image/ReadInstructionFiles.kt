@@ -31,7 +31,6 @@ data class GetInstructionsPartialResult(
                var parsedInstructions: ImmutableSet<Instruction>,
                var parseFailures: ImmutableSet<UnparsableInstruction>)
 
-class ReadInstructionFiles(val context: Context) : Middleware<State> {
   fun isExternalStorageWritable(): Boolean {
     val s = Environment.getExternalStorageState()
     return Environment.MEDIA_MOUNTED == s
@@ -44,6 +43,7 @@ class ReadInstructionFiles(val context: Context) : Middleware<State> {
                          ).contains(s)
   }
 
+class ReadInstructionFiles(val context: Context) : Middleware<BansaState> {
   fun fileToInstruction(file: File): Result<UnparsableInstruction, Instruction> {
     Log.d("fileToInstruction", "Instructions file to parse: ${file.absolutePath}")
     return try {
@@ -180,7 +180,7 @@ class ReadInstructionFiles(val context: Context) : Middleware<State> {
             .map { x -> x.errValue }.toImmutableSet())
   }
 
-  fun refreshInstructions(store: Store<State>) {
+  fun refreshInstructions(store: Store<BansaState>) {
     if (ContextCompat.checkSelfPermission(context,
                                           Manifest.permission.WRITE_EXTERNAL_STORAGE)
         != PackageManager.PERMISSION_GRANTED) {
@@ -214,7 +214,7 @@ class ReadInstructionFiles(val context: Context) : Middleware<State> {
     }
   }
 
-  override fun dispatch(store: Store<State>,
+  override fun dispatch(store: Store<BansaState>,
                         action: com.brianegan.bansa.Action,
                         next: NextDispatcher) {
     when (action) {

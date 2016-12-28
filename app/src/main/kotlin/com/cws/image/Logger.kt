@@ -5,8 +5,8 @@ import com.brianegan.bansa.Middleware
 import com.brianegan.bansa.NextDispatcher
 import com.brianegan.bansa.Store
 
-class Logger(val tag: String) : Middleware<State> {
-  override fun dispatch(store: Store<State>,
+class Logger(val tag: String) : Middleware<BansaState> {
+  override fun dispatch(store: Store<BansaState>,
                         action: com.brianegan.bansa.Action,
                         next: NextDispatcher) {
     Log.d(tag, "--> ${action.javaClass.canonicalName.split(".").last()}\n${action}")

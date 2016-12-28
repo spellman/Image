@@ -52,25 +52,25 @@ data class NavigationStack(val scenes: ImmutableList<Scene>) {
 // a certain view or at least format the text a certain way.
 // Moreover, I want to make use of Android's resources localization stuff and
 // change what and how something is displayed like any other view.
-data class State(val isInitializing: Boolean,
-                 val navigationStack: NavigationStack,
-                 val needToRefreshInstructions: Boolean,
-                 val canReadInstructionFiles: Boolean,
-                 val canReadInstructionFilesMessage: String,
-                 val instructions: ImmutableSet<Instruction>,
-                 val unparsableInstructions: ImmutableSet<UnparsableInstruction>,
-                 val languages: ImmutableSet<String>,
-                 val language: String,
-                 val instructionLoadingMessage: String?,
-                 val countDownStartTime: Long,
-                 val countDownDuration: Long,
-                 val countDownValue: Long?,
-                 val cueStartTime: Long,
-                 val cueStopTime: Long,
-                 val instructionAudioDuration: Long,
-                 val subjectToDisplay: String?,
-                 val languageToDisplay: String?,
-                 val cueMessage: String?) {
+data class BansaState(val isInitializing: Boolean,
+                      val navigationStack: NavigationStack,
+                      val needToRefreshInstructions: Boolean,
+                      val canReadInstructionFiles: Boolean,
+                      val canReadInstructionFilesMessage: String,
+                      val instructions: ImmutableSet<Instruction>,
+                      val unparsableInstructions: ImmutableSet<UnparsableInstruction>,
+                      val languages: ImmutableSet<String>,
+                      val language: String,
+                      val instructionLoadingMessage: String?,
+                      val countDownStartTime: Long,
+                      val countDownDuration: Long,
+                      val countDownValue: Long?,
+                      val cueStartTime: Long,
+                      val cueStopTime: Long,
+                      val instructionAudioDuration: Long,
+                      val subjectToDisplay: String?,
+                      val languageToDisplay: String?,
+                      val cueMessage: String?) {
   override fun toString(): String {
     return """${this.javaClass.canonicalName}:
                |isInitializing: ${isInitializing}
@@ -198,7 +198,7 @@ sealed class Action : com.brianegan.bansa.Action {
 
 
 
-val reducer = Reducer<State> { state, action ->
+val reducer = Reducer<BansaState> { state, action ->
   when (action) {
     is Action.DidInitialize ->
       state.copy(isInitializing = false)

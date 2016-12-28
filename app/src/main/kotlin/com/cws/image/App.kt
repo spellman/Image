@@ -43,7 +43,7 @@ val idealCountDownDuration: Long = 5000L
 val idealCueDuration: Long = 3000L
 
 class App : Application() {
-  lateinit var store: Store<State>
+  lateinit var store: Store<BansaState>
   val snackbarSubject: PublishSubject<SnackbarMessage> = PublishSubject.create()
 
   // 2016-10-12 Cort Spellman
@@ -56,7 +56,7 @@ class App : Application() {
   // current locale.
 
   val initialState =
-    State(
+    BansaState(
       isInitializing = true,
       navigationStack = NavigationStack(immutableListOf(Scene.Main())),
       needToRefreshInstructions = true,
