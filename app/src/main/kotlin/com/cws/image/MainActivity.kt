@@ -261,7 +261,7 @@ fun viewUnparsableSubjects(unparsableInstructions: ImmutableSet<UnparsableInstru
         textColor(android.graphics.Color.RED)
       }
 
-      unparsableInstructions.map { u -> viewUnparsableSubject(u) }
+      unparsableInstructions.map(::viewUnparsableSubject)
 
       appCompatTextView {
         size(FILL, WRAP)

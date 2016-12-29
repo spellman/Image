@@ -4,11 +4,11 @@ import com.brianegan.bansa.Reducer
 import com.github.andrewoma.dexx.kollection.*
 
 sealed class Scene {
-  class Main() : Scene() {
+  class Main : Scene() {
     override fun toString(): String { return this.javaClass.simpleName }
   }
 
-  class Instruction() : Scene() {
+  class Instruction : Scene() {
     override fun toString(): String { return this.javaClass.simpleName }
   }
 }
@@ -95,15 +95,15 @@ data class BansaState(val isInitializing: Boolean,
 
 
 sealed class Action : com.brianegan.bansa.Action {
-  class DidInitialize() : Action() {
+  class DidInitialize : Action() {
     override fun toString(): String { return this.javaClass.canonicalName }
   }
 
-  class DoNeedToRefreshInstructions() : Action() {
+  class DoNeedToRefreshInstructions : Action() {
     override fun toString(): String { return this.javaClass.canonicalName }
   }
 
-  class RefreshInstructions() : Action() {
+  class RefreshInstructions : Action() {
     override fun toString(): String { return this.javaClass.canonicalName }
   }
 
@@ -130,7 +130,7 @@ sealed class Action : com.brianegan.bansa.Action {
     }
   }
 
-  class NavigateBack() : Action() {
+  class NavigateBack : Action() {
     override fun toString(): String { return this.javaClass.canonicalName }
   }
 
@@ -164,7 +164,7 @@ sealed class Action : com.brianegan.bansa.Action {
     }
   }
 
-  class ClearInstructionLoadingMessage() : Action() {
+  class ClearInstructionLoadingMessage : Action() {
     override fun toString(): String { return this.javaClass.canonicalName }
   }
 
@@ -182,11 +182,11 @@ sealed class Action : com.brianegan.bansa.Action {
     }
   }
 
-  class ClearCueMessage() : Action() {
+  class ClearCueMessage : Action() {
     override fun toString(): String { return this.javaClass.canonicalName }
   }
 
-  class EndInstruction() : Action () {
+  class EndInstruction : Action () {
     override fun toString(): String { return this.javaClass.canonicalName }
   }
 }
