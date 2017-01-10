@@ -1,6 +1,5 @@
 package com.cws.image
 
-import com.brianegan.bansa.Reducer
 import com.github.andrewoma.dexx.kollection.*
 
 sealed class Scene {
@@ -94,7 +93,7 @@ data class BansaState(val isInitializing: Boolean,
 
 
 
-sealed class Action : com.brianegan.bansa.Action {
+sealed class Action /*: com.brianegan.bansa.Action */{
   class DidInitialize : Action() {
     override fun toString(): String { return this.javaClass.canonicalName }
   }
@@ -193,91 +192,91 @@ sealed class Action : com.brianegan.bansa.Action {
 
 
 
-val reducer = Reducer<BansaState> { state, action ->
-  when (action) {
-    is Action.DidInitialize ->
-      state.copy(isInitializing = false)
-
-    is Action.DoNeedToRefreshInstructions ->
-      state.copy(needToRefreshInstructions = true)
-
-    is Action.RefreshInstructions -> state
-
-    is Action.SetInstructionsAndLanguages ->
-      state.copy(needToRefreshInstructions = false,
-                 canReadInstructionFiles = action.canReadInstructionFiles,
-                 canReadInstructionFilesMessage = action.canReadInstructionFilesMessage,
-                 instructions = action.instructions,
-                 unparsableInstructions = action.unparsableInstructions,
-                 languages = action.instructions.map { i -> i.language }.toImmutableSet())
-
-    is Action.NavigateTo ->
-      state.copy(navigationStack = state.navigationStack.push(action.scene))
-
-    is Action.NavigateBack ->
-      state.copy(navigationStack = state.navigationStack.pop())
-
-    is Action.SetLanguage ->
-      state.copy(language = action.language)
-
-    is Action.PlayInstruction ->
-      state.copy(instructionLoadingMessage = "loading",
-                 subjectToDisplay = action.instruction.subject,
-                 languageToDisplay = action.instruction.language)
-
-    is Action.CouldNotPlayInstruction -> state
-
-    is Action.SetInstructionTimings -> {
-      val instructionAudioDuration = action.instructionAudioDuration
-      val cueStartTime = action.cueStartTime
-      val countDownDuration = if (cueStartTime > idealCountDownDuration) {
-        idealCountDownDuration
-      }
-      else {
-        (cueStartTime / 1000L) * 1000L
-      }
-
-      val cueStopTime =
-          if (instructionAudioDuration > cueStartTime + idealCueDuration) {
-            cueStartTime + idealCueDuration
-          }
-          else {
-            instructionAudioDuration
-          }
-
-      state.copy(countDownStartTime = cueStartTime - countDownDuration,
-                 countDownDuration = countDownDuration,
-                 cueStartTime = cueStartTime,
-                 cueStopTime = cueStopTime,
-                 instructionAudioDuration = instructionAudioDuration)
-    }
-
-    is Action.ClearInstructionLoadingMessage ->
-      state.copy(instructionLoadingMessage = null)
-
-    is Action.SetCountDownValue ->
-      state.copy(countDownValue = action.countDownValue)
-
-    is Action.SetCueMessage ->
-      state.copy(countDownValue = null,
-                 cueMessage = action.cueMessage)
-
-    is Action.ClearCueMessage ->
-      state.copy(cueMessage = null)
-
-    is Action.EndInstruction ->
-      state.copy(instructionLoadingMessage = null,
-                 countDownStartTime = 0,
-                 countDownDuration = 0,
-                 countDownValue = null,
-                 cueStartTime = 0,
-                 cueStopTime = 0,
-                 instructionAudioDuration = 0,
-                 subjectToDisplay = null,
-                 languageToDisplay = null,
-                 cueMessage = null)
-
-    else ->
-      throw IllegalArgumentException("No reducer case has been defined for the action of ${action}")
-  }
-}
+//val reducer = Reducer<BansaState> { state, action ->
+//  when (action) {
+//    is Action.DidInitialize ->
+//      state.copy(isInitializing = false)
+//
+//    is Action.DoNeedToRefreshInstructions ->
+//      state.copy(needToRefreshInstructions = true)
+//
+//    is Action.RefreshInstructions -> state
+//
+//    is Action.SetInstructionsAndLanguages ->
+//      state.copy(needToRefreshInstructions = false,
+//                 canReadInstructionFiles = action.canReadInstructionFiles,
+//                 canReadInstructionFilesMessage = action.canReadInstructionFilesMessage,
+//                 instructions = action.instructions,
+//                 unparsableInstructions = action.unparsableInstructions,
+//                 languages = action.instructions.map { i -> i.language }.toImmutableSet())
+//
+//    is Action.NavigateTo ->
+//      state.copy(navigationStack = state.navigationStack.push(action.scene))
+//
+//    is Action.NavigateBack ->
+//      state.copy(navigationStack = state.navigationStack.pop())
+//
+//    is Action.SetLanguage ->
+//      state.copy(language = action.language)
+//
+//    is Action.PlayInstruction ->
+//      state.copy(instructionLoadingMessage = "loading",
+//                 subjectToDisplay = action.instruction.subject,
+//                 languageToDisplay = action.instruction.language)
+//
+//    is Action.CouldNotPlayInstruction -> state
+//
+//    is Action.SetInstructionTimings -> {
+//      val instructionAudioDuration = action.instructionAudioDuration
+//      val cueStartTime = action.cueStartTime
+//      val countDownDuration = if (cueStartTime > idealCountDownDuration) {
+//        idealCountDownDuration
+//      }
+//      else {
+//        (cueStartTime / 1000L) * 1000L
+//      }
+//
+//      val cueStopTime =
+//          if (instructionAudioDuration > cueStartTime + idealCueDuration) {
+//            cueStartTime + idealCueDuration
+//          }
+//          else {
+//            instructionAudioDuration
+//          }
+//
+//      state.copy(countDownStartTime = cueStartTime - countDownDuration,
+//                 countDownDuration = countDownDuration,
+//                 cueStartTime = cueStartTime,
+//                 cueStopTime = cueStopTime,
+//                 instructionAudioDuration = instructionAudioDuration)
+//    }
+//
+//    is Action.ClearInstructionLoadingMessage ->
+//      state.copy(instructionLoadingMessage = null)
+//
+//    is Action.SetCountDownValue ->
+//      state.copy(countDownValue = action.countDownValue)
+//
+//    is Action.SetCueMessage ->
+//      state.copy(countDownValue = null,
+//                 cueMessage = action.cueMessage)
+//
+//    is Action.ClearCueMessage ->
+//      state.copy(cueMessage = null)
+//
+//    is Action.EndInstruction ->
+//      state.copy(instructionLoadingMessage = null,
+//                 countDownStartTime = 0,
+//                 countDownDuration = 0,
+//                 countDownValue = null,
+//                 cueStartTime = 0,
+//                 cueStopTime = 0,
+//                 instructionAudioDuration = 0,
+//                 subjectToDisplay = null,
+//                 languageToDisplay = null,
+//                 cueMessage = null)
+//
+//    else ->
+//      throw IllegalArgumentException("No reducer case has been defined for the action of ${action}")
+//  }
+//}

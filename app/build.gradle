@@ -70,38 +70,28 @@ repositories {
   maven { url = "https://jitpack.io" }
 }
 
-ext {
-  anvil_version = "0.4.0"
-}
-
 dependencies {
   compile fileTree(dir: "libs", include: ["*.jar"])
 
-  testCompile "junit:junit:4.12"
-
-  compile "com.facebook.stetho:stetho:1.4.2"
-  compile "com.facebook.stetho:stetho-okhttp3:1.4.2"
+  compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+  kapt "com.android.databinding:compiler:2.2.0"
 
   compile "com.android.support:appcompat-v7:25.1.0"
   compile "com.android.support:design:25.1.0"
   compile "com.android.support:recyclerview-v7:25.1.0"
 
-  compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
-
-  compile "co.trikita:anvil-sdk19:$anvil_version"
-  compile "co.trikita:anvil-support-v4:$anvil_version"
-  compile "co.trikita:anvil-appcompat-v7:$anvil_version"
-  compile "co.trikita:anvil-design:$anvil_version"
-  compile "co.trikita:anvil-recyclerview-v7:$anvil_version"
-
-  compile "com.github.brianegan.bansa:bansa:1.0.0-beta"
-  compile "com.github.brianegan.bansa:bansaKotlin:1.0.0-beta"
-  debugCompile "com.github.brianegan.bansa:bansaDevTools:1.0.0-beta"
-  debugCompile "com.github.brianegan.bansa:bansaDevToolsUi:1.0.0-beta"
-
   compile "com.github.andrewoma.dexx:kollection:0.7"
+
+  compile "io.reactivex.rxjava2:rxjava:2.0.4"
 
   debugCompile "com.squareup.leakcanary:leakcanary-android:1.5"
 
-  compile "io.reactivex.rxjava2:rxjava:2.0.3"
+  testCompile "junit:junit:4.12"
+
+  compile "com.facebook.stetho:stetho:1.4.2"
+  compile "com.facebook.stetho:stetho-okhttp3:1.4.2"
+}
+
+kapt {
+  generateStubs = true
 }

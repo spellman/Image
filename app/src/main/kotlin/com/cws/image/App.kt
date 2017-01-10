@@ -1,13 +1,10 @@
 package com.cws.image
 
 import android.app.Application
-import com.brianegan.bansa.BaseStore
-import com.brianegan.bansa.Store
 //import com.facebook.stetho.Stetho
 import com.github.andrewoma.dexx.kollection.*
 import com.squareup.leakcanary.LeakCanary
 import io.reactivex.subjects.PublishSubject
-import trikita.anvil.Anvil
 
 // Dummy data I started with. Keep for running in emulator.
 //val languages = immutableSetOf("english",
@@ -43,7 +40,6 @@ val idealCountDownDuration: Long = 5000L
 val idealCueDuration: Long = 3000L
 
 class App : Application() {
-  lateinit var store: Store<BansaState>
   val snackbarSubject: PublishSubject<SnackbarMessage> = PublishSubject.create()
 
   // 2016-10-12 Cort Spellman
@@ -80,14 +76,7 @@ class App : Application() {
 
   override fun onCreate() {
     super.onCreate()
-    store = BaseStore(initialState,
-                      reducer,
-                      Logger("Image"),
-                      ReadInstructionFiles(this),
-                      PlayInstructionSequence(snackbarSubject))
-
     LeakCanary.install(this)
 //    Stetho.initializeWithDefaults(this)
-    store.subscribe { Anvil.render() }
   }
 }
