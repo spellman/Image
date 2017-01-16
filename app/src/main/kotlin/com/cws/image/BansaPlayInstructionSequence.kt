@@ -3,10 +3,10 @@ package com.cws.image
 import android.media.AudioManager
 import android.media.MediaPlayer
 import android.os.Handler
-import io.reactivex.subjects.PublishSubject
+import io.reactivex.processors.FlowableProcessor
 import java.io.IOException
 
-//class BansaPlayInstructionSequence(val snackbarSubject: PublishSubject<SnackbarMessage>) : Middleware<BansaState> {
+//class BansaPlayInstructionSequence(val snackbarChan: FlowableProcessor<SnackbarMessage>) : Middleware<BansaState> {
 //  private var mediaPlayer: MediaPlayer? = null
 //  private val instructionSequenceTimingHandler: Handler = Handler()
 //  private var isInstructionAudioPrepared: Boolean = false
@@ -91,7 +91,7 @@ import java.io.IOException
 //      is Action.CouldNotPlayInstruction -> {
 //        next.dispatch(action)
 //        store.dispatch(Action.NavigateBack())
-//        snackbarSubject.onNext(
+//        snackbarChan.onNext(
 //          SnackbarMessage.CouldNotPlayInstruction(action.instruction.subject,
 //                                                  action.instruction.language,
 //                                                  action.instruction.absolutePath))

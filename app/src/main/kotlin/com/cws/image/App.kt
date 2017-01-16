@@ -4,7 +4,8 @@ import android.app.Application
 //import com.facebook.stetho.Stetho
 import com.github.andrewoma.dexx.kollection.*
 import com.squareup.leakcanary.LeakCanary
-import io.reactivex.subjects.PublishSubject
+import io.reactivex.processors.FlowableProcessor
+import io.reactivex.processors.UnicastProcessor
 
 // Dummy data I started with. Keep for running in emulator.
 //val languages = immutableSetOf("english",
@@ -40,7 +41,7 @@ val idealCountDownDuration: Long = 5000L
 val idealCueDuration: Long = 3000L
 
 class App : Application() {
-  val snackbarSubject: PublishSubject<SnackbarMessage> = PublishSubject.create()
+  val snackbarChan: FlowableProcessor<SnackbarMessage> = UnicastProcessor.create()
 
   // 2016-10-12 Cort Spellman
   // TODO: Use locales instead of string languages. The method of getting the

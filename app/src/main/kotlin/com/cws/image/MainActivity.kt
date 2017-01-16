@@ -12,7 +12,7 @@ import android.view.View
 import android.widget.TextView
 import com.cws.image.databinding.MainActivityBinding
 import io.reactivex.disposables.Disposable
-import io.reactivex.subjects.PublishSubject
+import io.reactivex.processors.FlowableProcessor
 import kotlinx.android.synthetic.main.content_main.*
 
 class MainActivity : AppCompatActivity() {
@@ -20,8 +20,8 @@ class MainActivity : AppCompatActivity() {
   val binding: MainActivityBinding by lazy {
     DataBindingUtil.setContentView<MainActivityBinding>(this, R.layout.main_activity)
   }
-  lateinit var snackbarObservable: PublishSubject<SnackbarMessage>
-  lateinit var snackbarSubscription: Disposable
+  lateinit var snackbarChan: FlowableProcessor<SnackbarMessage>
+  lateinit var snackbarChanSubscription: Disposable
 
   fun requestWriteExternalStoragePermission() {
     ActivityCompat.requestPermissions(this,
@@ -47,15 +47,15 @@ class MainActivity : AppCompatActivity() {
   fun setUpActivity() {
     setSupportActionBar(binding.toolbar)
 
-    snackbarSubscription = snackbarObservable.subscribe { snackbarContent ->
-      makeSnackbar(content_main, snackbarContent)
+    snackbarChanSubscription = snackbarChan.subscribe { msg ->
+      makeSnackbar(content_main, msg)
     }
   }
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     val app = application as App
-    snackbarObservable = app.snackbarSubject
+    snackbarChan = app.snackbarChan
 
     if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
         != PackageManager.PERMISSION_GRANTED) {
@@ -74,7 +74,6 @@ class MainActivity : AppCompatActivity() {
       else {
         requestWriteExternalStoragePermission()
       }
-
     }
     else {
       super.onRequestPermissionsResult(requestCode, permissions, grantResults)
@@ -85,7 +84,7 @@ class MainActivity : AppCompatActivity() {
   }
 
   override fun onDestroy() {
-    snackbarSubscription.dispose()
+    snackbarChanSubscription.dispose()
     super.onDestroy()
   }
 }
