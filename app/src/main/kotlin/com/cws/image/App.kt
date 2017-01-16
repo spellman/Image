@@ -1,11 +1,13 @@
 package com.cws.image
 
 import android.app.Application
+import android.os.Environment
 //import com.facebook.stetho.Stetho
 import com.github.andrewoma.dexx.kollection.*
 import com.squareup.leakcanary.LeakCanary
 import io.reactivex.processors.FlowableProcessor
 import io.reactivex.processors.UnicastProcessor
+import java.io.File
 
 // Dummy data I started with. Keep for running in emulator.
 //val languages = immutableSetOf("english",
@@ -32,15 +34,78 @@ import io.reactivex.processors.UnicastProcessor
 //    )
 
 sealed class SnackbarMessage {
-  class CouldNotPlayInstruction(val subject: String,
-                                val language: String,
-                                val absolutePath: String) : SnackbarMessage()
+  class CouldNotPlayInstruction(
+    val subject: String,
+    val language: String,
+    val absolutePath: String
+  ) : SnackbarMessage()
 }
 
 val idealCountDownDuration: Long = 5000L
 val idealCueDuration: Long = 3000L
 
 class App : Application() {
+  val msgChan: UnicastProcessor<RequestModel> = UnicastProcessor.create()
+
+  val ensureInstructionsDirChan: UnicastProcessor<RequestModel.EnsureInstructionsDirExistsAndIsAccessibleFromPC> = UnicastProcessor.create()
+  val instructionsDirResponseChan: UnicastProcessor<ResponseModel.InstructionsDirResponse> = UnicastProcessor.create()
+  val getInstructionsChan: UnicastProcessor<RequestModel.GetInstructions> = UnicastProcessor.create()
+  val instructionsResponseChan: UnicastProcessor<ResponseModel.Instructions> = UnicastProcessor.create()
+  val playInstructionChan: UnicastProcessor<RequestModel.PlayInstruction> = UnicastProcessor.create()
+  val playInstructionResponseChan: UnicastProcessor<ResponseModel.InstructionToPlay> = UnicastProcessor.create()
+
+  val updateChan: UnicastProcessor<ResponseModel> = UnicastProcessor.create()
+
+  val controller = Controller(msgChan)
+  // 2016-01-12 Cort Spellman
+  // Is it the app or the activity that creates the view model?
+  // Well, do you want to use one activity or multiple activities?
+  // I think the answer follows (it probably doesn't matter in the
+  // single-activity case).
+  val viewModel =
+    ViewModel(
+      appVersionInfo = "Version ${BuildConfig.VERSION_NAME} | Version Code ${BuildConfig.VERSION_CODE} | Commit ${BuildConfig.GIT_SHA}",
+      instructionFilesReadFailureMessage = null,
+      instructions = immutableSetOf(),
+      unparsableInstructions = immutableSetOf(),
+      languages = immutableSetOf(),
+      language = "english"
+    )
+
+  val presenter = Presenter(viewModel, controller, updateChan)
+
+  val storageDir by lazy {
+    File(Environment.getExternalStorageDirectory(), packageName)
+  }
+
+  val tokenFile by lazy {
+    File(storageDir, ".tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb")
+  }
+
+  val ensureInstructionsDirExistsAndIsAccessibleFromPC by lazy {
+    EnsureInstructionsDirExistsAndIsAccessibleFromPC(
+      storageDir,
+      tokenFile,
+      this,
+      ensureInstructionsDirChan,
+      instructionsDirResponseChan)
+  }
+
+  val getInstructions by lazy {
+    GetInstructions(
+      FileSystemGetInstructionsGateway(storageDir, immutableSetOf(tokenFile)),
+      getInstructionsChan,
+      instructionsResponseChan)
+  }
+
+  val update by lazy {
+    Update(
+      ensureInstructionsDirExistsAndIsAccessibleFromPC,
+      getInstructions,
+      msgChan,
+      updateChan)
+  }
+
   val snackbarChan: FlowableProcessor<SnackbarMessage> = UnicastProcessor.create()
 
   // 2016-10-12 Cort Spellman
@@ -73,11 +138,22 @@ class App : Application() {
       subjectToDisplay = null,
       languageToDisplay = null,
       cueMessage = null
-      )
+    )
 
   override fun onCreate() {
     super.onCreate()
+
+    controller.start()
+    presenter.start()
+    ensureInstructionsDirExistsAndIsAccessibleFromPC.start()
+    getInstructions.start()
+    update.start()
+
     LeakCanary.install(this)
 //    Stetho.initializeWithDefaults(this)
+
+    // Init
+    controller.ensureInstructionsDirExistsAndIsAccessibleFromPC()
+    // controller.getInstructions()
   }
 }
