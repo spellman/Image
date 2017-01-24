@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layout>
+  <data>
+    <variable
+        name="viewModel"
+        type="com.cws.image.ViewModel"
+      />
+  </data>
+
   <android.support.design.widget.CoordinatorLayout
       xmlns:android="http://schemas.android.com/apk/res/android"
       xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -24,9 +31,56 @@
           app:popupTheme="@style/AppTheme.PopupOverlay"
           />
 
+      <android.support.design.widget.TabLayout
+          android:id="@+id/languages"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          app:tabMode="scrollable"
+          />
+
     </android.support.design.widget.AppBarLayout>
 
-    <include layout="@layout/content_main"/>
+    <android.support.constraint.ConstraintLayout
+        android:id="@+id/content_main"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior"
+        tools:context="com.cws.image.MainActivity"
+        tools:showIn="@layout/main_activity"
+        >
+
+      <android.support.v7.widget.RecyclerView
+          android:id="@+id/instructions"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          app:layout_constraintTop_toTopOf="parent"
+          app:layout_constraintLeft_toLeftOf="parent"
+          app:layout_constraintRight_toRightOf="parent"
+          >
+      </android.support.v7.widget.RecyclerView>
+
+      <android.support.v7.widget.AppCompatTextView
+          android:id="@+id/unparsable_instructions_title"
+          android:text="@string/unparsable_instructions_title"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:gravity="center"
+          app:layout_constraintTop_toBottomOf="@+id/instructions"
+          app:layout_constraintLeft_toLeftOf="parent"
+          app:layout_constraintRight_toRightOf="parent"
+          />
+
+      <android.support.v7.widget.RecyclerView
+          android:id="@+id/unparsable_instructions"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          app:layout_constraintTop_toBottomOf="@+id/unparsable_instructions_title"
+          app:layout_constraintLeft_toLeftOf="parent"
+          app:layout_constraintRight_toRightOf="parent"
+          >
+      </android.support.v7.widget.RecyclerView>
+
+    </android.support.constraint.ConstraintLayout>
 
   </android.support.design.widget.CoordinatorLayout>
 </layout>

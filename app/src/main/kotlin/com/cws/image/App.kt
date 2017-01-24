@@ -2,10 +2,9 @@ package com.cws.image
 
 import android.app.Application
 import android.os.Environment
-//import com.facebook.stetho.Stetho
+import com.facebook.stetho.Stetho
 import com.github.andrewoma.dexx.kollection.*
 import com.squareup.leakcanary.LeakCanary
-import io.reactivex.processors.FlowableProcessor
 import io.reactivex.processors.UnicastProcessor
 import java.io.File
 
@@ -33,30 +32,57 @@ import java.io.File
 //                    cueStartTime = 1000)
 //    )
 
-sealed class SnackbarMessage {
-  class CouldNotPlayInstruction(
-    val subject: String,
-    val language: String,
-    val absolutePath: String
-  ) : SnackbarMessage()
+sealed class PresenterMessage {
+  class LanguageChanged : PresenterMessage() {
+    override fun toString(): String { return this.javaClass.canonicalName }
+  }
+  class InstructionsChanged : PresenterMessage() {
+    override fun toString(): String { return this.javaClass.canonicalName }
+  }
+
+  sealed class SnackbarMessage : PresenterMessage() {
+    class CouldNotReadInstructions(
+      val message: String
+    ) : SnackbarMessage() {
+      override fun toString(): String {
+        return """${this.javaClass.canonicalName}:
+               |message: ${message}""".trimMargin()
+      }
+    }
+
+    class CouldNotPlayInstruction(
+      val subject: String,
+      val language: String,
+      val absolutePath: String
+    ) : SnackbarMessage() {
+      override fun toString(): String {
+        return """${this.javaClass.canonicalName}:
+               |subject: ${subject}
+               |language: ${language}
+               |absolutePath: ${absolutePath}""".trimMargin()
+      }
+    }
+  }
 }
 
 val idealCountDownDuration: Long = 5000L
 val idealCueDuration: Long = 3000L
 
 class App : Application() {
-  val msgChan: UnicastProcessor<RequestModel> = UnicastProcessor.create()
+  val controllerMsgChan: UnicastProcessor<RequestModel> = UnicastProcessor.create()
 
-  val ensureInstructionsDirChan: UnicastProcessor<RequestModel.EnsureInstructionsDirExistsAndIsAccessibleFromPC> = UnicastProcessor.create()
-  val instructionsDirResponseChan: UnicastProcessor<ResponseModel.InstructionsDirResponse> = UnicastProcessor.create()
   val getInstructionsChan: UnicastProcessor<RequestModel.GetInstructions> = UnicastProcessor.create()
   val instructionsResponseChan: UnicastProcessor<ResponseModel.Instructions> = UnicastProcessor.create()
+  val setLanguageChan: UnicastProcessor<RequestModel.SetLanguage> = UnicastProcessor.create()
+  val languageResponseChan: UnicastProcessor<ResponseModel.Language> = UnicastProcessor.create()
   val playInstructionChan: UnicastProcessor<RequestModel.PlayInstruction> = UnicastProcessor.create()
   val playInstructionResponseChan: UnicastProcessor<ResponseModel.InstructionToPlay> = UnicastProcessor.create()
 
   val updateChan: UnicastProcessor<ResponseModel> = UnicastProcessor.create()
+  val presenterMsgChan: UnicastProcessor<PresenterMessage> = UnicastProcessor.create()
 
-  val controller = Controller(msgChan)
+  val controller = Controller(controllerMsgChan)
+
   // 2016-01-12 Cort Spellman
   // Is it the app or the activity that creates the view model?
   // Well, do you want to use one activity or multiple activities?
@@ -67,12 +93,13 @@ class App : Application() {
       appVersionInfo = "Version ${BuildConfig.VERSION_NAME} | Version Code ${BuildConfig.VERSION_CODE} | Commit ${BuildConfig.GIT_SHA}",
       instructionFilesReadFailureMessage = null,
       instructions = immutableSetOf(),
-      unparsableInstructions = immutableSetOf(),
-      languages = immutableSetOf(),
-      language = "english"
+      instructionsForCurrentLanguage = mutableListOf(),
+      unparsableInstructions = mutableListOf(),
+      languages = mutableListOf(),
+      language = null
     )
 
-  val presenter = Presenter(viewModel, controller, updateChan)
+  val presenter = Presenter(this, viewModel, updateChan, presenterMsgChan)
 
   val storageDir by lazy {
     File(Environment.getExternalStorageDirectory(), packageName)
@@ -82,31 +109,33 @@ class App : Application() {
     File(storageDir, ".tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb")
   }
 
-  val ensureInstructionsDirExistsAndIsAccessibleFromPC by lazy {
-    EnsureInstructionsDirExistsAndIsAccessibleFromPC(
-      storageDir,
-      tokenFile,
-      this,
-      ensureInstructionsDirChan,
-      instructionsDirResponseChan)
-  }
-
   val getInstructions by lazy {
     GetInstructions(
+      EnsureInstructionsDirExistsAndIsAccessibleFromPC(storageDir, tokenFile, this),
       FileSystemGetInstructionsGateway(storageDir, immutableSetOf(tokenFile)),
       getInstructionsChan,
       instructionsResponseChan)
   }
 
+  val setLanguage = SetLanguage(setLanguageChan, languageResponseChan)
+
+  // 2017-01-22 Cort Spellman
+  // TODO: getInstructionsChan and instructionsResponseChan should not be here in the
+  // top level. Set up that plumbing in an init block for Update -- it's all between
+  // update and its interactors.
+  // In the top level, here, I should just be hooking up the main components --
+  // controller to update to presenter.
+  // IF I find that update is doing nothing but dispatching, maybe I'll want to
+  // get rid of it and directly wire the controller to the interactors.
+  // But I may do common stuff -- I'll want to log things and send them to a
+  // server, for instance.
   val update by lazy {
     Update(
-      ensureInstructionsDirExistsAndIsAccessibleFromPC,
       getInstructions,
-      msgChan,
+      setLanguage,
+      controllerMsgChan,
       updateChan)
   }
-
-  val snackbarChan: FlowableProcessor<SnackbarMessage> = UnicastProcessor.create()
 
   // 2016-10-12 Cort Spellman
   // TODO: Use locales instead of string languages. The method of getting the
@@ -145,15 +174,14 @@ class App : Application() {
 
     controller.start()
     presenter.start()
-    ensureInstructionsDirExistsAndIsAccessibleFromPC.start()
     getInstructions.start()
+    setLanguage.start()
     update.start()
 
     LeakCanary.install(this)
-//    Stetho.initializeWithDefaults(this)
+    Stetho.initializeWithDefaults(this)
 
     // Init
-    controller.ensureInstructionsDirExistsAndIsAccessibleFromPC()
-    // controller.getInstructions()
+    controller.getInstructions()
   }
 }

@@ -4,62 +4,130 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.databinding.DataBindingUtil
 import android.os.Bundle
+import android.support.constraint.ConstraintLayout
 import android.support.design.widget.Snackbar
+import android.support.design.widget.TabLayout
 import android.support.v4.app.ActivityCompat
 import android.support.v4.content.ContextCompat
 import android.support.v7.app.AppCompatActivity
-import android.view.View
+import android.support.v7.widget.AppCompatTextView
+import android.support.v7.widget.LinearLayoutManager
+import android.support.v7.widget.RecyclerView
+import android.util.Log
+import android.view.Gravity
 import android.widget.TextView
 import com.cws.image.databinding.MainActivityBinding
+import com.github.andrewoma.dexx.kollection.ImmutableList
+import com.github.andrewoma.dexx.kollection.toImmutableList
 import io.reactivex.disposables.Disposable
-import io.reactivex.processors.FlowableProcessor
-import kotlinx.android.synthetic.main.content_main.*
 
 class MainActivity : AppCompatActivity() {
   val PERMISSION_REQUEST_FOR_WRITE_EXTERNAL_STORAGE = 0
+  val app by lazy { application as App }
   val binding: MainActivityBinding by lazy {
     DataBindingUtil.setContentView<MainActivityBinding>(this, R.layout.main_activity)
   }
-  lateinit var snackbarChan: FlowableProcessor<SnackbarMessage>
-  lateinit var snackbarChanSubscription: Disposable
+  val viewModel by lazy { app.viewModel }
+  val controller by lazy { app.controller }
+  val presenterChan by lazy { app.presenterMsgChan }
+  lateinit var presenterChanSubscription: Disposable
 
-  fun requestWriteExternalStoragePermission() {
+  fun requestPermissionWriteExternalStorage() {
     ActivityCompat.requestPermissions(this,
                                       arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
                                       PERMISSION_REQUEST_FOR_WRITE_EXTERNAL_STORAGE)
   }
 
-  fun makeSnackbar(view: View, snackbarMessage: SnackbarMessage) {
-    when (snackbarMessage) {
-      is SnackbarMessage.CouldNotPlayInstruction -> {
-        val message = "The ${snackbarMessage.language} ${snackbarMessage.subject} instruction could not by played.\n(${snackbarMessage.absolutePath})"
-        val snackbar = Snackbar.make(view, message, 5000)
-        val snackbarTextView = snackbar.view.findViewById(android.support.design.R.id.snackbar_text) as TextView
-        snackbarTextView.maxLines = 3
-
-        snackbar.show()
-      }
-
-      else -> {}
-    }
-  }
-
   fun setUpActivity() {
     setSupportActionBar(binding.toolbar)
 
-    snackbarChanSubscription = snackbarChan.subscribe { msg ->
-      makeSnackbar(content_main, msg)
+    addAppVersionInfo()
+
+    binding.languages.addOnTabSelectedListener(
+      object: TabLayout.OnTabSelectedListener {
+        override fun onTabSelected(tab: TabLayout.Tab?) {
+          tab?.let {
+            controller.setLanguage(it.tag as String)
+          }
+        }
+        override fun onTabReselected(tab: TabLayout.Tab?) {}
+        override fun onTabUnselected(tab: TabLayout.Tab?) {}
+      })
+
+
+    val instructionsForCurrentLanguageAdapter =
+      InstructionsAdapter(R.layout.subject_layout,
+                          this,
+                          viewModel.instructionsForCurrentLanguage)
+
+    val instructionsLayoutManager = LinearLayoutManager(this)
+    instructionsLayoutManager.orientation = LinearLayoutManager.VERTICAL
+
+    val instructionsForCurrentLanguage: RecyclerView = binding.instructions
+    instructionsForCurrentLanguage.layoutManager = instructionsLayoutManager
+    instructionsForCurrentLanguage.adapter = instructionsForCurrentLanguageAdapter
+    instructionsForCurrentLanguage.setHasFixedSize(true)
+
+
+    val unparsableInstructionsAdapter =
+      UnparsableInstructionsAdapter(R.layout.unparsable_instruction_layout,
+                                    this,
+                                    viewModel.unparsableInstructions)
+    val unparsableInstructionsLayoutManager = LinearLayoutManager(this)
+    instructionsLayoutManager.orientation = LinearLayoutManager.VERTICAL
+
+    val unparsableInstructions: RecyclerView = binding.unparsableInstructions
+    unparsableInstructions.layoutManager = unparsableInstructionsLayoutManager
+    unparsableInstructions.adapter = unparsableInstructionsAdapter
+
+
+    presenterChanSubscription = presenterChan.subscribe { msg ->
+      Log.d("Presenter message", msg.toString())
+      when (msg) {
+        is PresenterMessage.InstructionsChanged -> {
+          // You can reduce the amount of work here by using a view pager and
+          // adapter.
+          refreshLanguageTabs(viewModel.languages.toImmutableList())
+          unparsableInstructionsAdapter.notifyDataSetChanged()
+        }
+
+        is PresenterMessage.LanguageChanged -> {
+          // You can have this done automatically by using a view pager and
+          // adapter and using data binding to bind viewModel.language to
+          // the currentItem of the view pager. (Well, it would have to be
+          // an equivalent index, but still.)
+          setLanguage(viewModel.language, viewModel.languages.toImmutableList())
+          instructionsForCurrentLanguageAdapter.notifyDataSetChanged()
+        }
+
+        is PresenterMessage.SnackbarMessage.CouldNotReadInstructions -> {
+          val snackbar = Snackbar.make(binding.root,
+                                       msg.message,
+                                       Snackbar.LENGTH_INDEFINITE)
+          val snackbarTextView = snackbar.view.findViewById(
+                                   android.support.design.R.id.snackbar_text) as? TextView
+          snackbarTextView?.maxLines = 3
+          snackbar.show()
+        }
+
+        is PresenterMessage.SnackbarMessage.CouldNotPlayInstruction -> {
+          val message = "The ${msg.language} ${msg.subject} instruction could not be played.\n(${msg.absolutePath})"
+          val snackbar = Snackbar.make(binding.root, message, 5000)
+          val snackbarTextView = snackbar.view.findViewById(
+                                   android.support.design.R.id.snackbar_text) as? TextView
+          snackbarTextView?.maxLines = 3
+          snackbar.show()
+        }
+      }
     }
   }
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
-    val app = application as App
-    snackbarChan = app.snackbarChan
 
     if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
         != PackageManager.PERMISSION_GRANTED) {
-      requestWriteExternalStoragePermission()
+      requestPermissionWriteExternalStorage()
     }
     else {
       setUpActivity()
@@ -72,7 +140,7 @@ class MainActivity : AppCompatActivity() {
         setUpActivity()
       }
       else {
-        requestWriteExternalStoragePermission()
+        requestPermissionWriteExternalStorage()
       }
     }
     else {
@@ -84,8 +152,62 @@ class MainActivity : AppCompatActivity() {
   }
 
   override fun onDestroy() {
-    snackbarChanSubscription.dispose()
+    presenterChanSubscription.dispose()
     super.onDestroy()
+  }
+
+  fun addAppVersionInfo() {
+    // 2017-01-23 Cort Spellman
+    // This is not working statically for some reason.
+    // Data binding would not put viewModel.appVersionInfo in a text view.
+    // It would put an equivalent hard-coded string but not the value of
+    // viewModel.appVersionInfo.
+    // I don't understand because that value is a string; the Build.Config
+    // values are evaluated eagerly when viewModel is constructed in App.
+    val contentMain = binding.contentMain
+
+    val appVersionInfo = AppCompatTextView(this)
+    appVersionInfo.text = viewModel.appVersionInfo
+    appVersionInfo.gravity = Gravity.CENTER
+
+    val lp = ConstraintLayout.LayoutParams(ConstraintLayout.LayoutParams.WRAP_CONTENT,
+                                           ConstraintLayout.LayoutParams.WRAP_CONTENT)
+    lp.bottomToBottom = contentMain.id
+    lp.leftToLeft = contentMain.id
+    lp.rightToRight = contentMain.id
+
+    contentMain.addView(appVersionInfo, lp)
+  }
+
+  fun setLanguage(language: String?, languages: ImmutableList<String>) {
+    val selectedLanguageIndex = languages.indexOf(language)
+    val tab = binding.languages.getTabAt(selectedLanguageIndex)
+    if (tab != null) {
+      tab.select()
+    }
+    else {
+      binding.languages.getTabAt(0)?.select()
+      Log.e("setLanguage", "${language} (tab[${selectedLanguageIndex}]) not available. Selected default language instead.")
+    }
+  }
+
+  fun refreshLanguageTabs(languages: ImmutableList<String>) {
+    val languageTabs = binding.languages
+    val selectedTab = languageTabs.getTabAt(languageTabs.selectedTabPosition)
+
+    languageTabs.removeAllTabs()
+
+    languages.forEach { l ->
+      languageTabs.addTab(
+        languageTabs.newTab().setTag(l).setText(l))
+    }
+
+    if (selectedTab == null) {
+      setLanguage("english", languages)
+    }
+    else {
+      setLanguage(selectedTab.tag as? String, languages)
+    }
   }
 }
 

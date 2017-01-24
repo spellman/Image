@@ -1,6 +1,7 @@
 package com.cws.image
 
 import android.content.Context
+import android.content.Intent
 import android.media.AudioManager
 import android.media.MediaPlayer
 import android.media.MediaScannerConnection
@@ -16,7 +17,7 @@ import java.io.IOException
 import java.net.URLDecoder
 
 sealed class RequestModel {
-  class GetInstructions() : RequestModel() {
+  class GetInstructions : RequestModel() {
     override fun toString(): String { return this.javaClass.canonicalName }
   }
 
@@ -27,27 +28,28 @@ sealed class RequestModel {
     }
   }
 
-  class EnsureInstructionsDirExistsAndIsAccessibleFromPC : RequestModel() {
-    override fun toString(): String { return this.javaClass.canonicalName }
+  class SetLanguage(val language: String) : RequestModel() {
+    override fun toString(): String {
+      return """${this.javaClass.canonicalName}:
+               |language: ${language}""".trimMargin()
+    }
   }
 }
 
 sealed class ResponseModel {
-  class InstructionsDirResponse(
-    val instructionsDir: Result<String, File>
-  ): ResponseModel() {
-    override fun toString(): String {
-      return """${this.javaClass.canonicalName}:
-               |instructionsDir: ${instructionsDir}""".trimMargin()
-    }
-  }
-
   class Instructions(
     val parsedInstructions: Result<String, ParsedInstructions>
   ) : ResponseModel() {
     override fun toString(): String {
       return """${this.javaClass.canonicalName}:
                |parsedInstructions: ${parsedInstructions}""".trimMargin()
+    }
+  }
+
+  class Language(val language: String) : ResponseModel() {
+    override fun toString(): String {
+      return """${this.javaClass.canonicalName}:
+               |language: ${language}""".trimMargin()
     }
   }
 
@@ -65,11 +67,22 @@ sealed class ResponseModel {
 
 data class ViewModel(
   val appVersionInfo: String,
+
+  // 2017-01-23 Cort Spellman
+  // instructionFilesReadFailureMessage is displayed in a snackbar so it's not
+  // actually part of the view model. Rather, it's part of the application
+  // state. Ideas?
   var instructionFilesReadFailureMessage: String?,
+
+  // 2017-01-23 Cort Spellman
+  // instructions is really not part of the view model.
+  // Rather, it's part of the application state. Ideas?
   var instructions: ImmutableSet<Instruction>,
-  var unparsableInstructions: ImmutableSet<UnparsableInstruction>,
-  var languages: ImmutableSet<String>,
-  var language: String
+
+  val instructionsForCurrentLanguage: MutableList<Instruction>,
+  val unparsableInstructions: MutableList<UnparsableInstructionViewModel>,
+  val languages: MutableList<String>,
+  var language: String?
 )
 
 
@@ -91,12 +104,12 @@ class Controller(val msgChan: FlowableProcessor<RequestModel>) {
     msgChan.onNext(RequestModel.GetInstructions())
   }
 
-  fun playInstruction(instruction: Instruction) {
-    msgChan.onNext(RequestModel.PlayInstruction(instruction))
+  fun setLanguage(language: String) {
+    msgChan.onNext(RequestModel.SetLanguage(language))
   }
 
-  fun ensureInstructionsDirExistsAndIsAccessibleFromPC() {
-    msgChan.onNext(RequestModel.EnsureInstructionsDirExistsAndIsAccessibleFromPC())
+  fun playInstruction(instruction: Instruction) {
+    msgChan.onNext(RequestModel.PlayInstruction(instruction))
   }
 }
 
@@ -106,41 +119,61 @@ class Controller(val msgChan: FlowableProcessor<RequestModel>) {
 
 
 
-class Presenter(val viewModel: ViewModel,
-                val controller: Controller,
-                val updateCh: Flowable<ResponseModel>) {
+class Presenter(val context: Context,
+                val viewModel: ViewModel,
+                val updateChan: Flowable<ResponseModel>,
+                val msgChan: FlowableProcessor<PresenterMessage>) {
   lateinit var updateChanSubscription: Disposable
 
   fun start(): Presenter {
-    updateChanSubscription = updateCh.subscribe { responseModel ->
+    updateChanSubscription = updateChan.subscribe { responseModel ->
+      Log.d("Response model", responseModel.toString())
       when (responseModel) {
-        is ResponseModel.InstructionsDirResponse -> {
-          val instructionsDir = responseModel.instructionsDir
-          when (instructionsDir) {
-            is Result.Err -> {
-              viewModel.instructionFilesReadFailureMessage = instructionsDir.errValue
-            }
-            is Result.Ok -> controller.getInstructions()
-          }
-        }
-
         is ResponseModel.Instructions -> {
           val parsedInstructions = responseModel.parsedInstructions
           when (parsedInstructions) {
             is Result.Err -> {
               viewModel.instructionFilesReadFailureMessage = parsedInstructions.errValue
+              msgChan.onNext(
+                PresenterMessage.SnackbarMessage.CouldNotReadInstructions(
+                  parsedInstructions.errValue))
             }
             is Result.Ok -> {
-              val instructions: ImmutableSet<Instruction> = parsedInstructions.okValue.instructions
+              val instructions = parsedInstructions.okValue.instructions
               viewModel.instructions = instructions
-              viewModel.unparsableInstructions = parsedInstructions.okValue.unparsableInstructions
-              viewModel.languages = instructions.map { i -> i.language }.toImmutableSet()
+
+              viewModel.unparsableInstructions.clear()
+              viewModel.unparsableInstructions.addAll(
+                parsedInstructions.okValue.unparsableInstructions
+                  .map { u: UnparsableInstruction ->
+                    UnparsableInstructionViewModel(
+                      u.fileName,
+                      instructionParsingFailureToMessage(u.failure)
+                    )
+                  })
+
+              viewModel.languages.clear()
+              viewModel.languages.addAll(instructions.map { i -> i.language }
+                                           .toImmutableSet())
+
+              msgChan.onNext(PresenterMessage.InstructionsChanged())
             }
           }
         }
 
+        is ResponseModel.Language -> {
+          val language = responseModel.language
+          viewModel.language = language
+
+          viewModel.instructionsForCurrentLanguage.clear()
+          viewModel.instructionsForCurrentLanguage.addAll(
+            viewModel.instructions.filter { i -> i.language == language })
+
+          msgChan.onNext(PresenterMessage.LanguageChanged())
+        }
+
         is ResponseModel.InstructionToPlay -> {
-          playInstruction(responseModel.instruction)
+          Intent()
         }
 
         else -> {}
@@ -156,11 +189,25 @@ class Presenter(val viewModel: ViewModel,
     return this
   }
 
+  fun instructionParsingFailureToMessage(f: InstructionParsingFailure) : String {
+    val r = context.resources
+    val name = when (f) {
+      is InstructionParsingFailure.FileNameFormatFailure ->
+      "instruction_file_name_format_failure_explanation"
+
+      is InstructionParsingFailure.CueTimeFailure ->
+        "instruction_cue_time_failure_explanation"
+    }
+
+    return r.getString(
+             r.getIdentifier(name, "string", context.packageName))
+  }
+
 //  private fun playInstruction(instruction: Instruction) {
 //    val mp = MediaPlayer()
 //    mp.setAudioStreamType(AudioManager.STREAM_MUSIC)
 //    mp.setOnPreparedListener { mp ->
-//      updateCh.onNext(
+//      updateChan.onNext(
 //        Result.Ok<Instruction, InstructionTiming>(
 //          InstructionTiming(instruction.cueStartTime,
 //                            mp.duration.toLong())))
@@ -171,13 +218,13 @@ class Presenter(val viewModel: ViewModel,
 //      //       and tailor the message/log to the error:
 //      // See the possible values of what and extra at
 //      // https://developer.android.com/reference/android/media/MediaPlayer.OnErrorListener.html
-//      updateCh.onNext(
+//      updateChan.onNext(
 //        Result.Err<Instruction, InstructionTiming>(
 //          instruction))
 //      true
 //    }
 //    mp.setOnCompletionListener { mp ->
-//      updateCh.onNext("instruction-complete")
+//      updateChan.onNext("instruction-complete")
 //    }
 //
 //    try {
@@ -203,8 +250,8 @@ class Presenter(val viewModel: ViewModel,
 
 
 class Update(
-  val ensureInstructionsDirExistsAndIsAccessibleFromPC: EnsureInstructionsDirExistsAndIsAccessibleFromPC,
   val getInstructions: GetInstructions,
+  val setLanguage: SetLanguage,
   val msgChan: Flowable<RequestModel>,
   val updateChan: FlowableProcessor<ResponseModel>
 ) {
@@ -213,24 +260,27 @@ class Update(
 
   fun start(): Update {
     msgChanSubscription = msgChan.subscribe { requestModel ->
-      Log.d("Update", "Incoming request model: ${requestModel}")
+      Log.d("Request model", requestModel.toString())
 
       when (requestModel) {
-        is RequestModel.EnsureInstructionsDirExistsAndIsAccessibleFromPC ->
-          ensureInstructionsDirExistsAndIsAccessibleFromPC.inChan.onNext(requestModel)
-
         is RequestModel.GetInstructions ->
           getInstructions.inChan.onNext(requestModel)
+
+        is RequestModel.SetLanguage ->
+          setLanguage.inChan.onNext(requestModel)
+
+        is RequestModel.PlayInstruction ->
+          updateChan.onNext(ResponseModel.InstructionToPlay(requestModel.instruction))
+
         else -> {}
       }
     }
 
     responseChanSubscription =
       Flowable.merge(
-        ensureInstructionsDirExistsAndIsAccessibleFromPC.outChan,
-        getInstructions.outChan
+        getInstructions.outChan,
+        setLanguage.outChan
       ).subscribe { responseModel ->
-        Log.d("Update", "Outgoing response model: ${responseModel}")
         updateChan.onNext(responseModel)
       }
 
@@ -254,27 +304,11 @@ class Update(
 class EnsureInstructionsDirExistsAndIsAccessibleFromPC(
   val storageDir: File,
   val tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb: File,
-  val context: Context,
-  val inChan: FlowableProcessor<RequestModel.EnsureInstructionsDirExistsAndIsAccessibleFromPC>,
-  val outChan: FlowableProcessor<ResponseModel.InstructionsDirResponse>
+  val context: Context
 ) {
-  lateinit var inChanSubscription: Disposable
 
-  fun start(): EnsureInstructionsDirExistsAndIsAccessibleFromPC {
-    inChanSubscription = inChan.subscribe { msg ->
-      ensureInstructionsDirIsAccessibleFromPC(
-        ensureInstructionsDirExists()).subscribe { res ->
-        outChan.onNext(ResponseModel.InstructionsDirResponse(res))
-      }
-    }
-
-    return this
-  }
-
-  fun stop(): EnsureInstructionsDirExistsAndIsAccessibleFromPC {
-    inChanSubscription.dispose()
-
-    return this
+  fun ensureInstructionsDirExistsAndIsAccessibleFromPC(): Flowable<Result<String, File>> {
+    return ensureInstructionsDirIsAccessibleFromPC(ensureInstructionsDirExists())
   }
 
   fun ensureInstructionsDirExists(): Result<String, File> {
@@ -398,12 +432,18 @@ data class UnparsableInstruction(
   val failure: InstructionParsingFailure
 )
 
+data class UnparsableInstructionViewModel(
+  val fileName: String,
+  val failureMessage: String
+)
+
 data class ParsedInstructions(
   val instructions: ImmutableSet<Instruction>,
   val unparsableInstructions: ImmutableSet<UnparsableInstruction>
 )
 
 class GetInstructions(
+  val ensureInstructionsDir: EnsureInstructionsDirExistsAndIsAccessibleFromPC,
   val getInstructionsGateway: GetInstructionsGateway,
   val inChan: FlowableProcessor<RequestModel.GetInstructions>,
   val outChan: FlowableProcessor<ResponseModel.Instructions>
@@ -412,7 +452,18 @@ class GetInstructions(
 
   fun start(): GetInstructions {
     inChanSubscription = inChan.subscribe { msg ->
-      outChan.onNext(ResponseModel.Instructions(getInstructions()))
+      ensureInstructionsDir.ensureInstructionsDirExistsAndIsAccessibleFromPC()
+        .subscribe { instructionsDirResult ->
+          when (instructionsDirResult) {
+            is Result.Err ->
+              outChan.onNext(
+                ResponseModel.Instructions(
+                  Result.Err<String, ParsedInstructions>(instructionsDirResult.errValue)))
+
+            is Result.Ok ->
+              outChan.onNext(ResponseModel.Instructions(getInstructions()))
+          }
+        }
     }
 
     return this
@@ -431,7 +482,7 @@ class GetInstructions(
 
       is Result.Ok -> {
         val parseResults = instructionFiles.okValue
-                             .map { file -> fileToInstruction(file) }
+          .map { file -> fileToInstruction(file) }
 
         Result.Ok<String, ParsedInstructions>(
           ParsedInstructions(
@@ -477,6 +528,33 @@ class GetInstructions(
         UnparsableInstruction(file.name,
                               InstructionParsingFailure.CueTimeFailure()))
     }
+  }
+}
+
+
+
+
+
+
+
+class SetLanguage(
+  val inChan: FlowableProcessor<RequestModel.SetLanguage>,
+  val outChan: FlowableProcessor<ResponseModel.Language>
+) {
+  lateinit var inChanSubscription: Disposable
+
+  fun start(): SetLanguage {
+    inChanSubscription = inChan.subscribe { msg ->
+      outChan.onNext(ResponseModel.Language(msg.language))
+    }
+
+    return this
+  }
+
+  fun stop(): SetLanguage {
+    inChanSubscription.dispose()
+
+    return this
   }
 }
 

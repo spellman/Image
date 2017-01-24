@@ -1,4 +1,7 @@
 <resources>
   <string name="app_name">Image</string>
   <string name="action_settings">Settings</string>
+  <string name="unparsable_instructions_title">The following instruction files could not be parsed.</string>
+  <string name="instruction_file_name_format_failure_explanation">The filename must be of the format &lt;x-ray subject&gt;_&lt;language&gt;_&lt;cue time in milliseconds&gt;.ogg (or appropriate file extension).</string>
+  <string name="instruction_cue_time_failure_explanation">The segment following the second underscore must be a number, representing the cue time in milliseconds.</string>
 </resources>
