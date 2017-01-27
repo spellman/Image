@@ -5,7 +5,7 @@ import android.os.Environment
 import com.facebook.stetho.Stetho
 import com.github.andrewoma.dexx.kollection.*
 import com.squareup.leakcanary.LeakCanary
-import io.reactivex.processors.UnicastProcessor
+import io.reactivex.subjects.PublishSubject
 import java.io.File
 
 // Dummy data I started with. Keep for running in emulator.
@@ -69,17 +69,17 @@ val idealCountDownDuration: Long = 5000L
 val idealCueDuration: Long = 3000L
 
 class App : Application() {
-  val controllerMsgChan: UnicastProcessor<RequestModel> = UnicastProcessor.create()
+  val controllerMsgChan: PublishSubject<RequestModel> = PublishSubject.create()
 
-  val getInstructionsChan: UnicastProcessor<RequestModel.GetInstructions> = UnicastProcessor.create()
-  val instructionsResponseChan: UnicastProcessor<ResponseModel.Instructions> = UnicastProcessor.create()
-  val setLanguageChan: UnicastProcessor<RequestModel.SetLanguage> = UnicastProcessor.create()
-  val languageResponseChan: UnicastProcessor<ResponseModel.Language> = UnicastProcessor.create()
-  val playInstructionChan: UnicastProcessor<RequestModel.PlayInstruction> = UnicastProcessor.create()
-  val playInstructionResponseChan: UnicastProcessor<ResponseModel.InstructionToPlay> = UnicastProcessor.create()
+  val getInstructionsChan: PublishSubject<RequestModel.GetInstructions> = PublishSubject.create()
+  val instructionsResponseChan: PublishSubject<ResponseModel.Instructions> = PublishSubject.create()
+  val setLanguageChan: PublishSubject<RequestModel.SetLanguage> = PublishSubject.create()
+  val languageResponseChan: PublishSubject<ResponseModel.Language> = PublishSubject.create()
+  val playInstructionChan: PublishSubject<RequestModel.PlayInstruction> = PublishSubject.create()
+  val playInstructionResponseChan: PublishSubject<ResponseModel.InstructionToPlay> = PublishSubject.create()
 
-  val updateChan: UnicastProcessor<ResponseModel> = UnicastProcessor.create()
-  val presenterMsgChan: UnicastProcessor<PresenterMessage> = UnicastProcessor.create()
+  val updateChan: PublishSubject<ResponseModel> = PublishSubject.create()
+  val presenterMsgChan: PublishSubject<PresenterMessage> = PublishSubject.create()
 
   val controller = Controller(controllerMsgChan)
 

@@ -10,8 +10,10 @@ import android.util.Log
 import com.github.andrewoma.dexx.kollection.*
 import io.reactivex.BackpressureStrategy
 import io.reactivex.Flowable
+import io.reactivex.Observable
 import io.reactivex.disposables.Disposable
 import io.reactivex.processors.FlowableProcessor
+import io.reactivex.subjects.Subject
 import java.io.File
 import java.io.IOException
 import java.net.URLDecoder
@@ -91,7 +93,7 @@ data class ViewModel(
 
 
 
-class Controller(val msgChan: FlowableProcessor<RequestModel>) {
+class Controller(val msgChan: Subject<RequestModel>) {
   fun start(): Controller {
     return this
   }
@@ -121,8 +123,8 @@ class Controller(val msgChan: FlowableProcessor<RequestModel>) {
 
 class Presenter(val context: Context,
                 val viewModel: ViewModel,
-                val updateChan: Flowable<ResponseModel>,
-                val msgChan: FlowableProcessor<PresenterMessage>) {
+                val updateChan: Observable<ResponseModel>,
+                val msgChan: Subject<PresenterMessage>) {
   lateinit var updateChanSubscription: Disposable
 
   fun start(): Presenter {
@@ -252,8 +254,8 @@ class Presenter(val context: Context,
 class Update(
   val getInstructions: GetInstructions,
   val setLanguage: SetLanguage,
-  val msgChan: Flowable<RequestModel>,
-  val updateChan: FlowableProcessor<ResponseModel>
+  val msgChan: Observable<RequestModel>,
+  val updateChan: Subject<ResponseModel>
 ) {
   lateinit var msgChanSubscription: Disposable
   lateinit var responseChanSubscription: Disposable
@@ -277,7 +279,7 @@ class Update(
     }
 
     responseChanSubscription =
-      Flowable.merge(
+      Observable.merge(
         getInstructions.outChan,
         setLanguage.outChan
       ).subscribe { responseModel ->
@@ -307,7 +309,7 @@ class EnsureInstructionsDirExistsAndIsAccessibleFromPC(
   val context: Context
 ) {
 
-  fun ensureInstructionsDirExistsAndIsAccessibleFromPC(): Flowable<Result<String, File>> {
+  fun ensureInstructionsDirExistsAndIsAccessibleFromPC(): Observable<Result<String, File>> {
     return ensureInstructionsDirIsAccessibleFromPC(ensureInstructionsDirExists())
   }
 
@@ -335,25 +337,25 @@ class EnsureInstructionsDirExistsAndIsAccessibleFromPC(
     }
   }
 
-  fun ensureInstructionsDirIsAccessibleFromPC(instructionsDir: Result<String, File>): Flowable<Result<String, File>> {
+  fun ensureInstructionsDirIsAccessibleFromPC(instructionsDir: Result<String, File>): Observable<Result<String, File>> {
     return when (instructionsDir) {
-      is Result.Err -> Flowable.just(instructionsDir)
+      is Result.Err -> Observable.just(instructionsDir)
       is Result.Ok -> {
         if (!tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb.isFile) {
           if (!isExternalStorageWritable()) {
-            Flowable.just<Result<String, File>>(
+            Observable.just<Result<String, File>>(
               Result.Err(
                 "There is no token file in the instructions directory, ${storageDir.absolutePath} and it can't be created because external storage is not writable."))
           }
           else {
             if (!tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb.createNewFile()) {
-              Flowable.just<Result<String, File>>(
+              Observable.just<Result<String, File>>(
                 Result.Err(
                   "Could not create file ${tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb.absolutePath}, even though external storage is writable."))
             }
             else {
               Log.d("instructions dir", "Created file ${tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb.absolutePath} (to make directory appear when device is mounted via USB).")
-              Flowable.create<Result<String, File>>(
+              Observable.create<Result<String, File>>(
                 { emitter ->
                   MediaScannerConnection.scanFile(
                     context,
@@ -372,13 +374,12 @@ class EnsureInstructionsDirExistsAndIsAccessibleFromPC(
                             "A token file, ${tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb.absolutePath}, was created but scanning it failed."))
                       }
                     })
-                },
-                BackpressureStrategy.BUFFER)
+                })
             }
           }
         }
         else {
-          Flowable.just<Result<String, File>>(Result.Ok(storageDir))
+          Observable.just<Result<String, File>>(Result.Ok(storageDir))
         }
       }
     }
@@ -445,8 +446,8 @@ data class ParsedInstructions(
 class GetInstructions(
   val ensureInstructionsDir: EnsureInstructionsDirExistsAndIsAccessibleFromPC,
   val getInstructionsGateway: GetInstructionsGateway,
-  val inChan: FlowableProcessor<RequestModel.GetInstructions>,
-  val outChan: FlowableProcessor<ResponseModel.Instructions>
+  val inChan: Subject<RequestModel.GetInstructions>,
+  val outChan: Subject<ResponseModel.Instructions>
 ) {
   lateinit var inChanSubscription: Disposable
 
@@ -538,8 +539,8 @@ class GetInstructions(
 
 
 class SetLanguage(
-  val inChan: FlowableProcessor<RequestModel.SetLanguage>,
-  val outChan: FlowableProcessor<ResponseModel.Language>
+  val inChan: Subject<RequestModel.SetLanguage>,
+  val outChan: Subject<ResponseModel.Language>
 ) {
   lateinit var inChanSubscription: Disposable
 
