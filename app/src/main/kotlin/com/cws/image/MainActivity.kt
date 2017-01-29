@@ -17,8 +17,9 @@ import android.util.Log
 import android.view.Gravity
 import android.widget.TextView
 import com.cws.image.databinding.MainActivityBinding
-import com.github.andrewoma.dexx.kollection.ImmutableList
-import com.github.andrewoma.dexx.kollection.toImmutableList
+import com.github.andrewoma.dexx.kollection.*
+import com.jakewharton.rxbinding.support.design.widget.RxTabLayout
+import hu.akarnokd.rxjava.interop.RxJavaInterop
 import io.reactivex.disposables.Disposable
 
 class MainActivity : AppCompatActivity() {
@@ -27,10 +28,7 @@ class MainActivity : AppCompatActivity() {
   val binding: MainActivityBinding by lazy {
     DataBindingUtil.setContentView<MainActivityBinding>(this, R.layout.main_activity)
   }
-  val viewModel by lazy { app.viewModel }
-  val controller by lazy { app.controller }
-  val presenterChan by lazy { app.presenterMsgChan }
-  lateinit var presenterChanSubscription: Disposable
+//  lateinit var presenterChanSubscription: Disposable
 
   fun requestPermissionWriteExternalStorage() {
     ActivityCompat.requestPermissions(this,
@@ -38,28 +36,26 @@ class MainActivity : AppCompatActivity() {
                                       PERMISSION_REQUEST_FOR_WRITE_EXTERNAL_STORAGE)
   }
 
-  fun setUpActivity() {
+  fun setUpActivity(savedInstanceState: Bundle?) {
     setSupportActionBar(binding.toolbar)
 
-    addAppVersionInfo()
+    val viewModel =
+      if (savedInstanceState == null) {
+        ViewModel(app = app,
+                  activity = this)
+      }
+      else {
+        // TODO: Restore saved ViewModel
+        throw NotImplementedError("TODO: Restore saved ViewModel")
+      }
 
-    binding.languages.addOnTabSelectedListener(
-      object: TabLayout.OnTabSelectedListener {
-        override fun onTabSelected(tab: TabLayout.Tab?) {
-          tab?.let {
-            controller.setLanguage(it.tag as String)
-          }
-        }
-        override fun onTabReselected(tab: TabLayout.Tab?) {}
-        override fun onTabUnselected(tab: TabLayout.Tab?) {}
-      })
+    addAppVersionInfo(viewModel.appVersionInfo)
 
 
     val instructionsForCurrentLanguageAdapter =
       InstructionsAdapter(R.layout.subject_layout,
                           this,
-                          viewModel.instructionsForCurrentLanguage)
-
+                          immutableListOf())
     val instructionsLayoutManager = LinearLayoutManager(this)
     instructionsLayoutManager.orientation = LinearLayoutManager.VERTICAL
 
@@ -72,7 +68,7 @@ class MainActivity : AppCompatActivity() {
     val unparsableInstructionsAdapter =
       UnparsableInstructionsAdapter(R.layout.unparsable_instruction_layout,
                                     this,
-                                    viewModel.unparsableInstructions)
+                                    immutableListOf())
     val unparsableInstructionsLayoutManager = LinearLayoutManager(this)
     instructionsLayoutManager.orientation = LinearLayoutManager.VERTICAL
 
@@ -81,63 +77,61 @@ class MainActivity : AppCompatActivity() {
     unparsableInstructions.adapter = unparsableInstructionsAdapter
 
 
-    presenterChanSubscription = presenterChan.subscribe { msg ->
-      Log.d("Presenter message", msg.toString())
-      when (msg) {
-        is PresenterMessage.InstructionsChanged -> {
-          // You can reduce the amount of work here by using a view pager and
-          // adapter.
-          refreshLanguageTabs(viewModel.languages.toImmutableList())
-          unparsableInstructionsAdapter.notifyDataSetChanged()
-        }
-
-        is PresenterMessage.LanguageChanged -> {
-          // You can have this done automatically by using a view pager and
-          // adapter and using data binding to bind viewModel.language to
-          // the currentItem of the view pager. (Well, it would have to be
-          // an equivalent index, but still.)
-          setLanguage(viewModel.language, viewModel.languages.toImmutableList())
-          instructionsForCurrentLanguageAdapter.notifyDataSetChanged()
-        }
-
-        is PresenterMessage.SnackbarMessage.CouldNotReadInstructions -> {
-          val snackbar = Snackbar.make(binding.root,
-                                       msg.message,
-                                       Snackbar.LENGTH_INDEFINITE)
-          val snackbarTextView = snackbar.view.findViewById(
-                                   android.support.design.R.id.snackbar_text) as? TextView
-          snackbarTextView?.maxLines = 3
-          snackbar.show()
-        }
-
-        is PresenterMessage.SnackbarMessage.CouldNotPlayInstruction -> {
-          val message = "The ${msg.language} ${msg.subject} instruction could not be played.\n(${msg.absolutePath})"
-          val snackbar = Snackbar.make(binding.root, message, 5000)
-          val snackbarTextView = snackbar.view.findViewById(
-                                   android.support.design.R.id.snackbar_text) as? TextView
-          snackbarTextView?.maxLines = 3
-          snackbar.show()
-        }
-      }
+    if (viewModel.needToRefreshInstructions) {
+      viewModel.getInstructions()
     }
+
+    viewModel.setCurrentLanguage(
+      RxJavaInterop.toV2Observable(
+        RxTabLayout.selections(binding.languages))
+        .doOnNext { tab ->
+          Log.d(this.javaClass.simpleName, "RxTabLayout.selections")
+          Log.d("selected tab", tab.text as String)
+        }
+        .map { tab -> tab.tag as String }
+    )
+//    presenterChanSubscription = presenterChan.subscribe { msg ->
+//      Log.d("Presenter message", msg.toString())
+//      val x = when (msg) {
+//        is PresenterMessage.SnackbarMessage.CouldNotReadInstructions -> {
+//          val snackbar = Snackbar.make(binding.root,
+//                                       msg.message,
+//                                       Snackbar.LENGTH_INDEFINITE)
+//          val snackbarTextView = snackbar.view.findViewById(
+//                                   android.support.design.R.id.snackbar_text) as? TextView
+//          snackbarTextView?.maxLines = 3
+//          snackbar.show()
+//        }
+//
+//        is PresenterMessage.SnackbarMessage.CouldNotPlayInstruction -> {
+//          val message = "The ${msg.language} ${msg.subject} instruction could not be played.\n(${msg.absolutePath})"
+//          val snackbar = Snackbar.make(binding.root, message, 5000)
+//          val snackbarTextView = snackbar.view.findViewById(
+//                                   android.support.design.R.id.snackbar_text) as? TextView
+//          snackbarTextView?.maxLines = 3
+//          snackbar.show()
+//        }
+//      }
+//    }
   }
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+    setUpActivity(savedInstanceState)
 
     if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
         != PackageManager.PERMISSION_GRANTED) {
       requestPermissionWriteExternalStorage()
     }
     else {
-      setUpActivity()
+      // TODO: make it go
     }
   }
 
   override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
     if (requestCode == PERMISSION_REQUEST_FOR_WRITE_EXTERNAL_STORAGE) {
       if (grantResults.size == 1 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-        setUpActivity()
+        // TODO: make it go
       }
       else {
         requestPermissionWriteExternalStorage()
@@ -151,12 +145,12 @@ class MainActivity : AppCompatActivity() {
   override fun onBackPressed() {
   }
 
-  override fun onDestroy() {
-    presenterChanSubscription.dispose()
-    super.onDestroy()
-  }
+//  override fun onDestroy() {
+//    presenterChanSubscription.dispose()
+//    super.onDestroy()
+//  }
 
-  fun addAppVersionInfo() {
+  fun addAppVersionInfo(appVersionInfo: String) {
     // 2017-01-23 Cort Spellman
     // This is not working statically for some reason.
     // Data binding would not put viewModel.appVersionInfo in a text view.
@@ -166,9 +160,9 @@ class MainActivity : AppCompatActivity() {
     // values are evaluated eagerly when viewModel is constructed in App.
     val contentMain = binding.contentMain
 
-    val appVersionInfo = AppCompatTextView(this)
-    appVersionInfo.text = viewModel.appVersionInfo
-    appVersionInfo.gravity = Gravity.CENTER
+    val viewAppVersionInfo = AppCompatTextView(this)
+    viewAppVersionInfo.text = appVersionInfo
+    viewAppVersionInfo.gravity = Gravity.CENTER
 
     val lp = ConstraintLayout.LayoutParams(ConstraintLayout.LayoutParams.WRAP_CONTENT,
                                            ConstraintLayout.LayoutParams.WRAP_CONTENT)
@@ -176,13 +170,26 @@ class MainActivity : AppCompatActivity() {
     lp.leftToLeft = contentMain.id
     lp.rightToRight = contentMain.id
 
-    contentMain.addView(appVersionInfo, lp)
+    contentMain.addView(viewAppVersionInfo, lp)
+  }
+
+  fun refreshUnparsableInstructions(
+    unparsableInstructions: ImmutableList<UnparsableInstructionViewModel>
+  ) {
+    Log.d(this.javaClass.simpleName, "refreshUnparsableInstructions")
+    Log.d("unpars instructs", unparsableInstructions.toString())
+    (binding.unparsableInstructions.adapter as UnparsableInstructionsAdapter)
+      .refreshUnparsableInstructions(unparsableInstructions)
   }
 
   fun setLanguage(language: String?, languages: ImmutableList<String>) {
+    Log.d(this.javaClass.simpleName, "setLanguage")
+    Log.d("language", language)
     val selectedLanguageIndex = languages.indexOf(language)
     val tab = binding.languages.getTabAt(selectedLanguageIndex)
     if (tab != null) {
+      Log.d(this.javaClass.simpleName, "setLanguage")
+      Log.d("selecting tab", "programmatically selecting tab for language ${tab.tag}")
       tab.select()
     }
     else {
@@ -191,7 +198,13 @@ class MainActivity : AppCompatActivity() {
     }
   }
 
-  fun refreshLanguageTabs(languages: ImmutableList<String>) {
+  fun refreshLanguageTabs(languages: ImmutableList<String>,
+                          defaultLanguage: String) {
+    // 2017-01-28 Cort Spellman
+    // TODO: Use a viewpager -- this is stupid to be depending on the tabs
+    // being in sync with another list.
+    Log.d(this.javaClass.simpleName, "refreshLanguageTabs")
+    Log.d("languages", languages.toString())
     val languageTabs = binding.languages
     val selectedTab = languageTabs.getTabAt(languageTabs.selectedTabPosition)
 
@@ -203,11 +216,18 @@ class MainActivity : AppCompatActivity() {
     }
 
     if (selectedTab == null) {
-      setLanguage("english", languages)
+      setLanguage(defaultLanguage, languages)
     }
     else {
       setLanguage(selectedTab.tag as? String, languages)
     }
+  }
+
+  fun refreshInstructionsForCurrentLanguage(instructions: ImmutableList<Instruction>) {
+    Log.d(this.javaClass.simpleName, "refreshInstructionsForCurrentLanguage")
+    Log.d("instructions", instructions.toString())
+    (binding.instructions.adapter as InstructionsAdapter)
+      .refreshInstructions(instructions)
   }
 }
 

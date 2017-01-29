@@ -1,17 +1,23 @@
 package com.cws.image
 
 import android.content.Context
+import com.github.andrewoma.dexx.kollection.ImmutableList
 
 class UnparsableInstructionsAdapter(
   layoutId: Int,
   val context: Context,
-  val instructions: MutableList<UnparsableInstructionViewModel>
+  var unparsableInstructions: ImmutableList<UnparsableInstructionViewModel>
 ) : SingleLayoutRecyclerViewDataBindingAdapter(layoutId) {
   override fun getItemForPosition(position: Int): UnparsableInstructionViewModel {
-    return instructions[position]
+    return unparsableInstructions[position]
   }
 
   override fun getItemCount(): Int {
-    return instructions.count()
+    return unparsableInstructions.count()
+  }
+
+  fun refreshUnparsableInstructions(newUnparsableInstructions: ImmutableList<UnparsableInstructionViewModel>) {
+    unparsableInstructions = newUnparsableInstructions
+    notifyDataSetChanged()
   }
 }

@@ -5,7 +5,6 @@ import android.os.Environment
 import com.facebook.stetho.Stetho
 import com.github.andrewoma.dexx.kollection.*
 import com.squareup.leakcanary.LeakCanary
-import io.reactivex.subjects.PublishSubject
 import java.io.File
 
 // Dummy data I started with. Keep for running in emulator.
@@ -69,38 +68,6 @@ val idealCountDownDuration: Long = 5000L
 val idealCueDuration: Long = 3000L
 
 class App : Application() {
-  val controllerMsgChan: PublishSubject<RequestModel> = PublishSubject.create()
-
-  val getInstructionsChan: PublishSubject<RequestModel.GetInstructions> = PublishSubject.create()
-  val instructionsResponseChan: PublishSubject<ResponseModel.Instructions> = PublishSubject.create()
-  val setLanguageChan: PublishSubject<RequestModel.SetLanguage> = PublishSubject.create()
-  val languageResponseChan: PublishSubject<ResponseModel.Language> = PublishSubject.create()
-  val playInstructionChan: PublishSubject<RequestModel.PlayInstruction> = PublishSubject.create()
-  val playInstructionResponseChan: PublishSubject<ResponseModel.InstructionToPlay> = PublishSubject.create()
-
-  val updateChan: PublishSubject<ResponseModel> = PublishSubject.create()
-  val presenterMsgChan: PublishSubject<PresenterMessage> = PublishSubject.create()
-
-  val controller = Controller(controllerMsgChan)
-
-  // 2016-01-12 Cort Spellman
-  // Is it the app or the activity that creates the view model?
-  // Well, do you want to use one activity or multiple activities?
-  // I think the answer follows (it probably doesn't matter in the
-  // single-activity case).
-  val viewModel =
-    ViewModel(
-      appVersionInfo = "Version ${BuildConfig.VERSION_NAME} | Version Code ${BuildConfig.VERSION_CODE} | Commit ${BuildConfig.GIT_SHA}",
-      instructionFilesReadFailureMessage = null,
-      instructions = immutableSetOf(),
-      instructionsForCurrentLanguage = mutableListOf(),
-      unparsableInstructions = mutableListOf(),
-      languages = mutableListOf(),
-      language = null
-    )
-
-  val presenter = Presenter(this, viewModel, updateChan, presenterMsgChan)
-
   val storageDir by lazy {
     File(Environment.getExternalStorageDirectory(), packageName)
   }
@@ -109,32 +76,12 @@ class App : Application() {
     File(storageDir, ".tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb")
   }
 
-  val getInstructions by lazy {
-    GetInstructions(
-      EnsureInstructionsDirExistsAndIsAccessibleFromPC(storageDir, tokenFile, this),
-      FileSystemGetInstructionsGateway(storageDir, immutableSetOf(tokenFile)),
-      getInstructionsChan,
-      instructionsResponseChan)
+  val ensureInstructionsDir by lazy {
+    EnsureInstructionsDirExistsAndIsAccessibleFromPC(storageDir, tokenFile, this)
   }
 
-  val setLanguage = SetLanguage(setLanguageChan, languageResponseChan)
-
-  // 2017-01-22 Cort Spellman
-  // TODO: getInstructionsChan and instructionsResponseChan should not be here in the
-  // top level. Set up that plumbing in an init block for Update -- it's all between
-  // update and its interactors.
-  // In the top level, here, I should just be hooking up the main components --
-  // controller to update to presenter.
-  // IF I find that update is doing nothing but dispatching, maybe I'll want to
-  // get rid of it and directly wire the controller to the interactors.
-  // But I may do common stuff -- I'll want to log things and send them to a
-  // server, for instance.
-  val update by lazy {
-    Update(
-      getInstructions,
-      setLanguage,
-      controllerMsgChan,
-      updateChan)
+  val getInstructionsGateway by lazy {
+    FileSystemGetInstructionsGateway(storageDir, immutableSetOf(tokenFile))
   }
 
   // 2016-10-12 Cort Spellman
@@ -172,16 +119,7 @@ class App : Application() {
   override fun onCreate() {
     super.onCreate()
 
-    controller.start()
-    presenter.start()
-    getInstructions.start()
-    setLanguage.start()
-    update.start()
-
     LeakCanary.install(this)
     Stetho.initializeWithDefaults(this)
-
-    // Init
-    controller.getInstructions()
   }
 }

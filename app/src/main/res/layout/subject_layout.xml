@@ -5,10 +5,6 @@
         name="viewModel"
         type="com.cws.image.Instruction"
         />
-    <variable
-        name="controller"
-        type="com.cws.image.Controller"
-        />
   </data>
 
   <TextView
@@ -17,6 +13,5 @@
       android:layout_height="wrap_content"
       android:text="@{viewModel.subject}"
       android:clickable="true"
-      android:onClick="@{() -> controller.playInstruction(viewModel)}"
       />
 </layout>
