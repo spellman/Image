@@ -16,62 +16,16 @@ import io.reactivex.subjects.Subject
 import java.io.File
 import java.io.IOException
 import java.net.URLDecoder
-import java.util.*
 import kotlin.comparisons.compareBy
 import kotlin.comparisons.thenBy
-
-sealed class RequestModel {
-  class GetInstructions : RequestModel() {
-    override fun toString(): String { return this.javaClass.canonicalName }
-  }
-
-  class PlayInstruction(val instruction: Instruction) : RequestModel() {
-    override fun toString(): String {
-      return """${this.javaClass.canonicalName}:
-               |instruction: ${instruction}""".trimMargin()
-    }
-  }
-
-  class SetLanguage(val language: String) : RequestModel() {
-    override fun toString(): String {
-      return """${this.javaClass.canonicalName}:
-               |language: ${language}""".trimMargin()
-    }
-  }
-}
-
-sealed class ResponseModel {
-  class Instructions(
-    val parsedInstructions: ParsedInstructions
-  ) : ResponseModel() {
-    override fun toString(): String {
-      return """${this.javaClass.canonicalName}:
-               |parsedInstructions: ${parsedInstructions}""".trimMargin()
-    }
-  }
-
-  class Language(val language: String) : ResponseModel() {
-    override fun toString(): String {
-      return """${this.javaClass.canonicalName}:
-               |language: ${language}""".trimMargin()
-    }
-  }
-
-  class InstructionToPlay(val instruction: Instruction) : ResponseModel() {
-    override fun toString(): String {
-      return """${this.javaClass.canonicalName}:
-               |instruction: ${instruction}""".trimMargin()
-    }
-  }
-}
-
-
-
 
 data class UnparsableInstructionViewModel(
   val fileName: String,
   val failureMessage: String
 )
+
+//data class InstructionTiming(val cueStartTime: Long,
+//                             val instructionAudioDuration: Long)
 
 
 
@@ -94,11 +48,10 @@ data class ViewModel(
     Log.d("view model", this.toString())
     i_getInstructions(app.ensureInstructionsDir, app.getInstructionsGateway)
       .subscribe(
-        { responseModel ->
+        { parsedInstructions ->
           Log.d(this.javaClass.simpleName, "getInstructions")
-          Log.d("RESPONSE MODEL", responseModel.toString())
+          Log.d("RESPONSE MODEL", parsedInstructions.toString())
           Log.d("view model pre", this.toString())
-          val parsedInstructions = responseModel.parsedInstructions
           instructions = parsedInstructions.instructions
 
           unparsableInstructions =
@@ -169,6 +122,45 @@ data class ViewModel(
     return r.getString(
       r.getIdentifier(name, "string", context.packageName))
   }
+
+  private fun playInstruction(instruction: Instruction) {
+    //  val mp = MediaPlayer()
+    //  mp.setAudioStreamType(AudioManager.STREAM_MUSIC)
+    //  mp.setOnPreparedListener { mp ->
+    //    outChan.onNext(
+    //      Result.Ok<Instruction, InstructionTiming>(
+    //        InstructionTiming(msg.instruction.cueStartTime,
+    //                          mp.duration.toLong())))
+    //  }
+    //  mp.setOnErrorListener { mp, what, extra ->
+    //    // 2016-11-23 Cort Spellman
+    //    // TODO: This is too coarse - recover from errors as appropriate
+    //    //       and tailor the message/log to the error:
+    //    // See the possible values of what and extra at
+    //    // https://developer.android.com/reference/android/media/MediaPlayer.OnErrorListener.html
+    //    outChan.onNext(
+    //      Result.Err<Instruction, InstructionTiming>(
+    //        msg.instruction))
+    //    true
+    //  }
+    //  mp.setOnCompletionListener { mp ->
+    //    outChan.onNext("instruction-complete")
+    //  }
+    //
+    //  try {
+    //    mp.setDataSource(msg.instruction.absolutePath)
+    //    mediaPlayer = mp
+    //    mp.prepareAsync()
+    //  }
+    //  catch (e: IOException) {
+    //    store.dispatch(
+    //      Action.CouldNotPlayInstruction(action.instruction))
+    //  }
+    //  catch (e: IllegalArgumentException) {
+    //    store.dispatch(
+    //      Action.CouldNotPlayInstruction(action.instruction))
+    //  }
+  }
 }
 
 
@@ -176,24 +168,52 @@ data class ViewModel(
 
 
 
+
+data class Instruction(
+  val subject: String,
+  val language: String,
+  val absolutePath: String,
+  val cueStartTime: Long
+)
+
+sealed class InstructionParsingFailure {
+  class FileNameFormatFailure : InstructionParsingFailure()
+  class CueTimeFailure : InstructionParsingFailure()
+}
+
+data class UnparsableInstruction(
+  val fileName: String,
+  val failure: InstructionParsingFailure
+)
+
+data class ParsedInstructions(
+  val instructions: ImmutableSet<Instruction>,
+  val unparsableInstructions: ImmutableSet<UnparsableInstruction>
+)
+
+
+
+
+
+
+
+// INTERACTORS
 fun i_getInstructions(
   ensureInstructionsDir: EnsureInstructionsDirExistsAndIsAccessibleFromPC,
   getInstructionsGateway: GetInstructionsGateway
-): Single<ResponseModel.Instructions> {
+): Single<ParsedInstructions> {
   return ensureInstructionsDir.ensureInstructionsDirExistsAndIsAccessibleFromPC()
            .map { instructionsDir ->
-             val parseResults = getInstructionsGateway.getInstructionFiles()
-                                  .map { file -> fileToInstruction(file) }
+              val parseResults = getInstructionsGateway.getInstructionFiles()
+                                   .map { file -> fileToInstruction(file) }
 
-             ResponseModel.Instructions(
-               ParsedInstructions(
-                 parseResults.filterIsInstance<Result.Ok<UnparsableInstruction,        Instruction>>()
-                   .map { x -> x.okValue }
-                   .toImmutableSet(),
-                 parseResults.filterIsInstance<Result.Err<UnparsableInstruction,        Instruction>>()
-                   .map { x -> x.errValue }
-                   .toImmutableSet()
-               )
+              ParsedInstructions(
+                parseResults.filterIsInstance<Result.Ok<UnparsableInstruction,        Instruction> >()
+                  .map { x -> x.okValue }
+                  .toImmutableSet(),
+                parseResults.filterIsInstance<Result.Err<UnparsableInstruction,        Instruction> >()
+                 .map { x -> x.errValue }
+                 .toImmutableSet()
              )
            }
 }
@@ -235,6 +255,8 @@ fun fileToInstruction(file: File): Result<UnparsableInstruction, Instruction> {
 
 
 
+
+// GATEWAYS
 class EnsureInstructionsDirExistsAndIsAccessibleFromPC(
   val storageDir: File,
   val tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb: File,
@@ -332,27 +354,6 @@ interface GetInstructionsGateway {
 
 
 
-data class Instruction(
-  val subject: String,
-  val language: String,
-  val absolutePath: String,
-  val cueStartTime: Long
-)
-
-sealed class InstructionParsingFailure {
-  class FileNameFormatFailure : InstructionParsingFailure()
-  class CueTimeFailure : InstructionParsingFailure()
-}
-
-data class UnparsableInstruction(
-  val fileName: String,
-  val failure: InstructionParsingFailure
-)
-
-data class ParsedInstructions(
-  val instructions: ImmutableSet<Instruction>,
-  val unparsableInstructions: ImmutableSet<UnparsableInstruction>
-)
 
 
 
@@ -360,44 +361,3 @@ data class ParsedInstructions(
 
 
 
-data class InstructionTiming(val cueStartTime: Long,
-                             val instructionAudioDuration: Long)
-
-private fun playInstruction(instruction: Instruction) {
-//  val mp = MediaPlayer()
-//  mp.setAudioStreamType(AudioManager.STREAM_MUSIC)
-//  mp.setOnPreparedListener { mp ->
-//    outChan.onNext(
-//      Result.Ok<Instruction, InstructionTiming>(
-//        InstructionTiming(msg.instruction.cueStartTime,
-//                          mp.duration.toLong())))
-//  }
-//  mp.setOnErrorListener { mp, what, extra ->
-//    // 2016-11-23 Cort Spellman
-//    // TODO: This is too coarse - recover from errors as appropriate
-//    //       and tailor the message/log to the error:
-//    // See the possible values of what and extra at
-//    // https://developer.android.com/reference/android/media/MediaPlayer.OnErrorListener.html
-//    outChan.onNext(
-//      Result.Err<Instruction, InstructionTiming>(
-//        msg.instruction))
-//    true
-//  }
-//  mp.setOnCompletionListener { mp ->
-//    outChan.onNext("instruction-complete")
-//  }
-//
-//  try {
-//    mp.setDataSource(msg.instruction.absolutePath)
-//    mediaPlayer = mp
-//    mp.prepareAsync()
-//  }
-//  catch (e: IOException) {
-//    store.dispatch(
-//      Action.CouldNotPlayInstruction(action.instruction))
-//  }
-//  catch (e: IllegalArgumentException) {
-//    store.dispatch(
-//      Action.CouldNotPlayInstruction(action.instruction))
-//  }
-}
