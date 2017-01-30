@@ -84,6 +84,20 @@ class App : Application() {
     FileSystemGetInstructionsGateway(storageDir, immutableSetOf(tokenFile))
   }
 
+  val viewModel by lazy {
+    ViewModel(
+      app = this,
+      msgChan = PublishSubject.create<ViewModelMessage>(),
+      needToRefreshInstructions = true,
+      instructionFilesReadFailureMessage = null,
+      instructions = immutableSetOf(),
+      instructionsForCurrentLanguage = immutableSetOf(),
+      unparsableInstructions = immutableSetOf(),
+      languages = immutableSetOf(),
+      language = null
+      )
+  }
+
   // 2016-10-12 Cort Spellman
   // TODO: Use locales instead of string languages. The method of getting the
   // current locale depends on the Android API version of the device:
@@ -93,28 +107,28 @@ class App : Application() {
   // resources.configuration.locales().get(0) is the new way to get the primary
   // current locale.
 
-  val initialState =
-    BansaState(
-      isInitializing = true,
-      navigationStack = NavigationStack(immutableListOf(Scene.Main())),
-      needToRefreshInstructions = true,
-      canReadInstructionFiles = false,
-      canReadInstructionFilesMessage = "Initially assume parsedInstructions dir is not readable because it hasn't been checked for readability.",
-      instructions = immutableSetOf(),
-      unparsableInstructions = immutableSetOf(),
-      languages = immutableSetOf(),
-      language = "english", // Should be the language for the current system locale. (What if there are no parsedInstructions in the system language? Show a msg whenever there are no visible parsedInstructions, including then.),
-      instructionLoadingMessage = null,
-      countDownStartTime = 0,
-      countDownDuration = 0,
-      countDownValue = null,
-      cueStartTime = 0,
-      cueStopTime = 0,
-      instructionAudioDuration = 0,
-      subjectToDisplay = null,
-      languageToDisplay = null,
-      cueMessage = null
-    )
+//  val initialState =
+//    BansaState(
+//      isInitializing = true,
+//      navigationStack = NavigationStack(immutableListOf(Scene.Main())),
+//      needToRefreshInstructions = true,
+//      canReadInstructionFiles = false,
+//      canReadInstructionFilesMessage = "Initially assume parsedInstructions dir is not readable because it hasn't been checked for readability.",
+//      instructions = immutableSetOf(),
+//      unparsableInstructions = immutableSetOf(),
+//      languages = immutableSetOf(),
+//      language = "english", // Should be the language for the current system locale. (What if there are no parsedInstructions in the system language? Show a msg whenever there are no visible parsedInstructions, including then.),
+//      instructionLoadingMessage = null,
+//      countDownStartTime = 0,
+//      countDownDuration = 0,
+//      countDownValue = null,
+//      cueStartTime = 0,
+//      cueStopTime = 0,
+//      instructionAudioDuration = 0,
+//      subjectToDisplay = null,
+//      languageToDisplay = null,
+//      cueMessage = null
+//    )
 
   override fun onCreate() {
     super.onCreate()

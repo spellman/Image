@@ -25,6 +25,7 @@ import io.reactivex.disposables.Disposable
 class MainActivity : AppCompatActivity() {
   val PERMISSION_REQUEST_FOR_WRITE_EXTERNAL_STORAGE = 0
   val app by lazy { application as App }
+  val viewModel by lazy { app.viewModel }
   val binding: MainActivityBinding by lazy {
     DataBindingUtil.setContentView<MainActivityBinding>(this, R.layout.main_activity)
   }
@@ -36,20 +37,8 @@ class MainActivity : AppCompatActivity() {
                                       PERMISSION_REQUEST_FOR_WRITE_EXTERNAL_STORAGE)
   }
 
-  fun setUpActivity(savedInstanceState: Bundle?) {
+  fun setUpActivity() {
     setSupportActionBar(binding.toolbar)
-
-    val viewModel =
-      if (savedInstanceState == null) {
-        ViewModel(app = app,
-                  activity = this)
-      }
-      else {
-        // TODO: Restore saved ViewModel
-        throw NotImplementedError("TODO: Restore saved ViewModel")
-      }
-
-    addAppVersionInfo(viewModel.appVersionInfo)
 
 
     val instructionsForCurrentLanguageAdapter =
