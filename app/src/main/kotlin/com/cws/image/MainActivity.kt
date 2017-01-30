@@ -29,7 +29,7 @@ class MainActivity : AppCompatActivity() {
   val binding: MainActivityBinding by lazy {
     DataBindingUtil.setContentView<MainActivityBinding>(this, R.layout.main_activity)
   }
-//  lateinit var presenterChanSubscription: Disposable
+  lateinit var viewModelChanSubscription: Disposable
 
   fun requestPermissionWriteExternalStorage() {
     ActivityCompat.requestPermissions(this,
@@ -66,10 +66,6 @@ class MainActivity : AppCompatActivity() {
     unparsableInstructions.adapter = unparsableInstructionsAdapter
 
 
-    if (viewModel.needToRefreshInstructions) {
-      viewModel.getInstructions()
-    }
-
     viewModel.setCurrentLanguage(
       RxJavaInterop.toV2Observable(
         RxTabLayout.selections(binding.languages))
@@ -79,29 +75,43 @@ class MainActivity : AppCompatActivity() {
         }
         .map { tab -> tab.tag as String }
     )
-//    presenterChanSubscription = presenterChan.subscribe { msg ->
-//      Log.d("Presenter message", msg.toString())
-//      val x = when (msg) {
-//        is PresenterMessage.SnackbarMessage.CouldNotReadInstructions -> {
-//          val snackbar = Snackbar.make(binding.root,
-//                                       msg.message,
-//                                       Snackbar.LENGTH_INDEFINITE)
-//          val snackbarTextView = snackbar.view.findViewById(
-//                                   android.support.design.R.id.snackbar_text) as? TextView
-//          snackbarTextView?.maxLines = 3
-//          snackbar.show()
-//        }
-//
-//        is PresenterMessage.SnackbarMessage.CouldNotPlayInstruction -> {
-//          val message = "The ${msg.language} ${msg.subject} instruction could not be played.\n(${msg.absolutePath})"
-//          val snackbar = Snackbar.make(binding.root, message, 5000)
-//          val snackbarTextView = snackbar.view.findViewById(
-//                                   android.support.design.R.id.snackbar_text) as? TextView
-//          snackbarTextView?.maxLines = 3
-//          snackbar.show()
-//        }
-//      }
-//    }
+
+    viewModelChanSubscription = viewModel.msgChan.subscribe { msg ->
+      Log.d("Presenter message", msg.toString())
+      val x = when (msg) {
+        is ViewModelMessage.InstructionsChanged -> {
+          refreshUnparsableInstructions(msg.unparsableInstructions)
+          refreshLanguageTabs(msg.languages, msg.defaultLanguage)
+        }
+
+        is ViewModelMessage.LanguageChanged -> {
+          refreshInstructionsForCurrentLanguage(msg.instructionsForCurrentLanguage)
+        }
+
+        is ViewModelMessage.CouldNotReadInstructions -> {
+          val snackbar = Snackbar.make(binding.root,
+                                       msg.message,
+                                       Snackbar.LENGTH_INDEFINITE)
+          val snackbarTextView = snackbar.view.findViewById(
+                                   android.support.design.R.id.snackbar_text) as? TextView
+          snackbarTextView?.maxLines = 3
+          snackbar.show()
+        }
+
+        is ViewModelMessage.CouldNotPlayInstruction -> {
+          val message = "The ${msg.language} ${msg.subject} instruction could not be played.\n(${msg.absolutePath})"
+          val snackbar = Snackbar.make(binding.root, message, 5000)
+          val snackbarTextView = snackbar.view.findViewById(
+                                   android.support.design.R.id.snackbar_text) as? TextView
+          snackbarTextView?.maxLines = 3
+          snackbar.show()
+        }
+      }
+    }
+
+    if (viewModel.needToRefreshInstructions) {
+      viewModel.getInstructions()
+    }
   }
 
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -132,9 +142,6 @@ class MainActivity : AppCompatActivity() {
   override fun onBackPressed() {
   }
 
-//  override fun onDestroy() {
-//    presenterChanSubscription.dispose()
-//    super.onDestroy()
 //  }
 
   fun addAppVersionInfo(appVersionInfo: String) {
@@ -158,6 +165,9 @@ class MainActivity : AppCompatActivity() {
     lp.rightToRight = contentMain.id
 
     contentMain.addView(viewAppVersionInfo, lp)
+  override fun onDestroy() {
+    viewModelChanSubscription.dispose()
+    super.onDestroy()
   }
 
   fun refreshUnparsableInstructions(

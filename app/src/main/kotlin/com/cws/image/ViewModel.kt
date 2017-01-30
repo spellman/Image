@@ -11,6 +11,7 @@ import com.github.andrewoma.dexx.kollection.*
 import io.reactivex.Observable
 import io.reactivex.Single
 import io.reactivex.disposables.Disposable
+import io.reactivex.subjects.PublishSubject
 import io.reactivex.subjects.Subject
 import java.io.File
 import java.io.IOException
@@ -76,14 +77,14 @@ data class UnparsableInstructionViewModel(
 
 data class ViewModel(
   val app: App,
-  val activity: MainActivity,
-  var needToRefreshInstructions: Boolean = true,
-  var instructionFilesReadFailureMessage: String? = null,
-  var instructions: ImmutableSet<Instruction> = immutableSetOf(),
-  var instructionsForCurrentLanguage: ImmutableSet<Instruction> = immutableSetOf(),
-  var unparsableInstructions: ImmutableSet<UnparsableInstructionViewModel> = immutableSetOf(),
-  var languages: ImmutableSet<String> = immutableSetOf(),
-  var language: String? = null
+  val msgChan: PublishSubject<ViewModelMessage>,
+  var needToRefreshInstructions: Boolean,
+  var instructionFilesReadFailureMessage: String?,
+  var instructions: ImmutableSet<Instruction>,
+  var instructionsForCurrentLanguage: ImmutableSet<Instruction>,
+  var unparsableInstructions: ImmutableSet<UnparsableInstructionViewModel>,
+  var languages: ImmutableSet<String>,
+  var language: String?
 ) {
   val appVersionInfo = "Version ${BuildConfig.VERSION_NAME} | Version Code ${BuildConfig.VERSION_CODE} | Commit ${BuildConfig.GIT_SHA}"
 
@@ -109,14 +110,16 @@ data class ViewModel(
                 )
               }.toImmutableSet()
 
-          activity.refreshUnparsableInstructions(
-            unparsableInstructions.sortedBy { u -> u.fileName }.toImmutableList()
-          )
-
           languages = instructions.map { i -> i.language }.toImmutableSet()
 
-          activity.refreshLanguageTabs(sortLanguages(languages),
-                                       defaultLanguage())
+          msgChan.onNext(
+            ViewModelMessage.InstructionsChanged(
+              unparsableInstructions = unparsableInstructions.sortedBy { u -> u.fileName }
+                                         .toImmutableList(),
+              languages = sortLanguages(languages),
+              defaultLanguage = defaultLanguage()
+            )
+          )
           Log.d("view model post", this.toString())
         },
         { throwable ->
@@ -129,8 +132,14 @@ data class ViewModel(
     languageSelections.subscribe { newLanguage ->
       instructionsForCurrentLanguage =
         instructions.filter { i -> i.language == newLanguage }.toImmutableSet()
-      activity.refreshInstructionsForCurrentLanguage(
-        instructionsForCurrentLanguage.sortedBy { i -> i.subject }.toImmutableList()
+
+      msgChan.onNext(
+        ViewModelMessage.LanguageChanged(
+          instructionsForCurrentLanguage = instructionsForCurrentLanguage.sortedBy {
+                                             i -> i.subject
+                                           }
+                                           .toImmutableList()
+        )
       )
     }
   }

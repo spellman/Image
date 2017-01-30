@@ -5,6 +5,7 @@ import android.os.Environment
 import com.facebook.stetho.Stetho
 import com.github.andrewoma.dexx.kollection.*
 import com.squareup.leakcanary.LeakCanary
+import io.reactivex.subjects.PublishSubject
 import java.io.File
 
 // Dummy data I started with. Keep for running in emulator.
@@ -31,35 +32,46 @@ import java.io.File
 //                    cueStartTime = 1000)
 //    )
 
-sealed class PresenterMessage {
-  class LanguageChanged : PresenterMessage() {
-    override fun toString(): String { return this.javaClass.canonicalName }
-  }
-  class InstructionsChanged : PresenterMessage() {
-    override fun toString(): String { return this.javaClass.canonicalName }
-  }
-
-  sealed class SnackbarMessage : PresenterMessage() {
-    class CouldNotReadInstructions(
-      val message: String
-    ) : SnackbarMessage() {
-      override fun toString(): String {
-        return """${this.javaClass.canonicalName}:
+sealed class ViewModelMessage {
+  class CouldNotReadInstructions(val message: String) : ViewModelMessage() {
+    override fun toString(): String {
+      return """${this.javaClass.canonicalName}:
                |message: ${message}""".trimMargin()
-      }
     }
+  }
 
-    class CouldNotPlayInstruction(
-      val subject: String,
-      val language: String,
-      val absolutePath: String
-    ) : SnackbarMessage() {
-      override fun toString(): String {
-        return """${this.javaClass.canonicalName}:
+  class InstructionsChanged(
+    val unparsableInstructions: ImmutableList<UnparsableInstructionViewModel>,
+    val languages: ImmutableList<String>,
+    val  defaultLanguage: String
+  ) : ViewModelMessage() {
+    override fun toString(): String {
+      return """${this.javaClass.canonicalName}:
+               |unparsableInstructions: ${unparsableInstructions}
+               |languages: ${languages}
+               |defaultLanguage: ${defaultLanguage}""".trimMargin()
+    }
+  }
+
+  class LanguageChanged(
+    val instructionsForCurrentLanguage: ImmutableList<Instruction>
+  ) : ViewModelMessage() {
+    override fun toString(): String {
+      return """${this.javaClass.canonicalName}:
+               |instructionsForCurrentLanguage: ${instructionsForCurrentLanguage}""".trimMargin()
+    }
+  }
+
+  class CouldNotPlayInstruction(
+    val subject: String,
+    val language: String,
+    val absolutePath: String
+  ) : ViewModelMessage() {
+    override fun toString(): String {
+      return """${this.javaClass.canonicalName}:
                |subject: ${subject}
                |language: ${language}
                |absolutePath: ${absolutePath}""".trimMargin()
-      }
     }
   }
 }
