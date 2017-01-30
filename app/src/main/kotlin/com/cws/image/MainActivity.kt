@@ -4,17 +4,13 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.databinding.DataBindingUtil
 import android.os.Bundle
-import android.support.constraint.ConstraintLayout
 import android.support.design.widget.Snackbar
-import android.support.design.widget.TabLayout
 import android.support.v4.app.ActivityCompat
 import android.support.v4.content.ContextCompat
 import android.support.v7.app.AppCompatActivity
-import android.support.v7.widget.AppCompatTextView
 import android.support.v7.widget.LinearLayoutManager
 import android.support.v7.widget.RecyclerView
 import android.util.Log
-import android.view.Gravity
 import android.widget.TextView
 import com.cws.image.databinding.MainActivityBinding
 import com.github.andrewoma.dexx.kollection.*
@@ -39,6 +35,7 @@ class MainActivity : AppCompatActivity() {
 
   fun setUpActivity() {
     setSupportActionBar(binding.toolbar)
+    binding.viewModel = viewModel
 
 
     val instructionsForCurrentLanguageAdapter =
@@ -142,29 +139,6 @@ class MainActivity : AppCompatActivity() {
   override fun onBackPressed() {
   }
 
-//  }
-
-  fun addAppVersionInfo(appVersionInfo: String) {
-    // 2017-01-23 Cort Spellman
-    // This is not working statically for some reason.
-    // Data binding would not put viewModel.appVersionInfo in a text view.
-    // It would put an equivalent hard-coded string but not the value of
-    // viewModel.appVersionInfo.
-    // I don't understand because that value is a string; the Build.Config
-    // values are evaluated eagerly when viewModel is constructed in App.
-    val contentMain = binding.contentMain
-
-    val viewAppVersionInfo = AppCompatTextView(this)
-    viewAppVersionInfo.text = appVersionInfo
-    viewAppVersionInfo.gravity = Gravity.CENTER
-
-    val lp = ConstraintLayout.LayoutParams(ConstraintLayout.LayoutParams.WRAP_CONTENT,
-                                           ConstraintLayout.LayoutParams.WRAP_CONTENT)
-    lp.bottomToBottom = contentMain.id
-    lp.leftToLeft = contentMain.id
-    lp.rightToRight = contentMain.id
-
-    contentMain.addView(viewAppVersionInfo, lp)
   override fun onDestroy() {
     viewModelChanSubscription.dispose()
     super.onDestroy()

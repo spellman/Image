@@ -64,7 +64,6 @@
           android:text="@string/unparsable_instructions_title"
           android:layout_width="wrap_content"
           android:layout_height="wrap_content"
-          android:gravity="center"
           app:layout_constraintTop_toBottomOf="@+id/instructions"
           app:layout_constraintLeft_toLeftOf="parent"
           app:layout_constraintRight_toRightOf="parent"
@@ -79,6 +78,15 @@
           app:layout_constraintRight_toRightOf="parent"
           >
       </android.support.v7.widget.RecyclerView>
+
+      <android.support.v7.widget.AppCompatTextView
+          android:text="@{viewModel.appVersionInfo}"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          app:layout_constraintBottom_toBottomOf="parent"
+          app:layout_constraintLeft_toLeftOf="parent"
+          app:layout_constraintRight_toRightOf="parent"
+          />
 
     </android.support.constraint.ConstraintLayout>
 
