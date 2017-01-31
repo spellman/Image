@@ -2,7 +2,7 @@
 <layout>
   <data>
     <variable
-        name="viewModel"
+        name="item"
         type="com.cws.image.UnparsableInstructionViewModel"
         />
   </data>
@@ -18,14 +18,14 @@
         xmlns:android="http://schemas.android.com/apk/res/android"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@{viewModel.fileName}"
+        android:text="@{item.fileName}"
         />
 
     <TextView
         xmlns:android="http://schemas.android.com/apk/res/android"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@{viewModel.failureMessage}"
+        android:text="@{item.failureMessage}"
         />
 
   </android.support.v7.widget.LinearLayoutCompat>
