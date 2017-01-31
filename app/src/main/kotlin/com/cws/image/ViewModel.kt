@@ -82,7 +82,9 @@ data class ViewModel(
   var instructionsForCurrentLanguage: ImmutableSet<Instruction>,
   var unparsableInstructions: ImmutableSet<UnparsableInstructionViewModel>,
   var languages: ImmutableSet<String>,
-  var language: String?
+  var language: String?,
+  var mediaPlayer: MediaPlayer?,
+  var selectedInstruction: Instruction?
 ) {
   val appVersionInfo = "Version ${BuildConfig.VERSION_NAME} | Version Code ${BuildConfig.VERSION_CODE} | Commit ${BuildConfig.GIT_SHA}"
 
@@ -96,6 +98,9 @@ data class ViewModel(
           Log.d(this.javaClass.simpleName, "getInstructions")
           Log.d("RESPONSE MODEL", parsedInstructions.toString())
           Log.d("view model pre", this.toString())
+
+          needToRefreshInstructions = false
+
           instructions = parsedInstructions.instructions
 
           unparsableInstructions =
@@ -141,9 +146,45 @@ data class ViewModel(
     }
   }
 
+  fun prepareToPlayInstruction(instruction: Instruction) {
+    val mp = MediaPlayer()
+    mp.setAudioStreamType(AudioManager.STREAM_MUSIC)
+    mp.setOnPreparedListener { mp ->
+      mediaPlayer = mp
+      selectedInstruction = instruction
+      msgChan.onNext(ViewModelMessage.PreparedToPlayInstructionAudio())
+    }
+    mp.setOnErrorListener { mp, what, extra ->
+      // 2016-11-23 Cort Spellman
+      // TODO: This is too coarse - recover from errors as appropriate
+      //       and tailor the message/log to the error:
+      // See the possible values of what and extra at
+      // https://developer.android.com/reference/android/media/MediaPlayer.OnErrorListener.html
+      msgChan.onNext(ViewModelMessage.CouldNotPlayInstruction(instruction))
+      true
+    }
+    mp.setOnCompletionListener { mp ->
+      msgChan.onNext(ViewModelMessage.InstructionAudioCompleted())
+    }
+
+    try {
+      mp.setDataSource(instruction.absolutePath)
+      mediaPlayer = mp
+      mp.prepareAsync()
+    }
+    catch (e: IOException) {
+      Log.e(this.javaClass.simpleName, e.cause.toString())
+      msgChan.onNext(ViewModelMessage.CouldNotPlayInstruction(instruction))
+    }
+    catch (e: IllegalArgumentException) {
+      Log.e(this.javaClass.simpleName, e.cause.toString())
+      msgChan.onNext(ViewModelMessage.CouldNotPlayInstruction(instruction))
+    }
+  }
+
   fun sortLanguages(ls : Iterable<String>) : ImmutableList<String> {
     return ls.sortedWith(
-      compareBy { l: String -> l == defaultLanguage() }
+      compareBy { l: String -> l != defaultLanguage() }
         .thenBy { l: String -> l })
       .toImmutableList()
   }
@@ -167,43 +208,16 @@ data class ViewModel(
       r.getIdentifier(name, "string", context.packageName))
   }
 
-  private fun playInstruction(instruction: Instruction) {
-    //  val mp = MediaPlayer()
-    //  mp.setAudioStreamType(AudioManager.STREAM_MUSIC)
-    //  mp.setOnPreparedListener { mp ->
-    //    outChan.onNext(
-    //      Result.Ok<Instruction, InstructionTiming>(
-    //        InstructionTiming(msg.instruction.cueStartTime,
-    //                          mp.duration.toLong())))
-    //  }
-    //  mp.setOnErrorListener { mp, what, extra ->
-    //    // 2016-11-23 Cort Spellman
-    //    // TODO: This is too coarse - recover from errors as appropriate
-    //    //       and tailor the message/log to the error:
-    //    // See the possible values of what and extra at
-    //    // https://developer.android.com/reference/android/media/MediaPlayer.OnErrorListener.html
-    //    outChan.onNext(
-    //      Result.Err<Instruction, InstructionTiming>(
-    //        msg.instruction))
-    //    true
-    //  }
-    //  mp.setOnCompletionListener { mp ->
-    //    outChan.onNext("instruction-complete")
-    //  }
-    //
-    //  try {
-    //    mp.setDataSource(msg.instruction.absolutePath)
-    //    mediaPlayer = mp
-    //    mp.prepareAsync()
-    //  }
-    //  catch (e: IOException) {
-    //    store.dispatch(
-    //      Action.CouldNotPlayInstruction(action.instruction))
-    //  }
-    //  catch (e: IllegalArgumentException) {
-    //    store.dispatch(
-    //      Action.CouldNotPlayInstruction(action.instruction))
-    //  }
+  fun handlePlayInstructionFailure(subject: String, language: String) {
+    // 2017-01-30 Cort Spellman
+    // TODO: Make Instruction implement parcelable or equivalent so you can
+    // pass the instruction via the result intent.
+    msgChan.onNext(
+      ViewModelMessage.CouldNotPlayInstruction(
+        Instruction(subject = subject,
+                    language = language,
+                    absolutePath = "",
+                    cueStartTime = 0L)))
   }
 }
 

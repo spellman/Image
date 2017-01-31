@@ -62,7 +62,9 @@ class App : Application() {
       instructionsForCurrentLanguage = immutableSetOf(),
       unparsableInstructions = immutableSetOf(),
       languages = immutableSetOf(),
-      language = null
+      language = null,
+      mediaPlayer = null,
+      selectedInstruction = null
       )
   }
 

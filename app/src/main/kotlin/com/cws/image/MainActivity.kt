@@ -1,6 +1,8 @@
 package com.cws.image
 
 import android.Manifest
+import android.app.Activity
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.databinding.DataBindingUtil
 import android.os.Bundle
@@ -11,6 +13,7 @@ import android.support.v7.app.AppCompatActivity
 import android.support.v7.widget.LinearLayoutManager
 import android.support.v7.widget.RecyclerView
 import android.util.Log
+import android.view.View
 import android.widget.TextView
 import com.cws.image.databinding.MainActivityBinding
 import com.github.andrewoma.dexx.kollection.*
@@ -20,6 +23,7 @@ import io.reactivex.disposables.Disposable
 
 class MainActivity : AppCompatActivity() {
   private val PERMISSION_REQUEST_FOR_WRITE_EXTERNAL_STORAGE = 0
+  private val REQUEST_PLAY_INSTRUCTION = 1
   private val app by lazy { application as App }
   private val viewModel by lazy { app.viewModel }
   private val binding: MainActivityBinding by lazy {
@@ -37,31 +41,36 @@ class MainActivity : AppCompatActivity() {
     setSupportActionBar(binding.toolbar)
     binding.viewModel = viewModel
 
-
+    val onSubjectClicked: (View, Int, Any?) -> Unit = { view: View, position: Int, item: Any? ->
+      if (item as? Instruction != null) {
+        viewModel.prepareToPlayInstruction(item as Instruction)
+      }
+      else {
+        Log.e(this.javaClass.simpleName, "Cannot prepare to play instruction because ${item}, the ${position + 1}th item in the list of instructions, is not a valid instruction.")
+      }
+    }
     val instructionsForCurrentLanguageAdapter =
       InstructionsAdapter(R.layout.subject_layout,
                           this,
-                          immutableListOf())
+                          immutableListOf(),
+                          onSubjectClicked)
     val instructionsLayoutManager = LinearLayoutManager(this)
     instructionsLayoutManager.orientation = LinearLayoutManager.VERTICAL
-
     val instructionsForCurrentLanguage: RecyclerView = binding.instructions
     instructionsForCurrentLanguage.layoutManager = instructionsLayoutManager
     instructionsForCurrentLanguage.adapter = instructionsForCurrentLanguageAdapter
     instructionsForCurrentLanguage.setHasFixedSize(true)
 
-
     val unparsableInstructionsAdapter =
       UnparsableInstructionsAdapter(R.layout.unparsable_instruction_layout,
                                     this,
-                                    immutableListOf())
+                                    immutableListOf(),
+                                    null)
     val unparsableInstructionsLayoutManager = LinearLayoutManager(this)
     instructionsLayoutManager.orientation = LinearLayoutManager.VERTICAL
-
     val unparsableInstructions: RecyclerView = binding.unparsableInstructions
     unparsableInstructions.layoutManager = unparsableInstructionsLayoutManager
     unparsableInstructions.adapter = unparsableInstructionsAdapter
-
 
     viewModel.setCurrentLanguage(
       RxJavaInterop.toV2Observable(
@@ -96,13 +105,20 @@ class MainActivity : AppCompatActivity() {
         }
 
         is ViewModelMessage.CouldNotPlayInstruction -> {
-          val message = "The ${msg.language} ${msg.subject} instruction could not be played.\n(${msg.absolutePath})"
+          val instruction = msg.instruction
+          val message = "The ${instruction.language} ${instruction.subject} instruction could not be played.\n(${instruction.absolutePath})"
           val snackbar = Snackbar.make(binding.root, message, 5000)
           val snackbarTextView = snackbar.view.findViewById(
                                    android.support.design.R.id.snackbar_text) as? TextView
           snackbarTextView?.maxLines = 3
           snackbar.show()
         }
+
+        is ViewModelMessage.PreparedToPlayInstructionAudio -> {
+          navigateToPlayInstructionActivity()
+        }
+
+        is ViewModelMessage.InstructionAudioCompleted -> {}
       }
     }
 
@@ -174,7 +190,7 @@ class MainActivity : AppCompatActivity() {
     Log.d(this.javaClass.simpleName, "refreshLanguageTabs")
     Log.d("languages", languages.toString())
     val languageTabs = binding.languages
-    val selectedTab = languageTabs.getTabAt(languageTabs.selectedTabPosition)
+    val previouslySelectedTab = languageTabs.getTabAt(languageTabs.selectedTabPosition)
 
     languageTabs.removeAllTabs()
 
@@ -183,11 +199,9 @@ class MainActivity : AppCompatActivity() {
         languageTabs.newTab().setTag(l).setText(l))
     }
 
-    if (selectedTab == null) {
-      setLanguage(defaultLanguage, languages)
-    }
-    else {
-      setLanguage(selectedTab.tag as? String, languages)
+    previouslySelectedTab?.let {
+      Log.d("refreshLanguagesTabs", "Setting language to selected language of ${previouslySelectedTab.tag}.")
+      setLanguage(previouslySelectedTab.tag as? String, languages)
     }
   }
 
@@ -196,6 +210,37 @@ class MainActivity : AppCompatActivity() {
     Log.d("instructions", instructions.toString())
     (binding.instructions.adapter as InstructionsAdapter)
       .refreshInstructions(instructions)
+  }
+
+  private fun navigateToPlayInstructionActivity() {
+    PlayInstructionActivity.startForResult(this, REQUEST_PLAY_INSTRUCTION)
+  }
+
+  override fun onActivityResult(requestCode: Int,
+                                resultCode: Int,
+                                data: Intent?) {
+    when (requestCode) {
+      REQUEST_PLAY_INSTRUCTION -> {
+        when (resultCode) {
+          Activity.RESULT_OK -> {}
+
+          Activity.RESULT_CANCELED -> {}
+
+          Activity.RESULT_FIRST_USER ->
+            viewModel.handlePlayInstructionFailure(
+              data?.getStringExtra("subject") ?: "subject not available",
+                data?.getStringExtra("language") ?: "language not available")
+
+          else -> {
+            Log.d(this.javaClass.simpleName, "Unhandled activity-result result-code: ${resultCode} for request-code ${requestCode}")
+          }
+        }
+      }
+
+      else -> {
+        Log.d(this.javaClass.simpleName, "Unknown activity-result request-code: ${requestCode}")
+      }
+    }
   }
 }
 
