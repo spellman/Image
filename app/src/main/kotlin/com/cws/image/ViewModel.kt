@@ -19,6 +19,50 @@ import java.net.URLDecoder
 import kotlin.comparisons.compareBy
 import kotlin.comparisons.thenBy
 
+sealed class ViewModelMessage {
+  class CouldNotReadInstructions(val message: String) : ViewModelMessage() {
+    override fun toString(): String {
+      return """${this.javaClass.canonicalName}:
+               |message: ${message}""".trimMargin()
+    }
+  }
+
+  class InstructionsChanged(
+    val unparsableInstructions: ImmutableList<UnparsableInstructionViewModel>,
+    val languages: ImmutableList<String>,
+    val  defaultLanguage: String
+  ) : ViewModelMessage() {
+    override fun toString(): String {
+      return """${this.javaClass.canonicalName}:
+               |unparsableInstructions: ${unparsableInstructions}
+               |languages: ${languages}
+               |defaultLanguage: ${defaultLanguage}""".trimMargin()
+    }
+  }
+
+  class LanguageChanged(
+    val instructionsForCurrentLanguage: ImmutableList<Instruction>
+  ) : ViewModelMessage() {
+    override fun toString(): String {
+      return """${this.javaClass.canonicalName}:
+               |instructionsForCurrentLanguage: ${instructionsForCurrentLanguage}""".trimMargin()
+    }
+  }
+
+  class CouldNotPlayInstruction(
+    val instruction: Instruction
+  ) : ViewModelMessage() {
+    override fun toString(): String {
+      return """${this.javaClass.canonicalName}:
+               |instruction: ${instruction}""".trimMargin()
+    }
+  }
+
+  class PreparedToPlayInstructionAudio : ViewModelMessage()
+
+  class InstructionAudioCompleted : ViewModelMessage()
+}
+
 data class UnparsableInstructionViewModel(
   val fileName: String,
   val failureMessage: String

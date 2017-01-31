@@ -19,21 +19,21 @@ import hu.akarnokd.rxjava.interop.RxJavaInterop
 import io.reactivex.disposables.Disposable
 
 class MainActivity : AppCompatActivity() {
-  val PERMISSION_REQUEST_FOR_WRITE_EXTERNAL_STORAGE = 0
-  val app by lazy { application as App }
-  val viewModel by lazy { app.viewModel }
-  val binding: MainActivityBinding by lazy {
+  private val PERMISSION_REQUEST_FOR_WRITE_EXTERNAL_STORAGE = 0
+  private val app by lazy { application as App }
+  private val viewModel by lazy { app.viewModel }
+  private val binding: MainActivityBinding by lazy {
     DataBindingUtil.setContentView<MainActivityBinding>(this, R.layout.main_activity)
   }
-  lateinit var viewModelChanSubscription: Disposable
+  private lateinit var viewModelChanSubscription: Disposable
 
-  fun requestPermissionWriteExternalStorage() {
+  private fun requestPermissionWriteExternalStorage() {
     ActivityCompat.requestPermissions(this,
                                       arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
                                       PERMISSION_REQUEST_FOR_WRITE_EXTERNAL_STORAGE)
   }
 
-  fun setUpActivity() {
+  private fun setUpActivity() {
     setSupportActionBar(binding.toolbar)
     binding.viewModel = viewModel
 
@@ -74,8 +74,8 @@ class MainActivity : AppCompatActivity() {
     )
 
     viewModelChanSubscription = viewModel.msgChan.subscribe { msg ->
-      Log.d("Presenter message", msg.toString())
-      val x = when (msg) {
+      Log.d(this.javaClass.simpleName, "View model message ${msg.toString()}")
+      val unused = when (msg) {
         is ViewModelMessage.InstructionsChanged -> {
           refreshUnparsableInstructions(msg.unparsableInstructions)
           refreshLanguageTabs(msg.languages, msg.defaultLanguage)
@@ -136,15 +136,12 @@ class MainActivity : AppCompatActivity() {
     }
   }
 
-  override fun onBackPressed() {
-  }
-
   override fun onDestroy() {
     viewModelChanSubscription.dispose()
     super.onDestroy()
   }
 
-  fun refreshUnparsableInstructions(
+  private fun refreshUnparsableInstructions(
     unparsableInstructions: ImmutableList<UnparsableInstructionViewModel>
   ) {
     Log.d(this.javaClass.simpleName, "refreshUnparsableInstructions")
@@ -153,7 +150,7 @@ class MainActivity : AppCompatActivity() {
       .refreshUnparsableInstructions(unparsableInstructions)
   }
 
-  fun setLanguage(language: String?, languages: ImmutableList<String>) {
+  private fun setLanguage(language: String?, languages: ImmutableList<String>) {
     Log.d(this.javaClass.simpleName, "setLanguage")
     Log.d("language", language)
     val selectedLanguageIndex = languages.indexOf(language)
@@ -169,8 +166,8 @@ class MainActivity : AppCompatActivity() {
     }
   }
 
-  fun refreshLanguageTabs(languages: ImmutableList<String>,
-                          defaultLanguage: String) {
+  private fun refreshLanguageTabs(languages: ImmutableList<String>,
+                                  defaultLanguage: String) {
     // 2017-01-28 Cort Spellman
     // TODO: Use a viewpager -- this is stupid to be depending on the tabs
     // being in sync with another list.
@@ -194,7 +191,7 @@ class MainActivity : AppCompatActivity() {
     }
   }
 
-  fun refreshInstructionsForCurrentLanguage(instructions: ImmutableList<Instruction>) {
+  private fun refreshInstructionsForCurrentLanguage(instructions: ImmutableList<Instruction>) {
     Log.d(this.javaClass.simpleName, "refreshInstructionsForCurrentLanguage")
     Log.d("instructions", instructions.toString())
     (binding.instructions.adapter as InstructionsAdapter)

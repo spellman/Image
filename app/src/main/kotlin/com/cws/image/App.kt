@@ -32,50 +32,6 @@ import java.io.File
 //                    cueStartTime = 1000)
 //    )
 
-sealed class ViewModelMessage {
-  class CouldNotReadInstructions(val message: String) : ViewModelMessage() {
-    override fun toString(): String {
-      return """${this.javaClass.canonicalName}:
-               |message: ${message}""".trimMargin()
-    }
-  }
-
-  class InstructionsChanged(
-    val unparsableInstructions: ImmutableList<UnparsableInstructionViewModel>,
-    val languages: ImmutableList<String>,
-    val  defaultLanguage: String
-  ) : ViewModelMessage() {
-    override fun toString(): String {
-      return """${this.javaClass.canonicalName}:
-               |unparsableInstructions: ${unparsableInstructions}
-               |languages: ${languages}
-               |defaultLanguage: ${defaultLanguage}""".trimMargin()
-    }
-  }
-
-  class LanguageChanged(
-    val instructionsForCurrentLanguage: ImmutableList<Instruction>
-  ) : ViewModelMessage() {
-    override fun toString(): String {
-      return """${this.javaClass.canonicalName}:
-               |instructionsForCurrentLanguage: ${instructionsForCurrentLanguage}""".trimMargin()
-    }
-  }
-
-  class CouldNotPlayInstruction(
-    val subject: String,
-    val language: String,
-    val absolutePath: String
-  ) : ViewModelMessage() {
-    override fun toString(): String {
-      return """${this.javaClass.canonicalName}:
-               |subject: ${subject}
-               |language: ${language}
-               |absolutePath: ${absolutePath}""".trimMargin()
-    }
-  }
-}
-
 val idealCountDownDuration: Long = 5000L
 val idealCueDuration: Long = 3000L
 
