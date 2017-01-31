@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layout>
   <data>
+    <import type="android.view.View" />
     <variable
         name="viewModel"
         type="com.cws.image.ViewModel"
@@ -61,6 +62,7 @@
       <android.support.v7.widget.AppCompatTextView
           android:id="@+id/unparsable_instructions_title"
           android:text="@string/unparsable_instructions_title"
+          android:visibility="@{viewModel.unparsableInstructions.isEmpty() ? View.GONE : View.VISIBLE}"
           android:layout_width="wrap_content"
           android:layout_height="wrap_content"
           app:layout_constraintTop_toBottomOf="@+id/instructions"
@@ -70,6 +72,7 @@
 
       <android.support.v7.widget.RecyclerView
           android:id="@+id/unparsable_instructions"
+          android:visibility="@{viewModel.unparsableInstructions.isEmpty() ? View.GONE : View.VISIBLE}"
           android:layout_width="match_parent"
           android:layout_height="wrap_content"
           app:layout_constraintTop_toBottomOf="@+id/unparsable_instructions_title"
