@@ -33,26 +33,44 @@ class PlayInstructionActivity : AppCompatActivity() {
     binding.viewModel = viewModel
 
     viewModelChanSubscription = viewModel.msgChan.subscribe { msg ->
-      Log.d(this.javaClass.simpleName, "View model message ${msg.toString()}")
-      val unused = when (msg) {
-        is ViewModelMessage.InstructionsChanged -> {}
-
-        is ViewModelMessage.LanguageChanged -> {}
-
-        is ViewModelMessage.CouldNotReadInstructions -> {}
-
-        is ViewModelMessage.CouldNotPlayInstruction -> finishWithError()
-
-        is ViewModelMessage.PreparedToPlayInstructionAudio -> {}
-
-        is ViewModelMessage.InstructionAudioCompleted -> {
-          setResult(Activity.RESULT_OK, Intent())
-          finish()
-        }
-      }
+      handleViewModelMessage(msg)
     }
 
     viewModel.mediaPlayer?.start() ?: finishWithError()
+  }
+
+  override fun onPause() {
+    viewModelChanSubscription.dispose()
+    super.onPause()
+  }
+
+  override fun onResume() {
+    if (viewModelChanSubscription.isDisposed) {
+      viewModelChanSubscription = viewModel.msgChan.subscribe { msg ->
+        handleViewModelMessage(msg)
+      }
+    }
+    super.onResume()
+  }
+
+  private fun handleViewModelMessage(msg: ViewModelMessage) {
+    Log.d(this.javaClass.simpleName, "View model message ${msg.toString()}")
+    val unused = when (msg) {
+      is ViewModelMessage.InstructionsChanged -> {}
+
+      is ViewModelMessage.LanguageChanged -> {}
+
+      is ViewModelMessage.CouldNotReadInstructions -> {}
+
+      is ViewModelMessage.CouldNotPlayInstruction -> finishWithError()
+
+      is ViewModelMessage.PreparedToPlayInstructionAudio -> {}
+
+      is ViewModelMessage.InstructionAudioCompleted -> {
+        setResult(Activity.RESULT_OK, Intent())
+        finish()
+      }
+    }
   }
 
   private fun finishWithError() {
@@ -64,9 +82,7 @@ class PlayInstructionActivity : AppCompatActivity() {
   }
 
   override fun onDestroy() {
-    viewModelChanSubscription.dispose()
-    viewModel.mediaPlayer?.release()
-    viewModel.mediaPlayer = null
+    viewModel.clearMediaPlayer()
     super.onDestroy()
   }
 }

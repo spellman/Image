@@ -219,6 +219,11 @@ data class ViewModel(
                     absolutePath = "",
                     cueStartTime = 0L)))
   }
+
+  fun clearMediaPlayer() {
+    mediaPlayer?.release()
+    mediaPlayer = null
+  }
 }
 
 

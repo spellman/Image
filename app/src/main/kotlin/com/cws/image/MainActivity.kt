@@ -83,49 +83,52 @@ class MainActivity : AppCompatActivity() {
     )
 
     viewModelChanSubscription = viewModel.msgChan.subscribe { msg ->
-      Log.d(this.javaClass.simpleName, "View model message ${msg.toString()}")
-      val unused = when (msg) {
-        is ViewModelMessage.InstructionsChanged -> {
-          refreshUnparsableInstructions(msg.unparsableInstructions)
-          refreshLanguageTabs(msg.languages, msg.defaultLanguage)
-        }
-
-        is ViewModelMessage.LanguageChanged -> {
-          refreshInstructionsForCurrentLanguage(msg.instructionsForCurrentLanguage)
-        }
-
-        is ViewModelMessage.CouldNotReadInstructions -> {
-          val snackbar = Snackbar.make(binding.root,
-                                       msg.message,
-                                       Snackbar.LENGTH_INDEFINITE)
-          val snackbarTextView = snackbar.view.findViewById(
-                                   android.support.design.R.id.snackbar_text) as? TextView
-          snackbarTextView?.maxLines = 3
-          snackbar.show()
-        }
-
-        is ViewModelMessage.CouldNotPlayInstruction -> {
-          val instruction = msg.instruction
-          val message = "The ${instruction.language} ${instruction.subject} instruction could not be played.\n(${instruction.absolutePath})"
-          val snackbar = Snackbar.make(binding.root, message, 5000)
-          val snackbarTextView = snackbar.view.findViewById(
-                                   android.support.design.R.id.snackbar_text) as? TextView
-          snackbarTextView?.maxLines = 3
-          snackbar.show()
-        }
-
-        is ViewModelMessage.PreparedToPlayInstructionAudio -> {
-          navigateToPlayInstructionActivity()
-        }
-
-        is ViewModelMessage.InstructionAudioCompleted -> {}
-      }
+      handleViewModelMessage(msg)
     }
 
     if (viewModel.needToRefreshInstructions) {
       viewModel.getInstructions()
     }
   }
+
+  fun handleViewModelMessage(msg: ViewModelMessage) {
+    Log.d(this.javaClass.simpleName, "View model message ${msg.toString()}")
+    val unused = when (msg) {
+      is ViewModelMessage.InstructionsChanged -> {
+        refreshUnparsableInstructions(msg.unparsableInstructions)
+        refreshLanguageTabs(msg.languages, msg.defaultLanguage)
+      }
+
+      is ViewModelMessage.LanguageChanged -> {
+        refreshInstructionsForCurrentLanguage(msg.instructionsForCurrentLanguage)
+      }
+
+      is ViewModelMessage.CouldNotReadInstructions -> {
+        val snackbar = Snackbar.make(binding.root,
+                                     msg.message,
+                                     Snackbar.LENGTH_INDEFINITE)
+        val snackbarTextView = snackbar.view.findViewById(
+          android.support.design.R.id.snackbar_text) as? TextView
+        snackbarTextView?.maxLines = 3
+        snackbar.show()
+      }
+
+      is ViewModelMessage.CouldNotPlayInstruction -> {
+        val instruction = msg.instruction
+        val message = "The ${instruction.language} ${instruction.subject} instruction could not be played.\n(${instruction.absolutePath})"
+        val snackbar = Snackbar.make(binding.root, message, 5000)
+        val snackbarTextView = snackbar.view.findViewById(
+          android.support.design.R.id.snackbar_text) as? TextView
+        snackbarTextView?.maxLines = 3
+        snackbar.show()
+      }
+
+      is ViewModelMessage.PreparedToPlayInstructionAudio -> {
+        navigateToPlayInstructionActivity()
+      }
+
+      is ViewModelMessage.InstructionAudioCompleted -> {}
+    }  }
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -152,9 +155,18 @@ class MainActivity : AppCompatActivity() {
     }
   }
 
-  override fun onDestroy() {
+  override fun onPause() {
     viewModelChanSubscription.dispose()
-    super.onDestroy()
+    super.onPause()
+  }
+
+  override fun onResume() {
+    if (viewModelChanSubscription.isDisposed) {
+      viewModelChanSubscription = viewModel.msgChan.subscribe { msg ->
+        handleViewModelMessage(msg)
+      }
+    }
+    super.onResume()
   }
 
   private fun refreshUnparsableInstructions(
