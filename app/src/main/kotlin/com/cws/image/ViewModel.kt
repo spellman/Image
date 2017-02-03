@@ -10,7 +10,9 @@ import android.util.Log
 import com.github.andrewoma.dexx.kollection.*
 import io.reactivex.Observable
 import io.reactivex.Single
+import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.Disposable
+import io.reactivex.schedulers.Schedulers
 import io.reactivex.subjects.PublishSubject
 import io.reactivex.subjects.Subject
 import java.io.File
@@ -93,6 +95,8 @@ data class ViewModel(
     Log.d("REQUEST MODEL", "(none)")
     Log.d("view model", this.toString())
     i_getInstructions(app.ensureInstructionsDir, app.getInstructionsGateway)
+      .subscribeOn(Schedulers.io())
+      .observeOn(AndroidSchedulers.mainThread())
       .subscribe(
         { parsedInstructions ->
           Log.d(this.javaClass.simpleName, "getInstructions")
