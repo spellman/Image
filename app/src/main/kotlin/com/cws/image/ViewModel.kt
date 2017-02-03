@@ -91,47 +91,49 @@ data class ViewModel(
   val appVersionInfo = "Version ${BuildConfig.VERSION_NAME} | Version Code ${BuildConfig.VERSION_CODE} | Commit ${BuildConfig.GIT_SHA}"
 
   fun getInstructions() {
-    Log.d(this.javaClass.simpleName, "getInstructions")
-    Log.d("REQUEST MODEL", "(none)")
-    Log.d("view model", this.toString())
-    i_getInstructions(app.ensureInstructionsDir, app.getInstructionsGateway)
-      .subscribeOn(Schedulers.io())
-      .observeOn(AndroidSchedulers.mainThread())
-      .subscribe(
-        { parsedInstructions ->
-          Log.d(this.javaClass.simpleName, "getInstructions")
-          Log.d("RESPONSE MODEL", parsedInstructions.toString())
-          Log.d("view model pre", this.toString())
+    if (needToRefreshInstructions) {
+      Log.d(this.javaClass.simpleName, "getInstructions")
+      Log.d("REQUEST MODEL", "(none)")
+      Log.d("view model", this.toString())
+      i_getInstructions(app.ensureInstructionsDir, app.getInstructionsGateway)
+        .subscribeOn(Schedulers.io())
+        .observeOn(AndroidSchedulers.mainThread())
+        .subscribe(
+          { parsedInstructions ->
+            Log.d(this.javaClass.simpleName, "getInstructions")
+            Log.d("RESPONSE MODEL", parsedInstructions.toString())
+            Log.d("view model pre", this.toString())
 
-          needToRefreshInstructions = false
+            instructions = parsedInstructions.instructions
 
-          instructions = parsedInstructions.instructions
+            unparsableInstructions =
+              parsedInstructions.unparsableInstructions
+                .map { u: UnparsableInstruction ->
+                  UnparsableInstructionViewModel(
+                    u.fileName,
+                    instructionParsingFailureToMessage(u.failure)
+                  )
+                }.toImmutableSet()
 
-          unparsableInstructions =
-            parsedInstructions.unparsableInstructions
-              .map { u: UnparsableInstruction ->
-                UnparsableInstructionViewModel(
-                  u.fileName,
-                  instructionParsingFailureToMessage(u.failure)
-                )
-              }.toImmutableSet()
+            languages = instructions.map { i -> i.language }.toImmutableSet()
 
-          languages = instructions.map { i -> i.language }.toImmutableSet()
-
-          msgChan.onNext(
-            ViewModelMessage.InstructionsChanged(
-              unparsableInstructions = unparsableInstructions.sortedBy { u -> u.fileName }
-                                         .toImmutableList(),
-              languages = sortLanguages(languages),
-              defaultLanguage = defaultLanguage()
+            msgChan.onNext(
+              ViewModelMessage.InstructionsChanged(
+                unparsableInstructions = unparsableInstructions.sortedBy { u -> u.fileName }
+                  .toImmutableList(),
+                languages = sortLanguages(languages),
+                defaultLanguage = defaultLanguage()
+              )
             )
-          )
-          Log.d("view model post", this.toString())
-        },
-        { throwable ->
-          // TODO
-          throw throwable
-        })
+            Log.d("view model post", this.toString())
+          },
+          { throwable ->
+            // TODO
+            throw throwable
+          })
+
+      needToRefreshInstructions = false
+    }
   }
 
   fun setCurrentLanguage(languageSelections: Observable<String>) {

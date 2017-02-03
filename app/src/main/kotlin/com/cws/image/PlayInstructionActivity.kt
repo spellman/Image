@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.util.Log
 import com.cws.image.databinding.PlayInstructionActivityBinding
 import io.reactivex.disposables.Disposable
+import io.reactivex.schedulers.Schedulers
 
 class PlayInstructionActivity : AppCompatActivity() {
   private val app by lazy { application as App }
@@ -32,9 +33,11 @@ class PlayInstructionActivity : AppCompatActivity() {
     setSupportActionBar(binding.toolbar)
     binding.viewModel = viewModel
 
-    viewModelChanSubscription = viewModel.msgChan.subscribe { msg ->
-      handleViewModelMessage(msg)
-    }
+    viewModelChanSubscription = viewModel.msgChan
+      .subscribeOn(Schedulers.io())
+      .subscribe { msg ->
+        handleViewModelMessage(msg)
+      }
 
     viewModel.mediaPlayer?.start() ?: finishWithError()
   }
@@ -46,9 +49,11 @@ class PlayInstructionActivity : AppCompatActivity() {
 
   override fun onResume() {
     if (viewModelChanSubscription.isDisposed) {
-      viewModelChanSubscription = viewModel.msgChan.subscribe { msg ->
-        handleViewModelMessage(msg)
-      }
+      viewModelChanSubscription = viewModel.msgChan
+        .subscribeOn(Schedulers.io())
+        .subscribe { msg ->
+          handleViewModelMessage(msg)
+        }
     }
     super.onResume()
   }

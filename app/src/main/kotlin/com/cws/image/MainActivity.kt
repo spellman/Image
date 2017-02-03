@@ -20,6 +20,7 @@ import com.github.andrewoma.dexx.kollection.*
 import com.jakewharton.rxbinding.support.design.widget.RxTabLayout
 import hu.akarnokd.rxjava.interop.RxJavaInterop
 import io.reactivex.disposables.Disposable
+import io.reactivex.schedulers.Schedulers
 
 class MainActivity : AppCompatActivity() {
   private val PERMISSION_REQUEST_FOR_WRITE_EXTERNAL_STORAGE = 0
@@ -31,13 +32,9 @@ class MainActivity : AppCompatActivity() {
   }
   private lateinit var viewModelChanSubscription: Disposable
 
-  private fun requestPermissionWriteExternalStorage() {
-    ActivityCompat.requestPermissions(this,
-                                      arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
-                                      PERMISSION_REQUEST_FOR_WRITE_EXTERNAL_STORAGE)
-  }
+  override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceState)
 
-  private fun setUpActivity() {
     setSupportActionBar(binding.toolbar)
     binding.viewModel = viewModel
 
@@ -49,28 +46,28 @@ class MainActivity : AppCompatActivity() {
         Log.e(this.javaClass.simpleName, "Cannot prepare to play instruction because ${item}, the ${position + 1}th item in the list of instructions, is not a valid instruction.")
       }
     }
-    val instructionsForCurrentLanguageAdapter =
-      InstructionsAdapter(R.layout.subject_layout,
-                          this,
-                          immutableListOf(),
-                          onSubjectClicked)
     val instructionsLayoutManager = LinearLayoutManager(this)
     instructionsLayoutManager.orientation = LinearLayoutManager.VERTICAL
     val instructionsForCurrentLanguage: RecyclerView = binding.instructions
     instructionsForCurrentLanguage.layoutManager = instructionsLayoutManager
-    instructionsForCurrentLanguage.adapter = instructionsForCurrentLanguageAdapter
+    instructionsForCurrentLanguage.adapter =
+      InstructionsAdapter(R.layout.subject_layout,
+                          this,
+                          immutableListOf(),
+                          onSubjectClicked)
+
     instructionsForCurrentLanguage.setHasFixedSize(true)
 
-    val unparsableInstructionsAdapter =
-      UnparsableInstructionsAdapter(R.layout.unparsable_instruction_layout,
-                                    this,
-                                    immutableListOf(),
-                                    null)
     val unparsableInstructionsLayoutManager = LinearLayoutManager(this)
     instructionsLayoutManager.orientation = LinearLayoutManager.VERTICAL
     val unparsableInstructions: RecyclerView = binding.unparsableInstructions
     unparsableInstructions.layoutManager = unparsableInstructionsLayoutManager
-    unparsableInstructions.adapter = unparsableInstructionsAdapter
+    unparsableInstructions.adapter =
+      UnparsableInstructionsAdapter(R.layout.unparsable_instruction_layout,
+                                    this,
+                                    immutableListOf(),
+                                    null)
+
 
     viewModel.setCurrentLanguage(
       RxJavaInterop.toV2Observable(
@@ -82,13 +79,61 @@ class MainActivity : AppCompatActivity() {
         .map { tab -> tab.tag as String }
     )
 
-    viewModelChanSubscription = viewModel.msgChan.subscribe { msg ->
-      handleViewModelMessage(msg)
-    }
+    viewModelChanSubscription = viewModel.msgChan
+      .subscribeOn(Schedulers.io())
+      .subscribe { msg ->
+        handleViewModelMessage(msg)
+      }
 
-    if (viewModel.needToRefreshInstructions) {
-      viewModel.getInstructions()
+    if (ContextCompat.checkSelfPermission(
+         this,
+         Manifest.permission.WRITE_EXTERNAL_STORAGE)
+      != PackageManager.PERMISSION_GRANTED) {
+      requestPermissionWriteExternalStorage()
     }
+    else {
+      getInstructions()
+    }
+  }
+
+  override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+    if (requestCode == PERMISSION_REQUEST_FOR_WRITE_EXTERNAL_STORAGE) {
+      if (grantResults.size == 1 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+        getInstructions()
+      }
+      else {
+        requestPermissionWriteExternalStorage()
+      }
+    }
+    else {
+      super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+    }
+  }
+
+  override fun onPause() {
+    viewModelChanSubscription.dispose()
+    super.onPause()
+  }
+
+  override fun onResume() {
+    if (viewModelChanSubscription.isDisposed) {
+      viewModelChanSubscription = viewModel.msgChan
+        .subscribeOn(Schedulers.io())
+        .subscribe { msg ->
+          handleViewModelMessage(msg)
+        }
+    }
+    super.onResume()
+  }
+
+  private fun requestPermissionWriteExternalStorage() {
+    ActivityCompat.requestPermissions(this,
+                                      arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
+                                      PERMISSION_REQUEST_FOR_WRITE_EXTERNAL_STORAGE)
+  }
+
+  private fun getInstructions() {
+    viewModel.getInstructions()
   }
 
   fun handleViewModelMessage(msg: ViewModelMessage) {
@@ -130,44 +175,6 @@ class MainActivity : AppCompatActivity() {
       is ViewModelMessage.InstructionAudioCompleted -> {}
     }  }
 
-  override fun onCreate(savedInstanceState: Bundle?) {
-    super.onCreate(savedInstanceState)
-    if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
-        != PackageManager.PERMISSION_GRANTED) {
-      requestPermissionWriteExternalStorage()
-    }
-    else {
-      setUpActivity()
-    }
-  }
-
-  override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
-    if (requestCode == PERMISSION_REQUEST_FOR_WRITE_EXTERNAL_STORAGE) {
-      if (grantResults.size == 1 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-        setUpActivity()
-      }
-      else {
-        requestPermissionWriteExternalStorage()
-      }
-    }
-    else {
-      super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-    }
-  }
-
-  override fun onPause() {
-    viewModelChanSubscription.dispose()
-    super.onPause()
-  }
-
-  override fun onResume() {
-    if (viewModelChanSubscription.isDisposed) {
-      viewModelChanSubscription = viewModel.msgChan.subscribe { msg ->
-        handleViewModelMessage(msg)
-      }
-    }
-    super.onResume()
-  }
 
   private fun refreshUnparsableInstructions(
     unparsableInstructions: ImmutableList<UnparsableInstructionViewModel>
