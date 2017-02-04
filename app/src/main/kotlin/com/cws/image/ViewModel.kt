@@ -31,14 +31,12 @@ sealed class ViewModelMessage {
 
   class InstructionsChanged(
     val unparsableInstructions: ImmutableList<UnparsableInstructionViewModel>,
-    val languages: ImmutableList<String>,
-    val  defaultLanguage: String
+    val languages: ImmutableList<String>
   ) : ViewModelMessage() {
     override fun toString(): String {
       return """${this.javaClass.canonicalName}:
                |unparsableInstructions: ${unparsableInstructions}
-               |languages: ${languages}
-               |defaultLanguage: ${defaultLanguage}""".trimMargin()
+               |languages: ${languages}""".trimMargin()
     }
   }
 
@@ -136,28 +134,36 @@ data class ViewModel(
     }
   }
 
-  fun setCurrentLanguage(languageSelections: Observable<String>) {
-    languageSelections.subscribe { newLanguage ->
-      instructionsForCurrentLanguage =
-        instructions.filter { i -> i.language == newLanguage }.toImmutableSet()
+  fun setCurrentLanguage(newLanguage: String) {
+    Log.d(this.javaClass.simpleName, "setLanguage")
+    Log.d("REQUEST MODEL", newLanguage)
+    Log.d("view model pre", this.toString())
+    language = newLanguage
+    instructionsForCurrentLanguage =
+      instructions.filter { i -> i.language == newLanguage }.toImmutableSet()
 
-      msgChan.onNext(
-        ViewModelMessage.LanguageChanged(
-          instructionsForCurrentLanguage = instructionsForCurrentLanguage.sortedBy {
-                                             i -> i.subject
-                                           }
-                                           .toImmutableList()
-        )
+    Log.d("view model post", this.toString())
+    msgChan.onNext(
+      ViewModelMessage.LanguageChanged(
+        instructionsForCurrentLanguage = instructionsForCurrentLanguage.sortedBy {
+          i -> i.subject
+        }
+          .toImmutableList()
       )
-    }
+    )
   }
 
   fun prepareToPlayInstruction(instruction: Instruction) {
+    Log.d(this.javaClass.simpleName, "prepareToPlayInstruction")
+    Log.d("REQUEST MODEL", instruction.toString())
+    Log.d("view model pre", this.toString())
+
     val mp = MediaPlayer()
     mp.setAudioStreamType(AudioManager.STREAM_MUSIC)
     mp.setOnPreparedListener { mp ->
       mediaPlayer = mp
       selectedInstruction = instruction
+      Log.d("view model prepared", this.toString())
       msgChan.onNext(ViewModelMessage.PreparedToPlayInstructionAudio())
     }
     mp.setOnErrorListener { mp, what, extra ->
@@ -170,6 +176,7 @@ data class ViewModel(
       true
     }
     mp.setOnCompletionListener { mp ->
+      Log.d("view model post", this.toString())
       msgChan.onNext(ViewModelMessage.InstructionAudioCompleted())
     }
 

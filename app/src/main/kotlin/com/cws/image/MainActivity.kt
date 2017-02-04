@@ -19,8 +19,8 @@ import com.cws.image.databinding.MainActivityBinding
 import com.github.andrewoma.dexx.kollection.*
 import com.jakewharton.rxbinding.support.design.widget.RxTabLayout
 import hu.akarnokd.rxjava.interop.RxJavaInterop
+import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.Disposable
-import io.reactivex.schedulers.Schedulers
 
 class MainActivity : AppCompatActivity() {
   private val PERMISSION_REQUEST_FOR_WRITE_EXTERNAL_STORAGE = 0
@@ -31,6 +31,7 @@ class MainActivity : AppCompatActivity() {
     DataBindingUtil.setContentView<MainActivityBinding>(this, R.layout.main_activity)
   }
   private lateinit var viewModelChanSubscription: Disposable
+  private lateinit var languageChangeSubscription: Disposable
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -38,57 +39,26 @@ class MainActivity : AppCompatActivity() {
     setSupportActionBar(binding.toolbar)
     binding.viewModel = viewModel
 
-    val onSubjectClicked: (View, Int, Any?) -> Unit = { view: View, position: Int, item: Any? ->
-      if (item as? Instruction != null) {
-        viewModel.prepareToPlayInstruction(item as Instruction)
-      }
-      else {
-        Log.e(this.javaClass.simpleName, "Cannot prepare to play instruction because ${item}, the ${position + 1}th item in the list of instructions, is not a valid instruction.")
-      }
-    }
-    val instructionsLayoutManager = LinearLayoutManager(this)
-    instructionsLayoutManager.orientation = LinearLayoutManager.VERTICAL
-    val instructionsForCurrentLanguage: RecyclerView = binding.instructions
-    instructionsForCurrentLanguage.layoutManager = instructionsLayoutManager
-    instructionsForCurrentLanguage.adapter =
-      InstructionsAdapter(R.layout.subject_layout,
-                          this,
-                          immutableListOf(),
-                          onSubjectClicked)
+    initInstructionsRecyclerView()
+    initUnparsableInstructionsRecyclerView()
 
-    instructionsForCurrentLanguage.setHasFixedSize(true)
+    viewModelChanSubscription =
+      viewModel.msgChan
+        .observeOn(AndroidSchedulers.mainThread())
+        .subscribe { msg -> handleViewModelMessage(msg) }
 
-    val unparsableInstructionsLayoutManager = LinearLayoutManager(this)
-    instructionsLayoutManager.orientation = LinearLayoutManager.VERTICAL
-    val unparsableInstructions: RecyclerView = binding.unparsableInstructions
-    unparsableInstructions.layoutManager = unparsableInstructionsLayoutManager
-    unparsableInstructions.adapter =
-      UnparsableInstructionsAdapter(R.layout.unparsable_instruction_layout,
-                                    this,
-                                    immutableListOf(),
-                                    null)
-
-
-    viewModel.setCurrentLanguage(
+    languageChangeSubscription =
       RxJavaInterop.toV2Observable(
         RxTabLayout.selections(binding.languages))
-        .doOnNext { tab ->
-          Log.d(this.javaClass.simpleName, "RxTabLayout.selections")
-          Log.d("selected tab", tab.text as String)
-        }
         .map { tab -> tab.tag as String }
-    )
+        .doOnNext { language ->
+          Log.d(this.javaClass.simpleName, "RxTabLayout.selections")
+          Log.d("selected tab", language)
+        }
+        .subscribe { language -> viewModel.setCurrentLanguage(language) }
 
-    viewModelChanSubscription = viewModel.msgChan
-      .subscribeOn(Schedulers.io())
-      .subscribe { msg ->
-        handleViewModelMessage(msg)
-      }
-
-    if (ContextCompat.checkSelfPermission(
-         this,
-         Manifest.permission.WRITE_EXTERNAL_STORAGE)
-      != PackageManager.PERMISSION_GRANTED) {
+    if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        != PackageManager.PERMISSION_GRANTED) {
       requestPermissionWriteExternalStorage()
     }
     else {
@@ -110,6 +80,12 @@ class MainActivity : AppCompatActivity() {
     }
   }
 
+  private fun requestPermissionWriteExternalStorage() {
+    ActivityCompat.requestPermissions(this,
+                                      arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
+                                      PERMISSION_REQUEST_FOR_WRITE_EXTERNAL_STORAGE)
+  }
+
   override fun onPause() {
     viewModelChanSubscription.dispose()
     super.onPause()
@@ -118,18 +94,50 @@ class MainActivity : AppCompatActivity() {
   override fun onResume() {
     if (viewModelChanSubscription.isDisposed) {
       viewModelChanSubscription = viewModel.msgChan
-        .subscribeOn(Schedulers.io())
-        .subscribe { msg ->
-          handleViewModelMessage(msg)
-        }
+        .observeOn(AndroidSchedulers.mainThread())
+        .subscribe { msg -> handleViewModelMessage(msg) }
     }
     super.onResume()
   }
 
-  private fun requestPermissionWriteExternalStorage() {
-    ActivityCompat.requestPermissions(this,
-                                      arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
-                                      PERMISSION_REQUEST_FOR_WRITE_EXTERNAL_STORAGE)
+  override fun onDestroy() {
+    languageChangeSubscription.dispose()
+    super.onDestroy()
+  }
+
+  fun initInstructionsRecyclerView() {
+    val onSubjectClicked: (View, Int, Any?) -> Unit = { view: View, position: Int, item: Any? ->
+      if (item as? Instruction != null) {
+        viewModel.prepareToPlayInstruction(item as Instruction)
+      }
+      else {
+        Log.e(this.javaClass.simpleName, "Cannot prepare to play instruction because ${item}, the ${position + 1}th item in the list of instructions, is not a valid instruction.")
+      }
+    }
+
+    val instructionsLayoutManager = LinearLayoutManager(this)
+    instructionsLayoutManager.orientation = LinearLayoutManager.VERTICAL
+    val instructionsForCurrentLanguage: RecyclerView = binding.instructions
+    instructionsForCurrentLanguage.layoutManager = instructionsLayoutManager
+    instructionsForCurrentLanguage.adapter =
+      InstructionsAdapter(R.layout.subject_layout,
+                          this,
+                          immutableListOf(),
+                          onSubjectClicked)
+
+    instructionsForCurrentLanguage.setHasFixedSize(true)
+  }
+
+  fun initUnparsableInstructionsRecyclerView() {
+    val unparsableInstructionsLayoutManager = LinearLayoutManager(this)
+    unparsableInstructionsLayoutManager.orientation = LinearLayoutManager.VERTICAL
+    val unparsableInstructions: RecyclerView = binding.unparsableInstructions
+    unparsableInstructions.layoutManager = unparsableInstructionsLayoutManager
+    unparsableInstructions.adapter =
+      UnparsableInstructionsAdapter(R.layout.unparsable_instruction_layout,
+                                    this,
+                                    immutableListOf(),
+                                    null)
   }
 
   private fun getInstructions() {
@@ -137,11 +145,11 @@ class MainActivity : AppCompatActivity() {
   }
 
   fun handleViewModelMessage(msg: ViewModelMessage) {
-    Log.d(this.javaClass.simpleName, "View model message ${msg.toString()}")
+    Log.d(this.javaClass.simpleName, "View model message ${msg}")
     val unused = when (msg) {
       is ViewModelMessage.InstructionsChanged -> {
         refreshUnparsableInstructions(msg.unparsableInstructions)
-        refreshLanguageTabs(msg.languages, msg.defaultLanguage)
+        refreshLanguageTabs(msg.languages)
       }
 
       is ViewModelMessage.LanguageChanged -> {
@@ -173,7 +181,8 @@ class MainActivity : AppCompatActivity() {
       }
 
       is ViewModelMessage.InstructionAudioCompleted -> {}
-    }  }
+    }
+  }
 
 
   private fun refreshUnparsableInstructions(
@@ -201,8 +210,7 @@ class MainActivity : AppCompatActivity() {
     }
   }
 
-  private fun refreshLanguageTabs(languages: ImmutableList<String>,
-                                  defaultLanguage: String) {
+  private fun refreshLanguageTabs(languages: ImmutableList<String>) {
     // 2017-01-28 Cort Spellman
     // TODO: Use a viewpager -- this is stupid to be depending on the tabs
     // being in sync with another list.
