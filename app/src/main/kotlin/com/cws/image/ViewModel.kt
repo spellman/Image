@@ -6,6 +6,7 @@ import android.media.AudioManager
 import android.media.MediaPlayer
 import android.media.MediaScannerConnection
 import android.net.Uri
+import android.os.Environment
 import android.util.Log
 import com.github.andrewoma.dexx.kollection.*
 import io.reactivex.Observable
@@ -63,15 +64,22 @@ sealed class ViewModelMessage {
   class InstructionAudioCompleted : ViewModelMessage()
 }
 
+fun isExternalStorageWritable(): Boolean {
+  val s = Environment.getExternalStorageState()
+  return Environment.MEDIA_MOUNTED == s
+}
+
+fun isExternalStorageReadable(): Boolean {
+  val s = Environment.getExternalStorageState()
+  return immutableSetOf(Environment.MEDIA_MOUNTED,
+                        Environment.MEDIA_MOUNTED_READ_ONLY
+  ).contains(s)
+}
+
 data class UnparsableInstructionViewModel(
   val fileName: String,
   val failureMessage: String
 )
-
-//data class InstructionTiming(val cueStartTime: Long,
-//                             val instructionAudioDuration: Long)
-
-
 
 data class ViewModel(
   val app: App,
@@ -433,13 +441,3 @@ class FileSystemGetInstructionsGateway(
 interface GetInstructionsGateway {
   fun getInstructionFiles(): ImmutableSet<File>
 }
-
-
-
-
-
-
-
-
-
-

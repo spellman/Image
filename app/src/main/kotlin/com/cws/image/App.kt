@@ -8,33 +8,6 @@ import com.squareup.leakcanary.LeakCanary
 import io.reactivex.subjects.PublishSubject
 import java.io.File
 
-// Dummy data I started with. Keep for running in emulator.
-//val languages = immutableSetOf("english",
-//                               "spanish")
-//
-//val parsedInstructions =
-//    immutableSetOf(
-//        Instruction(subject = "chest",
-//                    language = "english",
-//                    absolutePath = "chest/english/absolutePath",
-//                    cueStartTime = 1000),
-//        Instruction(subject = "arm",
-//                    language = "english",
-//                    absolutePath = "arm/english/absolutePath",
-//                    cueStartTime = 1000),
-//        Instruction(subject = "chest",
-//                    language = "spanish",
-//                    absolutePath = "chest/spanish/absolutePath",
-//                    cueStartTime = 1000),
-//        Instruction(subject = "arm",
-//                    language = "spanish",
-//                    absolutePath = "arm/spanish/absolutePath",
-//                    cueStartTime = 1000)
-//    )
-
-val idealCountDownDuration: Long = 5000L
-val idealCueDuration: Long = 3000L
-
 class App : Application() {
   val storageDir by lazy {
     File(Environment.getExternalStorageDirectory(), packageName)
@@ -77,32 +50,8 @@ class App : Application() {
   // resources.configuration.locales().get(0) is the new way to get the primary
   // current locale.
 
-//  val initialState =
-//    BansaState(
-//      isInitializing = true,
-//      navigationStack = NavigationStack(immutableListOf(Scene.Main())),
-//      needToRefreshInstructions = true,
-//      canReadInstructionFiles = false,
-//      canReadInstructionFilesMessage = "Initially assume parsedInstructions dir is not readable because it hasn't been checked for readability.",
-//      instructions = immutableSetOf(),
-//      unparsableInstructions = immutableSetOf(),
-//      languages = immutableSetOf(),
-//      language = "english", // Should be the language for the current system locale. (What if there are no parsedInstructions in the system language? Show a msg whenever there are no visible parsedInstructions, including then.),
-//      instructionLoadingMessage = null,
-//      countDownStartTime = 0,
-//      countDownDuration = 0,
-//      countDownValue = null,
-//      cueStartTime = 0,
-//      cueStopTime = 0,
-//      instructionAudioDuration = 0,
-//      subjectToDisplay = null,
-//      languageToDisplay = null,
-//      cueMessage = null
-//    )
-
   override fun onCreate() {
     super.onCreate()
-
     LeakCanary.install(this)
     Stetho.initializeWithDefaults(this)
   }
