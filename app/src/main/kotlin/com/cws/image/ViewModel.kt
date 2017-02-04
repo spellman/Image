@@ -234,6 +234,8 @@ data class ViewModel(
   }
 
   fun clearMediaPlayer() {
+    Log.d(this.javaClass.simpleName, "Stopping and releasing media player. Setting the view model property to null.")
+    mediaPlayer?.stop()
     mediaPlayer?.release()
     mediaPlayer = null
   }

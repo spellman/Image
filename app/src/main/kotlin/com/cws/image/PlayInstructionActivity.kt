@@ -56,6 +56,11 @@ class PlayInstructionActivity : AppCompatActivity() {
     super.onResume()
   }
 
+  override fun onBackPressed() {
+    viewModel.clearMediaPlayer()
+    super.onBackPressed()
+  }
+
   private fun handleViewModelMessage(msg: ViewModelMessage) {
     Log.d(this.javaClass.simpleName, "View model message ${msg.toString()}")
     val unused = when (msg) {
@@ -70,6 +75,7 @@ class PlayInstructionActivity : AppCompatActivity() {
       is ViewModelMessage.PreparedToPlayInstructionAudio -> {}
 
       is ViewModelMessage.InstructionAudioCompleted -> {
+        viewModel.clearMediaPlayer()
         setResult(Activity.RESULT_OK, Intent())
         finish()
       }
@@ -81,11 +87,7 @@ class PlayInstructionActivity : AppCompatActivity() {
       Activity.RESULT_FIRST_USER,
       Intent().putExtra("subject", viewModel.selectedInstruction?.subject)
         .putExtra("language", viewModel.selectedInstruction?.language))
-    finish()
-  }
-
-  override fun onDestroy() {
     viewModel.clearMediaPlayer()
-    super.onDestroy()
+    finish()
   }
 }
