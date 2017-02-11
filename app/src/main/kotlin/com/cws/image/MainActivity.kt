@@ -19,18 +19,27 @@ import com.cws.image.databinding.MainActivityBinding
 import com.github.andrewoma.dexx.kollection.*
 import com.jakewharton.rxbinding.support.design.widget.RxTabLayout
 import hu.akarnokd.rxjava.interop.RxJavaInterop
-import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.Disposable
+
+class ViewModel {
+  val appVersionInfo = "Version ${BuildConfig.VERSION_NAME} | Version Code ${BuildConfig.VERSION_CODE} | Commit ${BuildConfig.GIT_SHA}"
+}
+
+data class UnparsableInstructionViewModel(
+  val fileName: String,
+  val failureMessage: String
+)
 
 class MainActivity : AppCompatActivity() {
   private val PERMISSION_REQUEST_FOR_WRITE_EXTERNAL_STORAGE = 0
   private val REQUEST_PLAY_INSTRUCTION = 1
-  private val app by lazy { application as App }
-  private val viewModel by lazy { app.viewModel }
+  private val viewModel by lazy { ViewModel() }
+  private val presenter by lazy {
+    MainPresenter(this, provideGetInstructions(application as App))
+  }
   private val binding: MainActivityBinding by lazy {
     DataBindingUtil.setContentView<MainActivityBinding>(this, R.layout.main_activity)
   }
-  private lateinit var viewModelChanSubscription: Disposable
   private lateinit var languageChangeSubscription: Disposable
 
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -42,11 +51,6 @@ class MainActivity : AppCompatActivity() {
     initInstructionsRecyclerView()
     initUnparsableInstructionsRecyclerView()
 
-    viewModelChanSubscription =
-      viewModel.msgChan
-        .observeOn(AndroidSchedulers.mainThread())
-        .subscribe { msg -> handleViewModelMessage(msg) }
-
     languageChangeSubscription =
       RxJavaInterop.toV2Observable(
         RxTabLayout.selections(binding.languages))
@@ -55,49 +59,11 @@ class MainActivity : AppCompatActivity() {
           Log.d(this.javaClass.simpleName, "RxTabLayout.selections")
           Log.d("selected tab", language)
         }
-        .subscribe { language -> viewModel.setCurrentLanguage(language) }
+        .subscribe { language ->
+          presenter.setLanguage(language)
+        }
 
-    if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
-        != PackageManager.PERMISSION_GRANTED) {
-      requestPermissionWriteExternalStorage()
-    }
-    else {
-      getInstructions()
-    }
-  }
-
-  override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
-    if (requestCode == PERMISSION_REQUEST_FOR_WRITE_EXTERNAL_STORAGE) {
-      if (grantResults.size == 1 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-        getInstructions()
-      }
-      else {
-        requestPermissionWriteExternalStorage()
-      }
-    }
-    else {
-      super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-    }
-  }
-
-  private fun requestPermissionWriteExternalStorage() {
-    ActivityCompat.requestPermissions(this,
-                                      arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
-                                      PERMISSION_REQUEST_FOR_WRITE_EXTERNAL_STORAGE)
-  }
-
-  override fun onPause() {
-    viewModelChanSubscription.dispose()
-    super.onPause()
-  }
-
-  override fun onResume() {
-    if (viewModelChanSubscription.isDisposed) {
-      viewModelChanSubscription = viewModel.msgChan
-        .observeOn(AndroidSchedulers.mainThread())
-        .subscribe { msg -> handleViewModelMessage(msg) }
-    }
-    super.onResume()
+    getInstructions()
   }
 
   override fun onDestroy() {
@@ -108,7 +74,7 @@ class MainActivity : AppCompatActivity() {
   fun initInstructionsRecyclerView() {
     val onSubjectClicked: (View, Int, Any?) -> Unit = { view: View, position: Int, item: Any? ->
       if (item as? Instruction != null) {
-        viewModel.prepareToPlayInstruction(item as Instruction)
+        presenter.playInstruction(item as Instruction)
       }
       else {
         Log.e(this.javaClass.simpleName, "Cannot prepare to play instruction because ${item}, the ${position + 1}th item in the list of instructions, is not a valid instruction.")
@@ -140,52 +106,68 @@ class MainActivity : AppCompatActivity() {
                                     null)
   }
 
-  private fun getInstructions() {
-    viewModel.getInstructions()
+  fun showMessageForInstructionsLoadFailure(message: String) {
+    val snackbar =
+      Snackbar.make(binding.root, message, Snackbar.LENGTH_INDEFINITE)
+    val snackbarTextView = snackbar.view.findViewById(
+      android.support.design.R.id.snackbar_text) as? TextView
+    snackbarTextView?.maxLines = 3
+    snackbar.show()
   }
 
-  fun handleViewModelMessage(msg: ViewModelMessage) {
-    Log.d(this.javaClass.simpleName, "View model message ${msg}")
-    val unused = when (msg) {
-      is ViewModelMessage.InstructionsChanged -> {
-        refreshUnparsableInstructions(msg.unparsableInstructions)
-        refreshLanguageTabs(msg.languages)
-      }
+  fun showMessageForInstructionPlayFailure(message: String) {
+    val snackbar = Snackbar.make(binding.root, message, 5000)
+    (snackbar.view.findViewById(
+      android.support.design.R.id.snackbar_text) as? TextView)
+      ?.maxLines = 3
+    snackbar.show()
+  }
 
-      is ViewModelMessage.LanguageChanged -> {
-        refreshInstructionsForCurrentLanguage(msg.instructionsForCurrentLanguage)
-      }
-
-      is ViewModelMessage.CouldNotReadInstructions -> {
-        val snackbar = Snackbar.make(binding.root,
-                                     msg.message,
-                                     Snackbar.LENGTH_INDEFINITE)
-        val snackbarTextView = snackbar.view.findViewById(
-          android.support.design.R.id.snackbar_text) as? TextView
-        snackbarTextView?.maxLines = 3
-        snackbar.show()
-      }
-
-      is ViewModelMessage.CouldNotPlayInstruction -> {
-        val instruction = msg.instruction
-        val message = "The ${instruction.language} ${instruction.subject} instruction could not be played.\n(${instruction.absolutePath})"
-        val snackbar = Snackbar.make(binding.root, message, 5000)
-        val snackbarTextView = snackbar.view.findViewById(
-          android.support.design.R.id.snackbar_text) as? TextView
-        snackbarTextView?.maxLines = 3
-        snackbar.show()
-      }
-
-      is ViewModelMessage.PreparedToPlayInstructionAudio -> {
-        navigateToPlayInstructionActivity()
-      }
-
-      is ViewModelMessage.InstructionAudioCompleted -> {}
+  fun getInstructions() {
+    if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
+      Log.d(this.javaClass.simpleName, "About to get instructions")
+      presenter.getInstructions()
+    }
+    else {
+      requestPermissionWriteExternalStorage()
     }
   }
 
+  private fun requestPermissionWriteExternalStorage() {
+    if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
+      // TODO: Show an explanation to the user *asynchronously* -- don't block
+      // this thread waiting for the user's response! After the user sees the
+      // explanation (dialog or snackbar are easy), try again to request the
+      // permission.
+      Log.d("TODO:", "Show request permission rationale for write external storage.")
+      ActivityCompat.requestPermissions(
+        this,
+        arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
+        PERMISSION_REQUEST_FOR_WRITE_EXTERNAL_STORAGE)
+    }
+    else {
+      ActivityCompat.requestPermissions(
+        this,
+        arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
+        PERMISSION_REQUEST_FOR_WRITE_EXTERNAL_STORAGE)
+    }
+  }
 
-  private fun refreshUnparsableInstructions(
+  override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+    if (requestCode == PERMISSION_REQUEST_FOR_WRITE_EXTERNAL_STORAGE) {
+      if (grantResults.size == 1 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+        getInstructions()
+      }
+      else {
+        requestPermissionWriteExternalStorage()
+      }
+    }
+    else {
+      super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+    }
+  }
+
+  fun refreshUnparsableInstructions(
     unparsableInstructions: ImmutableList<UnparsableInstructionViewModel>
   ) {
     Log.d(this.javaClass.simpleName, "refreshUnparsableInstructions")
@@ -210,7 +192,7 @@ class MainActivity : AppCompatActivity() {
     }
   }
 
-  private fun refreshLanguageTabs(languages: ImmutableList<String>) {
+  fun refreshLanguageTabs(languages: ImmutableList<String>) {
     // 2017-01-28 Cort Spellman
     // TODO: Use a viewpager -- this is stupid to be depending on the tabs
     // being in sync with another list.
@@ -232,15 +214,17 @@ class MainActivity : AppCompatActivity() {
     }
   }
 
-  private fun refreshInstructionsForCurrentLanguage(instructions: ImmutableList<Instruction>) {
+  fun refreshInstructionsForCurrentLanguage(instructions: ImmutableList<Instruction>) {
     Log.d(this.javaClass.simpleName, "refreshInstructionsForCurrentLanguage")
     Log.d("instructions", instructions.toString())
     (binding.instructions.adapter as InstructionsAdapter)
       .refreshInstructions(instructions)
   }
 
-  private fun navigateToPlayInstructionActivity() {
-    PlayInstructionActivity.startForResult(this, REQUEST_PLAY_INSTRUCTION)
+  fun startPlayInstructionActivity(instruction: Instruction) {
+    PlayInstructionActivity.startForResult(this,
+                                           REQUEST_PLAY_INSTRUCTION,
+                                           instruction)
   }
 
   override fun onActivityResult(requestCode: Int,
@@ -254,9 +238,10 @@ class MainActivity : AppCompatActivity() {
           Activity.RESULT_CANCELED -> {}
 
           Activity.RESULT_FIRST_USER ->
-            viewModel.handlePlayInstructionFailure(
-              data?.getStringExtra("subject") ?: "subject not available",
-                data?.getStringExtra("language") ?: "language not available")
+            presenter.couldNotPlayInstruction(
+              data?.getParcelableExtra<Instruction>("instruction"),
+              data?.getStringExtra("message")
+            )
 
           else -> {
             Log.d(this.javaClass.simpleName, "Unhandled activity-result result-code: ${resultCode} for request-code ${requestCode}")

@@ -3,9 +3,8 @@ package com.cws.image
 import android.app.Application
 import android.os.Environment
 import com.facebook.stetho.Stetho
-import com.github.andrewoma.dexx.kollection.*
 import com.squareup.leakcanary.LeakCanary
-import io.reactivex.subjects.PublishSubject
+import com.squareup.leakcanary.RefWatcher
 import java.io.File
 
 class App : Application() {
@@ -17,29 +16,7 @@ class App : Application() {
     File(storageDir, ".tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb")
   }
 
-  val ensureInstructionsDir by lazy {
-    EnsureInstructionsDirExistsAndIsAccessibleFromPC(storageDir, tokenFile, this)
-  }
-
-  val getInstructionsGateway by lazy {
-    FileSystemGetInstructionsGateway(storageDir, immutableSetOf(tokenFile))
-  }
-
-  val viewModel by lazy {
-    ViewModel(
-      app = this,
-      msgChan = PublishSubject.create<ViewModelMessage>(),
-      needToRefreshInstructions = true,
-      instructionFilesReadFailureMessage = null,
-      instructions = immutableSetOf(),
-      instructionsForCurrentLanguage = immutableSetOf(),
-      unparsableInstructions = immutableSetOf(),
-      languages = immutableSetOf(),
-      language = null,
-      mediaPlayer = null,
-      selectedInstruction = null
-      )
-  }
+  lateinit var refWatcher: RefWatcher
 
   // 2016-10-12 Cort Spellman
   // TODO: Use locales instead of string languages. The method of getting the
@@ -52,7 +29,7 @@ class App : Application() {
 
   override fun onCreate() {
     super.onCreate()
-    LeakCanary.install(this)
+    refWatcher = LeakCanary.install(this)
     Stetho.initializeWithDefaults(this)
   }
 }
