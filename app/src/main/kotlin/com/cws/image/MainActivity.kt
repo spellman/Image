@@ -6,6 +6,8 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.databinding.DataBindingUtil
 import android.os.Bundle
+import android.os.Parcel
+import android.os.Parcelable
 import android.support.design.widget.Snackbar
 import android.support.v4.app.ActivityCompat
 import android.support.v4.content.ContextCompat
@@ -20,19 +22,34 @@ import com.github.andrewoma.dexx.kollection.*
 import com.jakewharton.rxbinding.support.design.widget.RxTabLayout
 import hu.akarnokd.rxjava.interop.RxJavaInterop
 import io.reactivex.disposables.Disposable
+import paperparcel.PaperParcel
 
 class ViewModel {
   val appVersionInfo = "Version ${BuildConfig.VERSION_NAME} | Version Code ${BuildConfig.VERSION_CODE} | Commit ${BuildConfig.GIT_SHA}"
 }
 
+@PaperParcel
 data class UnparsableInstructionViewModel(
   val fileName: String,
   val failureMessage: String
-)
+) : Parcelable {
+  companion object {
+    @JvmField val CREATOR = PaperParcelUnparsableInstructionViewModel.CREATOR
+  }
+
+  override fun describeContents() = 0
+
+  override fun writeToParcel(dest: Parcel, flags: Int) {
+    PaperParcelUnparsableInstructionViewModel.writeToParcel(this, dest, flags)
+  }
+}
 
 class MainActivity : AppCompatActivity() {
   private val PERMISSION_REQUEST_FOR_WRITE_EXTERNAL_STORAGE = 0
   private val REQUEST_PLAY_INSTRUCTION = 1
+  private val SELECTED_LANGUAGE = "selected-language"
+  private val INSTRUCTIONS = "instructions"
+  private val UNPARSABLE_INSTRUCTIONS = "unparsable-instructions"
   private val viewModel by lazy { ViewModel() }
   private val presenter by lazy {
     MainPresenter(this, provideGetInstructions(application as App))
@@ -59,11 +76,55 @@ class MainActivity : AppCompatActivity() {
           Log.d(this.javaClass.simpleName, "RxTabLayout.selections")
           Log.d("selected tab", language)
         }
-        .subscribe { language ->
-          presenter.setLanguage(language)
-        }
+        .subscribe { language -> presenter.showInstructionsForLanguage(language) }
 
-    getInstructions()
+    if (savedInstanceState != null) {
+      Log.d(this.javaClass.simpleName, "restoring savedInstanceState")
+      val instructions = (savedInstanceState.getParcelableArray(INSTRUCTIONS) as? Array<Instruction>)
+                           ?.toList()
+                           ?.toImmutableSet()
+                         ?: immutableSetOf()
+      val unparsableInstructions = (savedInstanceState.getParcelableArray(UNPARSABLE_INSTRUCTIONS) as? Array<UnparsableInstructionViewModel>)
+                                     ?.toList()
+                                     ?.toImmutableSet()
+                                   ?: immutableSetOf()
+      if (instructions.isNotEmpty()) {
+        val selectedLanguage = savedInstanceState.getString(SELECTED_LANGUAGE)
+        Log.d(this.javaClass.simpleName, "instructions: ${instructions}")
+        Log.d(this.javaClass.simpleName,
+              "unparsableInstructions: ${unparsableInstructions}")
+        Log.d(this.javaClass.simpleName,
+              "selectedLanguage: ${selectedLanguage}")
+
+        presenter.restoreState(instructions, unparsableInstructions,
+                               selectedLanguage)
+      }
+      else {
+        getInstructions()
+      }
+    }
+    else {
+      getInstructions()
+    }
+  }
+
+  override fun onSaveInstanceState(outState: Bundle?) {
+    super.onSaveInstanceState(outState)
+    Log.d(this.javaClass.simpleName, "onSaveInstanceState")
+    val instructions = presenter.instructions.toTypedArray()
+    val unparsableInstructions =
+      (binding.unparsableInstructions.adapter as UnparsableInstructionsAdapter)
+        .unparsableInstructions.toTypedArray()
+    val languageTabs = binding.languages
+    val selectedLanguage = languageTabs.getTabAt(languageTabs.selectedTabPosition)
+      ?.tag as String
+    Log.d(this.javaClass.simpleName, "instructions: ${instructions}")
+    Log.d(this.javaClass.simpleName, "unparsableInstructions: ${unparsableInstructions}")
+    Log.d(this.javaClass.simpleName, "selectedLanguage: ${selectedLanguage}")
+
+    outState?.putString(SELECTED_LANGUAGE, selectedLanguage)
+    outState?.putParcelableArray(INSTRUCTIONS, instructions)
+    outState?.putParcelableArray(UNPARSABLE_INSTRUCTIONS, unparsableInstructions)
   }
 
   override fun onDestroy() {
@@ -176,30 +237,28 @@ class MainActivity : AppCompatActivity() {
       .refreshUnparsableInstructions(unparsableInstructions)
   }
 
-  private fun setLanguage(language: String?, languages: ImmutableList<String>) {
-    Log.d(this.javaClass.simpleName, "setLanguage")
-    Log.d("language", language)
-    val selectedLanguageIndex = languages.indexOf(language)
-    val tab = binding.languages.getTabAt(selectedLanguageIndex)
+  fun selectLanguageTab(index: Int) {
+    Log.d(this.javaClass.simpleName, "selectLanguageTab")
+    Log.d("index", index.toString())
+    val tab = binding.languages.getTabAt(index)
     if (tab != null) {
-      Log.d(this.javaClass.simpleName, "setLanguage")
-      Log.d("selecting tab", "programmatically selecting tab for language ${tab.tag}")
+      Log.d(this.javaClass.simpleName, "programmatically selecting tab for language ${tab.tag}")
       tab.select()
     }
     else {
       binding.languages.getTabAt(0)?.select()
-      Log.e("setLanguage", "${language} (tab[${selectedLanguageIndex}]) not available. Selected default language instead.")
+      Log.e("selectLanguageTab", "Tab of index ${index} is not available. Selected default language tab instead.")
     }
   }
 
   fun refreshLanguageTabs(languages: ImmutableList<String>) {
     // 2017-01-28 Cort Spellman
     // TODO: Use a viewpager -- this is stupid to be depending on the tabs
-    // being in sync with another list.
+    // being in the same order as another list.
     Log.d(this.javaClass.simpleName, "refreshLanguageTabs")
     Log.d("languages", languages.toString())
     val languageTabs = binding.languages
-    val previouslySelectedTab = languageTabs.getTabAt(languageTabs.selectedTabPosition)
+    val previouslySelectedLanguage = languageTabs.getTabAt(languageTabs.selectedTabPosition)?.tag as? String
 
     languageTabs.removeAllTabs()
 
@@ -208,9 +267,9 @@ class MainActivity : AppCompatActivity() {
         languageTabs.newTab().setTag(l).setText(l))
     }
 
-    previouslySelectedTab?.let {
-      Log.d("refreshLanguagesTabs", "Setting language to selected language of ${previouslySelectedTab.tag}.")
-      setLanguage(previouslySelectedTab.tag as? String, languages)
+    previouslySelectedLanguage?.let {
+      Log.d("refreshLanguagesTabs", "Setting language to selected language of ${previouslySelectedLanguage}.")
+      selectLanguageTab(languages.indexOf(previouslySelectedLanguage))
     }
   }
 
