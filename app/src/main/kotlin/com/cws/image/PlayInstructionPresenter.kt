@@ -10,14 +10,20 @@ class PlayInstructionPresenter(
   ) {
   private val audioSubscription: Disposable
   init {
-    mediaPlayerFragment.presenter = this
     Log.d(this.javaClass.simpleName, "Subscribing to mediaplayer events.")
     audioSubscription = mediaPlayerFragment.mediaPlayerEvents.subscribe(
       { event ->
         val unused = when (event) {
           is MediaPlayerEvents.Preparing ->
             Log.d(this.javaClass.simpleName, "Note that media player is preparing.")
+
           is MediaPlayerEvents.Prepared -> startInstructionAudio()
+
+          is MediaPlayerEvents.AudiofocusTransientLoss -> pauseInstruction()
+
+          is MediaPlayerEvents.AudiofocusLoss -> stopInstruction()
+
+          is MediaPlayerEvents.AudiofocusGain -> resumeInstruction()
         }
       },
       {
@@ -34,6 +40,14 @@ class PlayInstructionPresenter(
       Log.d(this.javaClass.simpleName, "Instruction not already initiated. Initiating playing now.")
       prepareInstructionAudio()
     }
+  }
+
+  fun pauseInstruction() {
+    mediaPlayerFragment.pauseInstruction()
+  }
+
+  fun resumeInstruction() {
+    mediaPlayerFragment.startInstructionAudio()
   }
 
   fun stopInstruction() {
