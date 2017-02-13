@@ -10,22 +10,27 @@
   <android.support.v7.widget.LinearLayoutCompat
       xmlns:android="http://schemas.android.com/apk/res/android"
       android:layout_width="match_parent"
-      android:layout_height="wrap_content"
+      android:layout_height="@dimen/unparsable_instruction_height"
       android:orientation="vertical"
+      android:gravity="center_vertical"
+      android:paddingStart="@dimen/unparsable_instruction_padding_start"
+      android:paddingEnd="@dimen/unparsable_instruction_padding_end"
       >
 
     <TextView
-        xmlns:android="http://schemas.android.com/apk/res/android"
+        android:text="@{item.fileName}"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@{item.fileName}"
+        android:textSize="@dimen/unparsable_instruction_text_size"
+        android:textColor="@color/colorPrimaryText"
         />
 
     <TextView
-        xmlns:android="http://schemas.android.com/apk/res/android"
+        android:text="@{item.failureMessage}"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@{item.failureMessage}"
+        android:textSize="@dimen/unparsable_instruction_text_size"
+        android:textColor="@color/colorSecondaryText"
         />
 
   </android.support.v7.widget.LinearLayoutCompat>

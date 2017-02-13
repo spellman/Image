@@ -9,9 +9,14 @@
 
   <TextView
       xmlns:android="http://schemas.android.com/apk/res/android"
-      android:layout_width="wrap_content"
-      android:layout_height="wrap_content"
+      android:layout_width="match_parent"
+      android:layout_height="@dimen/subject_height"
       android:text="@{item.subject}"
       android:clickable="true"
+      android:gravity="start|center_vertical"
+      android:paddingStart="@dimen/subject_padding_start"
+      android:paddingEnd="@dimen/subject_padding_end"
+      android:textSize="@dimen/subject_text_size"
+      android:textColor="@color/colorPrimaryText"
       />
 </layout>
