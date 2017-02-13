@@ -1,5 +1,7 @@
 apply plugin: "com.android.application"
 apply plugin: "kotlin-android"
+apply plugin: "kotlin-android-extensions"
+apply plugin: "kotlin-kapt"
 
 def versionMajor = 0
 def versionMinor = 0
@@ -31,6 +33,10 @@ android {
   compileSdkVersion 25
   buildToolsVersion "25.0.1"
 
+  dataBinding {
+    enabled = true
+  }
+
   defaultConfig {
     applicationId "com.cws.image"
 
@@ -59,44 +65,52 @@ android {
   dexOptions {
     javaMaxHeapSize "2g"
   }
+
+  packagingOptions {
+    exclude 'META-INF/rxjava.properties'
+  }
 }
 
 repositories {
   maven { url = "https://jitpack.io" }
 }
 
-ext {
-  anvil_version = "0.4.0"
-}
-
 dependencies {
   compile fileTree(dir: "libs", include: ["*.jar"])
 
+  compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+  kapt "com.android.databinding:compiler:2.2.0"
+
+  compile "com.android.support:appcompat-v7:25.1.1"
+  compile "com.android.support:design:25.1.1"
+  compile "com.android.support:recyclerview-v7:25.1.1"
+  compile "com.android.support.constraint:constraint-layout:1.0.0-beta4"
+
+  compile "com.github.andrewoma.dexx:kollection:0.7"
+
+  compile "nz.bradcampbell:paperparcel:2.0.0-beta2"
+  compile "nz.bradcampbell:paperparcel-kotlin:2.0.0-beta2"
+  kapt "nz.bradcampbell:paperparcel-compiler:2.0.0-beta2"
+
+  compile "io.reactivex.rxjava2:rxjava:2.0.5"
+  compile "io.reactivex.rxjava2:rxandroid:2.0.1"
+
+  compile "com.github.akarnokd:rxjava2-interop:0.8.4"
+
+  compile "com.jakewharton.rxbinding:rxbinding-kotlin:1.0.0"
+  compile "com.jakewharton.rxbinding:rxbinding-appcompat-v7-kotlin:1.0.0"
+  compile "com.jakewharton.rxbinding:rxbinding-design-kotlin:1.0.0"
+  compile "com.jakewharton.rxbinding:rxbinding-recyclerview-v7-kotlin:1.0.0"
+  compile "com.jakewharton.rxbinding:rxbinding-support-v4-kotlin:1.0.0"
+
+  debugCompile "com.squareup.leakcanary:leakcanary-android:1.5"
+
   testCompile "junit:junit:4.12"
 
-  compile "com.facebook.stetho:stetho:1.3.1"
-  compile "com.facebook.stetho:stetho-okhttp3:1.3.1"
+  compile "com.facebook.stetho:stetho:1.4.2"
+  compile "com.facebook.stetho:stetho-okhttp3:1.4.2"
+}
 
-  compile "com.android.support:appcompat-v7:25.1.0"
-  compile "com.android.support:design:25.1.0"
-  compile "com.android.support:recyclerview-v7:25.1.0"
-
-  compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
-
-  compile "co.trikita:anvil-sdk19:$anvil_version"
-  compile "co.trikita:anvil-support-v4:$anvil_version"
-  compile "co.trikita:anvil-appcompat-v7:$anvil_version"
-  compile "co.trikita:anvil-design:$anvil_version"
-  compile "co.trikita:anvil-recyclerview-v7:$anvil_version"
-
-  compile 'com.github.brianegan.bansa:bansa:1.0.0-beta'
-  compile 'com.github.brianegan.bansa:bansaKotlin:1.0.0-beta'
-  debugCompile 'com.github.brianegan.bansa:bansaDevTools:1.0.0-beta'
-  debugCompile 'com.github.brianegan.bansa:bansaDevToolsUi:1.0.0-beta'
-
-  compile "com.github.andrewoma.dexx:kollection:0.6"
-
-  debugCompile "com.squareup.leakcanary:leakcanary-android:1.4-beta2"
-
-  compile "io.reactivex.rxjava2:rxjava:2.0.0-RC4"
+kapt {
+  generateStubs = true
 }

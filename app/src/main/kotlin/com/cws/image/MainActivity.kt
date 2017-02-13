@@ -1,389 +1,287 @@
 package com.cws.image
 
 import android.Manifest
-import android.content.Context
+import android.app.Activity
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.databinding.DataBindingUtil
 import android.os.Bundle
+import android.os.Parcel
+import android.os.Parcelable
 import android.support.design.widget.Snackbar
 import android.support.v4.app.ActivityCompat
 import android.support.v4.content.ContextCompat
 import android.support.v7.app.AppCompatActivity
-import android.support.v7.widget.LinearLayoutCompat
-import android.text.TextUtils
+import android.support.v7.widget.LinearLayoutManager
+import android.support.v7.widget.RecyclerView
+import android.util.Log
 import android.view.View
-import android.widget.LinearLayout
 import android.widget.TextView
-import com.brianegan.bansa.Store
+import com.cws.image.databinding.MainActivityBinding
 import com.github.andrewoma.dexx.kollection.*
+import com.jakewharton.rxbinding.support.design.widget.RxTabLayout
+import hu.akarnokd.rxjava.interop.RxJavaInterop
 import io.reactivex.disposables.Disposable
-import io.reactivex.subjects.PublishSubject
-import trikita.anvil.BaseDSL
-import trikita.anvil.DSL
-import trikita.anvil.DSL.*
-import trikita.anvil.appcompat.v7.AppCompatv7DSL
-import trikita.anvil.appcompat.v7.AppCompatv7DSL.*
+import paperparcel.PaperParcel
+
+class ViewModel {
+  val appVersionInfo = "Version ${BuildConfig.VERSION_NAME} | Version Code ${BuildConfig.VERSION_CODE} | Commit ${BuildConfig.GIT_SHA}"
+}
+
+@PaperParcel
+data class UnparsableInstructionViewModel(
+  val fileName: String,
+  val failureMessage: String
+) : Parcelable {
+  companion object {
+    @JvmField val CREATOR = PaperParcelUnparsableInstructionViewModel.CREATOR
+  }
+
+  override fun describeContents() = 0
+
+  override fun writeToParcel(dest: Parcel, flags: Int) {
+    PaperParcelUnparsableInstructionViewModel.writeToParcel(this, dest, flags)
+  }
+}
 
 class MainActivity : AppCompatActivity() {
-  val PERMISSION_REQUEST_FOR_WRITE_EXTERNAL_STORAGE = 0
-  lateinit var store: Store<State>
-  lateinit var snackbarObservable: PublishSubject<SnackbarMessage>
-  lateinit var snackbarSubscription: Disposable
-
-  fun requestWriteExternalStoragePermission() {
-    ActivityCompat.requestPermissions(this,
-                                      arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
-                                      PERMISSION_REQUEST_FOR_WRITE_EXTERNAL_STORAGE)
+  private val PERMISSION_REQUEST_WRITE_EXTERNAL_STORAGE = 0
+  private val REQUEST_CODE_PLAY_INSTRUCTION = 1
+  private val SELECTED_LANGUAGE = "selected-language"
+  private val viewModel by lazy { ViewModel() }
+  private val presenter by lazy {
+    MainPresenter(this, provideGetInstructions(application as App))
   }
-
-  fun refreshInstructions() {
-    store.dispatch(Action.RefreshInstructions())
+  private val binding: MainActivityBinding by lazy {
+    DataBindingUtil.setContentView<MainActivityBinding>(this, R.layout.main_activity)
   }
-
-  fun makeSnackbar(view: View, snackbarMessage: SnackbarMessage) {
-    when (snackbarMessage) {
-      is SnackbarMessage.CouldNotPlayInstruction -> {
-        val message = "The ${snackbarMessage.language} ${snackbarMessage.subject} instruction could not by played.\n(${snackbarMessage.absolutePath})"
-        val snackbar = Snackbar.make(view, message, 5000)
-        val snackbarTextView = snackbar.view.findViewById(android.support.design.R.id.snackbar_text) as TextView
-        snackbarTextView.maxLines = 3
-
-        snackbar.show()
-      }
-
-      else -> {}
-    }
-  }
-
-  fun setUpActivity() {
-    if (store.state.needToRefreshInstructions) {
-      refreshInstructions()
-    }
-
-    val rootView = RootView(this)
-    setContentView(rootView)
-    snackbarSubscription = snackbarObservable.subscribe { snackbarContent ->
-      makeSnackbar(rootView, snackbarContent)
-    }
-  }
+  private lateinit var languageChangeSubscription: Disposable
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
-    val app = application as App
-    store = app.store
-    snackbarObservable = app.snackbarSubject
 
-    if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
-        != PackageManager.PERMISSION_GRANTED) {
-      requestWriteExternalStoragePermission()
+    setSupportActionBar(binding.toolbar)
+    binding.viewModel = viewModel
+
+    initInstructionsRecyclerView()
+    initUnparsableInstructionsRecyclerView()
+
+    languageChangeSubscription =
+      RxJavaInterop.toV2Observable(
+        RxTabLayout.selections(binding.languages))
+        .map { tab -> tab.tag as String }
+        .doOnNext { language ->
+          Log.d(this.javaClass.simpleName, "RxTabLayout.selections")
+          Log.d("selected tab", language)
+        }
+        .subscribe { language ->
+          presenter.showInstructionsForLanguage(language)
+        }
+
+    if (savedInstanceState != null) {
+      Log.d(this.javaClass.simpleName, "restoring savedInstanceState")
+      presenter.selectedLanguage = savedInstanceState.getString(SELECTED_LANGUAGE)
+      Log.d(this.javaClass.simpleName, "selectedLanguage: ${presenter.selectedLanguage}")
+    }
+
+    showInstructions()
+  }
+
+  override fun onSaveInstanceState(outState: Bundle?) {
+    super.onSaveInstanceState(outState)
+    Log.d(this.javaClass.simpleName,
+          "onSaveInstanceState selectedLanguage: ${presenter.selectedLanguage}")
+    outState?.putString(SELECTED_LANGUAGE, presenter.selectedLanguage)
+  }
+
+  override fun onDestroy() {
+    languageChangeSubscription.dispose()
+    super.onDestroy()
+  }
+
+  fun initInstructionsRecyclerView() {
+    val onSubjectClicked: (View, Int, Any?) -> Unit = { view: View, position: Int, item: Any? ->
+      if (item as? Instruction != null) {
+        presenter.playInstruction(item as Instruction)
+      }
+      else {
+        Log.e(this.javaClass.simpleName, "Cannot prepare to play instruction because ${item}, the ${position + 1}th item in the list of instructions, is not a valid instruction.")
+      }
+    }
+
+    val instructionsLayoutManager = LinearLayoutManager(this)
+    instructionsLayoutManager.orientation = LinearLayoutManager.VERTICAL
+    val instructionsForCurrentLanguage: RecyclerView = binding.instructions
+    instructionsForCurrentLanguage.layoutManager = instructionsLayoutManager
+    instructionsForCurrentLanguage.adapter =
+      InstructionsAdapter(R.layout.subject_layout,
+                          this,
+                          immutableListOf(),
+                          onSubjectClicked)
+
+    instructionsForCurrentLanguage.setHasFixedSize(true)
+  }
+
+  fun initUnparsableInstructionsRecyclerView() {
+    val unparsableInstructionsLayoutManager = LinearLayoutManager(this)
+    unparsableInstructionsLayoutManager.orientation = LinearLayoutManager.VERTICAL
+    val unparsableInstructions: RecyclerView = binding.unparsableInstructions
+    unparsableInstructions.layoutManager = unparsableInstructionsLayoutManager
+    unparsableInstructions.adapter =
+      UnparsableInstructionsAdapter(R.layout.unparsable_instruction_layout,
+                                    this,
+                                    immutableListOf(),
+                                    null)
+  }
+
+  fun showMessageForInstructionsLoadFailure(message: String) {
+    val snackbar =
+      Snackbar.make(binding.root, message, Snackbar.LENGTH_INDEFINITE)
+    val snackbarTextView = snackbar.view.findViewById(
+      android.support.design.R.id.snackbar_text) as? TextView
+    snackbarTextView?.maxLines = 3
+    snackbar.show()
+  }
+
+  fun showMessageForInstructionPlayFailure(message: String) {
+    val snackbar = Snackbar.make(binding.root, message, 5000)
+    (snackbar.view.findViewById(
+      android.support.design.R.id.snackbar_text) as? TextView)
+      ?.maxLines = 3
+    snackbar.show()
+  }
+
+  fun showInstructions() {
+    if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
+      Log.d(this.javaClass.simpleName, "About to get instructions")
+      presenter.showInstructions()
     }
     else {
-      setUpActivity()
+      requestPermissionWriteExternalStorage()
     }
   }
 
-  override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
-    if (requestCode == PERMISSION_REQUEST_FOR_WRITE_EXTERNAL_STORAGE) {
+  private fun requestPermissionWriteExternalStorage() {
+    if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
+      // TODO: Show an explanation to the user *asynchronously* -- don't block
+      // this thread waiting for the user's response! After the user sees the
+      // explanation (dialog or snackbar are easy), try again to request the
+      // permission.
+      Log.d("TODO:", "Show request permission rationale for write external storage.")
+      ActivityCompat.requestPermissions(
+        this,
+        arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
+        PERMISSION_REQUEST_WRITE_EXTERNAL_STORAGE)
+    }
+    else {
+      ActivityCompat.requestPermissions(
+        this,
+        arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
+        PERMISSION_REQUEST_WRITE_EXTERNAL_STORAGE)
+    }
+  }
+
+  override fun onRequestPermissionsResult(
+    requestCode: Int,
+    permissions: Array<String>,
+    grantResults: IntArray
+  ) {
+    if (requestCode == PERMISSION_REQUEST_WRITE_EXTERNAL_STORAGE) {
       if (grantResults.size == 1 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-        setUpActivity()
+        showInstructions()
       }
       else {
-        requestWriteExternalStoragePermission()
+        requestPermissionWriteExternalStorage()
       }
-
     }
     else {
       super.onRequestPermissionsResult(requestCode, permissions, grantResults)
     }
   }
 
-  override fun onBackPressed() {
-    if (store.state.navigationStack.size() > 1) {
-      store.dispatch(Action.NavigateBack())
+  fun refreshUnparsableInstructions(
+    unparsableInstructions: ImmutableList<UnparsableInstructionViewModel>
+  ) {
+    Log.d(this.javaClass.simpleName, "refreshUnparsableInstructions")
+    Log.d("unpars instructs", unparsableInstructions.toString())
+    (binding.unparsableInstructions.adapter as UnparsableInstructionsAdapter)
+      .refreshUnparsableInstructions(unparsableInstructions)
+  }
+
+  fun selectLanguageTab(index: Int) {
+    Log.d(this.javaClass.simpleName, "selectLanguageTab")
+    Log.d("index", index.toString())
+    val tab = binding.languages.getTabAt(index)
+    if (tab != null) {
+      Log.d(this.javaClass.simpleName, "programmatically selecting tab for language ${tab.tag}")
+      tab.select()
     }
     else {
-      finish()
+      Log.d("selectLanguageTab", "Tab of index ${index} is not available. Selected default language tab instead.")
+      binding.languages.getTabAt(0)?.select()
     }
   }
 
-  override fun onDestroy() {
-    snackbarSubscription.dispose()
-    super.onDestroy()
-  }
-}
+  fun refreshLanguageTabs(languages: ImmutableList<String>) {
+    // 2017-01-28 Cort Spellman
+    // TODO: Use a viewpager -- this is stupid to be depending on the tabs
+    // being in the same order as another list.
+    Log.d(this.javaClass.simpleName, "refreshLanguageTabs")
+    Log.d("languages", languages.toString())
+    val languageTabs = binding.languages
+    val previouslySelectedLanguage = presenter.selectedLanguage
 
+    languageTabs.removeAllTabs()
 
-
-fun viewInitializing() {
-  frameLayout {
-    size(FILL, FILL)
-    DSL.gravity(CENTER)
-
-    appCompatTextView {
-      size(WRAP, WRAP)
-      text("loading")
-      textColor(android.graphics.Color.BLACK)
-    }
-  }
-}
-
-fun viewLanguage(dispatch: (com.brianegan.bansa.Action) -> State,
-                 language: String) {
-  frameLayout {
-    size(WRAP, FILL)
-
-    appCompatTextView {
-      size(WRAP, WRAP)
-      minimumWidth(dip(72))
-      layoutGravity(BOTTOM)
-      textAlignment(View.TEXT_ALIGNMENT_CENTER)
-//              backgroundColor(android.graphics.Color.argb(32, 0, 255, 0))
-      textColor(android.graphics.Color.WHITE)
-      margin(dip(16), dip(0))
-      // TODO: Bottom padding should be 12px if l spans two lines.
-      padding(dip(12), dip(0), dip(12), dip(20))
-      minLines(1)
-      maxLines(2)
-      ellipsize(TextUtils.TruncateAt.END)
-      text(language)
+    languages.forEach { l ->
+      languageTabs.addTab(
+        languageTabs.newTab().setTag(l).setText(l))
     }
 
-    onClick { v -> dispatch(Action.SetLanguage(language)) }
-  }
-}
-
-fun viewLanguages(dispatch: (com.brianegan.bansa.Action) -> State,
-                  c: Context,
-                  languages: ImmutableSet<String>) {
-  horizontalScrollView {
-    size(FILL, dip(48))
-    AppCompatv7DSL.gravity(LEFT)
-    backgroundColor(ContextCompat.getColor(c, R.color.colorPrimary))
-
-    linearLayoutCompat {
-      size(WRAP, FILL)
-      AppCompatv7DSL.orientation(LinearLayoutCompat.HORIZONTAL)
-//        backgroundColor(android.graphics.Color.argb(32, 255, 0, 0))
-      languages.map { l -> viewLanguage(dispatch, l) }
+    previouslySelectedLanguage?.let {
+      Log.d("refreshLanguagesTabs", "Setting language to selected language of ${previouslySelectedLanguage}.")
+      selectLanguageTab(languages.indexOf(previouslySelectedLanguage))
     }
   }
-}
 
-fun viewNoSubjects (message: String, storageDirPath: String) {
-  linearLayoutCompat {
-    size(FILL, WRAP)
-    AppCompatv7DSL.orientation(LinearLayoutCompat.VERTICAL)
-
-    appCompatTextView {
-      text(message)
-      textColor(android.graphics.Color.BLACK)
-    }
-
-    appCompatTextView {
-      text("We're loading files manually for now so do the following to get started:\n1. Close the app: touch the menu button (square) on the device > either touch the x in the app window's title bar or swipe the app window to the left.\n2. Ensure your instruction sound-files are in .ogg format (or one of the audio formats listed at\nhttps://developer.android.com/guide/appendix/media-formats.html\nthough .ogg is said to play best).\n3. Ensure your instruction audio-files are named <x-ray subject>_<language>_<cue time in milliseconds>.ogg (or appropriate file extension)\n     Ex: chest_english_9000.ogg\nInclude spaces and/or punctuation in the subject or language via URI encoding:\nhttps://en.wikipedia.org/wiki/Percent-encoding\n     Ex: one%20%2f%20two%20%28three%29_english_1000.ogg will be parsed to\n             subject: one / two (three)\n             language: english\n             cue time: 1000\n4. Connect the device to your computer via USB.\n5. Ensure the device is in file transfer mode: Swipe down from the top of the device screen; one of the notifications should say \"USB for charging\" or \"USB for photo transfer\" or \"USB for file transfers\" or something like that. If the current mode isn't \"USB for file transfers\", then touch the notification and then select \"USB for file transfers\".\n6. Open the device in your file explorer (e.g., Windows Explorer on Windows, Finder on Mac, etc.) and copy the instructions to ${storageDirPath}.\n7. Re-launch the app.\nIf this procedure doesn't result in the main app-screen displaying languages and x-ray subjects that can be touched to play their respective instruction files, then call me: 979-436-2192.")
-      textColor(android.graphics.Color.BLACK)
-    }
-  }
-}
-
-fun viewSubject(dispatch: (com.brianegan.bansa.Action) -> State,
-                instruction: Instruction) {
-  appCompatTextView {
-    size(FILL, WRAP)
-    text(instruction.subject + " - " + instruction.language)
-    margin(dip(0), dip(16))
-    textColor(android.graphics.Color.BLACK)
-    onClick { v ->
-      dispatch(Action.NavigateTo(Scene.Instruction()))
-      dispatch(Action.PlayInstruction(instruction))
-    }
-  }
-}
-
-fun viewSubjects(dispatch: (com.brianegan.bansa.Action) -> State,
-                 instructions: ImmutableSet<Instruction>) {
-  scrollView {
-    size(FILL, dip(0))
-    weight(1f)
-
-    linearLayoutCompat {
-      size(FILL, WRAP)
-      AppCompatv7DSL.orientation(LinearLayoutCompat.VERTICAL)
-//        backgroundColor(android.graphics.Color.argb(32, 0, 0, 255))
-      instructions.map { i -> viewSubject(dispatch, i) }
-    }
-  }
-}
-
-fun failureMessage(unparsableInstruction: UnparsableInstruction): String {
-  return when (unparsableInstruction.failure) {
-    is InstructionParsingFailure.FileNameFormatFailure ->
-      "${unparsableInstruction.fileName}: Not of the format <x-ray subject>_<language>_<cue time in milliseconds>.ogg (or appropriate file extension)."
-
-    is InstructionParsingFailure.CueTimeFailure ->
-      "${unparsableInstruction.fileName}: Segment following the second underscore, which needs to be the cue time in milliseconds, cannot be parsed to a number."
-  }
-}
-
-fun viewUnparsableSubject(unparsableInstruction: UnparsableInstruction) {
-  appCompatTextView {
-    size(FILL, WRAP)
-    text(failureMessage(unparsableInstruction))
-    margin(dip(0), dip(0), dip(0), dip(8))
-    textColor(android.graphics.Color.RED)
-  }
-}
-
-fun viewUnparsableSubjects(unparsableInstructions: ImmutableSet<UnparsableInstruction>) {
-  scrollView {
-    size(FILL, dip(200))
-    weight(1f)
-
-    linearLayoutCompat {
-      size(FILL, WRAP)
-      AppCompatv7DSL.orientation(LinearLayoutCompat.VERTICAL)
-      backgroundColor(android.graphics.Color.argb(0, 32, 0, 255))
-
-      appCompatTextView {
-        size(FILL, WRAP)
-        text("The following instruction files could not be read:")
-        margin(dip(0), dip(0))
-        textColor(android.graphics.Color.RED)
-      }
-
-      unparsableInstructions.map { u -> viewUnparsableSubject(u) }
-
-      appCompatTextView {
-        size(FILL, WRAP)
-        text("Ensure the instruction audio-files are named <x-ray subject>_<language>_<cue time in milliseconds>.ogg (or appropriate file extension)\n     Ex: chest_english_9000.ogg\nInclude spaces and/or punctuation in the subject or language via URI encoding:\nhttps://en.wikipedia.org/wiki/Percent-encoding\n     Ex: one%20%2f%20two%20%28three%29_english_1000.ogg will be parsed to\n             subject: one / two (three)\n             language: english\n             cue time: 1000")
-        margin(dip(0), dip(10), dip(0), dip(0))
-        textColor(android.graphics.Color.RED)
-      }
-    }
-  }
-}
-
-
-
-fun viewMainSuccess(c: Context, store: Store<State>) {
-  linearLayoutCompat {
-    size(FILL, WRAP)
-    AppCompatv7DSL.orientation(LinearLayoutCompat.VERTICAL)
-
-    if (store.state.instructions.isEmpty()) {
-      viewNoSubjects(store.state.canReadInstructionFilesMessage,
-                     "<device>/InternalStorage/${c.packageName}")
-
-    }
-    else {
-      val dispatch = { x: com.brianegan.bansa.Action -> store.dispatch(x) }
-
-      viewLanguages(dispatch, c, store.state.languages)
-      viewSubjects(dispatch,
-                   store.state.instructions.filter { i ->
-                     i.language == store.state.language
-                   }.toImmutableSet())
-    }
-
-    if (store.state.unparsableInstructions.isNotEmpty()) {
-      viewUnparsableSubjects(store.state.unparsableInstructions)
-    }
-  }
-}
-
-fun viewMainError(message: String) {
-  appCompatTextView {
-    text("Cannot read files:\n${message}")
-    textColor(android.graphics.Color.BLACK)
-  }
-}
-
-fun viewMain(c: Context, store: Store<State>) {
-  if (store.state.canReadInstructionFiles) {
-    viewMainSuccess(c, store)
-  } else {
-    viewMainError(store.state.canReadInstructionFilesMessage)
-  }
-}
-
-fun viewInstruction(store: Store<State>) {
-  linearLayoutCompat {
-    AppCompatv7DSL.orientation(LinearLayout.VERTICAL)
-
-    linearLayoutCompat {
-      size(WRAP, WRAP)
-      layoutGravity(LEFT)
-      AppCompatv7DSL.orientation(LinearLayout.VERTICAL)
-
-      appCompatTextView {
-        text(store.state.subjectToDisplay)
-        textColor(android.graphics.Color.BLACK)
-      }
-
-      appCompatTextView {
-        text(store.state.languageToDisplay)
-        textColor(android.graphics.Color.BLACK)
-      }
-    }
-
-    store.state.instructionLoadingMessage?.let {
-      text(store.state.instructionLoadingMessage)
-      textColor(android.graphics.Color.BLACK)
-    }
-
-    store.state.countDownValue?.let {
-      appCompatTextView {
-        text(store.state.countDownValue.toString())
-        textColor(android.graphics.Color.BLACK)
-        textSize(sip(32F))
-      }
-    }
-
-    store.state.cueMessage?.let {
-      appCompatTextView {
-        text(store.state.cueMessage)
-        textColor(android.graphics.Color.BLACK)
-        textSize(sip(32F))
-      }
-    }
-  }
-}
-
-class RootView(val c: Context) : RenderableViewCoordinatorLayout(c) {
-  var store: Store<State>
-
-  init {
-    this.store = (c.applicationContext as App).store
+  fun refreshInstructionsForCurrentLanguage(instructions: ImmutableList<Instruction>) {
+    Log.d(this.javaClass.simpleName, "refreshInstructionsForCurrentLanguage")
+    Log.d("instructions", instructions.toString())
+    (binding.instructions.adapter as InstructionsAdapter)
+      .refreshInstructions(instructions)
   }
 
-  override fun view() {
-    linearLayoutCompat {
-      size(FILL, FILL)
-      AppCompatv7DSL.orientation(LinearLayout.VERTICAL)
-      BaseDSL.layoutGravity(BaseDSL.TOP)
+  fun startPlayInstructionActivity(instruction: Instruction) {
+    PlayInstructionActivity.startForResult(this,
+                                           REQUEST_CODE_PLAY_INSTRUCTION,
+                                           instruction)
+  }
 
-      if (store.state.isInitializing) {
-        viewInitializing()
-      }
-      else {
-        // 2016-09-21 Cort Spellman
-        // Bind the result of the when expression in order to force the compiler to
-        // check for exhaustiveness.
-        // Be on the lookout for sealed whens in Kotlin, which always check for
-        // exhaustiveness.
-        val x = when (store.state.navigationStack.peek()) {
-          is Scene.Main -> viewMain(c, store)
-          is Scene.Instruction -> viewInstruction(store)
+  override fun onActivityResult(requestCode: Int,
+                                resultCode: Int,
+                                data: Intent?) {
+    when (requestCode) {
+      REQUEST_CODE_PLAY_INSTRUCTION -> {
+        when (resultCode) {
+          Activity.RESULT_OK -> {}
+
+          Activity.RESULT_CANCELED -> {}
+
+          Activity.RESULT_FIRST_USER ->
+            presenter.couldNotPlayInstruction(
+              data?.getParcelableExtra<Instruction>("instruction"),
+              data?.getStringExtra("message")
+            )
+
+          else -> {
+            Log.d(this.javaClass.simpleName, "Unhandled activity-result result-code: ${resultCode} for request-code ${requestCode}")
+          }
         }
       }
-    }
 
-    appCompatTextView {
-      size(FILL, WRAP)
-      BaseDSL.layoutGravity(BaseDSL.BOTTOM)
-      text("Version ${BuildConfig.VERSION_NAME} | Version Code ${BuildConfig.VERSION_CODE} | Commit ${BuildConfig.GIT_SHA}")
-      textColor(android.graphics.Color.BLACK)
-      DSL.gravity(BaseDSL.CENTER)
-      BaseDSL.textSize(BaseDSL.sip(12F))
+      else -> {
+        Log.d(this.javaClass.simpleName, "Unknown activity-result request-code: ${requestCode}")
+      }
     }
   }
 }
