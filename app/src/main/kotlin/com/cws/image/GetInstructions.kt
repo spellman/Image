@@ -19,25 +19,49 @@ data class ParsedInstructions(
 class GetInstructions(
   val instructionsGateway: InstructionsGateway
 ) {
+  companion object Factory {
+    private var instance: GetInstructions? = null
+    fun getInstance(instructionsGateway: InstructionsGateway): GetInstructions {
+      val instanceSnapshot = instance
+
+      if (instanceSnapshot == null) {
+        val newInstanceSnapshot = GetInstructions(instructionsGateway)
+        instance = newInstanceSnapshot
+        return newInstanceSnapshot
+      }
+      return instanceSnapshot
+    }
+  }
+  var parsedInstructions: ParsedInstructions? = null
+
   fun getInstructions(): Single<ParsedInstructions> {
     Log.d(this.javaClass.simpleName, "About to get instructions")
-    return instructionsGateway.getInstructionFiles()
-      .map { instructionFiles ->
-        Log.d(this.javaClass.simpleName, "Loaded instruction files; about to parse instructions")
-        val parseResults = instructionFiles.map { file ->
-          fileToInstruction(file)
-        }
+    if (parsedInstructions != null) {
+      Log.d(this.javaClass.simpleName, "Returning saved parsed-instructions.")
+      return Single.just(parsedInstructions)
+    }
+    else {
+      Log.d(this.javaClass.simpleName, "No parsed-instructions saved. Loading and parsing instructions now.")
+      return instructionsGateway.getInstructionFiles()
+        .map { instructionFiles ->
+          Log.d(this.javaClass.simpleName,
+                "Loaded instruction files; about to parse instructions")
+          val parseResults = instructionFiles.map { file ->
+            fileToInstruction(file)
+          }
 
-        Log.d(this.javaClass.simpleName, "Parsed instructions")
-        ParsedInstructions(
-          unparsableInstructions = parseResults.filterIsInstance<Result.Err<UnparsableInstruction, Instruction>>()
-            .map { x -> x.errValue }
-            .toImmutableSet(),
-          instructions = parseResults.filterIsInstance<Result.Ok<UnparsableInstruction, Instruction>>()
-            .map { x -> x.okValue }
-            .toImmutableSet()
-        )
-      }
+          Log.d(this.javaClass.simpleName, "Parsed instructions")
+          parsedInstructions = ParsedInstructions(
+            unparsableInstructions = parseResults.filterIsInstance<Result.Err<UnparsableInstruction, Instruction>>()
+              .map { x -> x.errValue }
+              .toImmutableSet(),
+            instructions = parseResults.filterIsInstance<Result.Ok<UnparsableInstruction, Instruction>>()
+              .map { x -> x.okValue }
+              .toImmutableSet()
+          )
+          parsedInstructions
+        }
+    }
   }
 
   fun fileToInstruction(file: File): Result<UnparsableInstruction, Instruction> {

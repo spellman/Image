@@ -45,11 +45,9 @@ data class UnparsableInstructionViewModel(
 }
 
 class MainActivity : AppCompatActivity() {
-  private val PERMISSION_REQUEST_FOR_WRITE_EXTERNAL_STORAGE = 0
-  private val REQUEST_PLAY_INSTRUCTION = 1
+  private val PERMISSION_REQUEST_WRITE_EXTERNAL_STORAGE = 0
+  private val REQUEST_CODE_PLAY_INSTRUCTION = 1
   private val SELECTED_LANGUAGE = "selected-language"
-  private val INSTRUCTIONS = "instructions"
-  private val UNPARSABLE_INSTRUCTIONS = "unparsable-instructions"
   private val viewModel by lazy { ViewModel() }
   private val presenter by lazy {
     MainPresenter(this, provideGetInstructions(application as App))
@@ -76,55 +74,24 @@ class MainActivity : AppCompatActivity() {
           Log.d(this.javaClass.simpleName, "RxTabLayout.selections")
           Log.d("selected tab", language)
         }
-        .subscribe { language -> presenter.showInstructionsForLanguage(language) }
+        .subscribe { language ->
+          presenter.showInstructionsForLanguage(language)
+        }
 
     if (savedInstanceState != null) {
       Log.d(this.javaClass.simpleName, "restoring savedInstanceState")
-      val instructions = (savedInstanceState.getParcelableArray(INSTRUCTIONS) as? Array<Instruction>)
-                           ?.toList()
-                           ?.toImmutableSet()
-                         ?: immutableSetOf()
-      val unparsableInstructions = (savedInstanceState.getParcelableArray(UNPARSABLE_INSTRUCTIONS) as? Array<UnparsableInstructionViewModel>)
-                                     ?.toList()
-                                     ?.toImmutableSet()
-                                   ?: immutableSetOf()
-      if (instructions.isNotEmpty()) {
-        val selectedLanguage = savedInstanceState.getString(SELECTED_LANGUAGE)
-        Log.d(this.javaClass.simpleName, "instructions: ${instructions}")
-        Log.d(this.javaClass.simpleName,
-              "unparsableInstructions: ${unparsableInstructions}")
-        Log.d(this.javaClass.simpleName,
-              "selectedLanguage: ${selectedLanguage}")
+      presenter.selectedLanguage = savedInstanceState.getString(SELECTED_LANGUAGE)
+      Log.d(this.javaClass.simpleName, "selectedLanguage: ${presenter.selectedLanguage}")
+    }
 
-        presenter.restoreState(instructions, unparsableInstructions,
-                               selectedLanguage)
-      }
-      else {
-        getInstructions()
-      }
-    }
-    else {
-      getInstructions()
-    }
+    showInstructions()
   }
 
   override fun onSaveInstanceState(outState: Bundle?) {
     super.onSaveInstanceState(outState)
-    Log.d(this.javaClass.simpleName, "onSaveInstanceState")
-    val instructions = presenter.instructions.toTypedArray()
-    val unparsableInstructions =
-      (binding.unparsableInstructions.adapter as UnparsableInstructionsAdapter)
-        .unparsableInstructions.toTypedArray()
-    val languageTabs = binding.languages
-    val selectedLanguage = languageTabs.getTabAt(languageTabs.selectedTabPosition)
-      ?.tag as String
-    Log.d(this.javaClass.simpleName, "instructions: ${instructions}")
-    Log.d(this.javaClass.simpleName, "unparsableInstructions: ${unparsableInstructions}")
-    Log.d(this.javaClass.simpleName, "selectedLanguage: ${selectedLanguage}")
-
-    outState?.putString(SELECTED_LANGUAGE, selectedLanguage)
-    outState?.putParcelableArray(INSTRUCTIONS, instructions)
-    outState?.putParcelableArray(UNPARSABLE_INSTRUCTIONS, unparsableInstructions)
+    Log.d(this.javaClass.simpleName,
+          "onSaveInstanceState selectedLanguage: ${presenter.selectedLanguage}")
+    outState?.putString(SELECTED_LANGUAGE, presenter.selectedLanguage)
   }
 
   override fun onDestroy() {
@@ -184,10 +151,10 @@ class MainActivity : AppCompatActivity() {
     snackbar.show()
   }
 
-  fun getInstructions() {
+  fun showInstructions() {
     if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
       Log.d(this.javaClass.simpleName, "About to get instructions")
-      presenter.getInstructions()
+      presenter.showInstructions()
     }
     else {
       requestPermissionWriteExternalStorage()
@@ -204,20 +171,24 @@ class MainActivity : AppCompatActivity() {
       ActivityCompat.requestPermissions(
         this,
         arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
-        PERMISSION_REQUEST_FOR_WRITE_EXTERNAL_STORAGE)
+        PERMISSION_REQUEST_WRITE_EXTERNAL_STORAGE)
     }
     else {
       ActivityCompat.requestPermissions(
         this,
         arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
-        PERMISSION_REQUEST_FOR_WRITE_EXTERNAL_STORAGE)
+        PERMISSION_REQUEST_WRITE_EXTERNAL_STORAGE)
     }
   }
 
-  override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
-    if (requestCode == PERMISSION_REQUEST_FOR_WRITE_EXTERNAL_STORAGE) {
+  override fun onRequestPermissionsResult(
+    requestCode: Int,
+    permissions: Array<String>,
+    grantResults: IntArray
+  ) {
+    if (requestCode == PERMISSION_REQUEST_WRITE_EXTERNAL_STORAGE) {
       if (grantResults.size == 1 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-        getInstructions()
+        showInstructions()
       }
       else {
         requestPermissionWriteExternalStorage()
@@ -246,8 +217,8 @@ class MainActivity : AppCompatActivity() {
       tab.select()
     }
     else {
+      Log.d("selectLanguageTab", "Tab of index ${index} is not available. Selected default language tab instead.")
       binding.languages.getTabAt(0)?.select()
-      Log.e("selectLanguageTab", "Tab of index ${index} is not available. Selected default language tab instead.")
     }
   }
 
@@ -258,7 +229,7 @@ class MainActivity : AppCompatActivity() {
     Log.d(this.javaClass.simpleName, "refreshLanguageTabs")
     Log.d("languages", languages.toString())
     val languageTabs = binding.languages
-    val previouslySelectedLanguage = languageTabs.getTabAt(languageTabs.selectedTabPosition)?.tag as? String
+    val previouslySelectedLanguage = presenter.selectedLanguage
 
     languageTabs.removeAllTabs()
 
@@ -282,7 +253,7 @@ class MainActivity : AppCompatActivity() {
 
   fun startPlayInstructionActivity(instruction: Instruction) {
     PlayInstructionActivity.startForResult(this,
-                                           REQUEST_PLAY_INSTRUCTION,
+                                           REQUEST_CODE_PLAY_INSTRUCTION,
                                            instruction)
   }
 
@@ -290,7 +261,7 @@ class MainActivity : AppCompatActivity() {
                                 resultCode: Int,
                                 data: Intent?) {
     when (requestCode) {
-      REQUEST_PLAY_INSTRUCTION -> {
+      REQUEST_CODE_PLAY_INSTRUCTION -> {
         when (resultCode) {
           Activity.RESULT_OK -> {}
 

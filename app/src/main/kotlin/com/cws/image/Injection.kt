@@ -9,5 +9,5 @@ fun provideInstructionsRepository(app: App): InstructionsRepository {
 }
 
 fun provideGetInstructions(app: App): GetInstructions {
-  return GetInstructions(provideInstructionsRepository(app))
+  return GetInstructions.getInstance(provideInstructionsRepository(app))
 }

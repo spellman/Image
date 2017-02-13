@@ -2,7 +2,6 @@ package com.cws.image
 
 import android.util.Log
 import com.github.andrewoma.dexx.kollection.*
-import io.reactivex.Single
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.schedulers.Schedulers
 import kotlin.comparisons.compareBy
@@ -13,72 +12,45 @@ class MainPresenter(
   val getInstructions: GetInstructions
 ) {
   var instructions: ImmutableSet<Instruction> = immutableSetOf()
+  var selectedLanguage: String? = null
 
-  fun restoreState(
-    instructions: ImmutableSet<Instruction>,
-    unparsableInstructions: ImmutableSet<UnparsableInstructionViewModel>,
-    selectedLanguage: String
-  ) {
-    this.instructions = instructions
-
-    Single.fromCallable {
-      updateLanguagesAndUnparsedInstructions(
-        instructions,
-        unparsableInstructions)
-    }
-      .subscribe { res ->
-        val languages = res.first
-        Log.d(this.javaClass.simpleName, "About to set language to ${selectedLanguage}")
-        activity.selectLanguageTab(languages.indexOf(selectedLanguage))
-      }
-  }
-
-  fun updateLanguagesAndUnparsedInstructions(
-    instructions: ImmutableSet<Instruction>,
-    unparsableInstructions: ImmutableSet<UnparsableInstructionViewModel>
-    ): Pair<ImmutableList<String>, ImmutableList<UnparsableInstructionViewModel>> {
-    Log.d(this.javaClass.simpleName, "Instructions: ${instructions}")
-    Log.d(this.javaClass.simpleName, "Unparsable instructions: ${unparsableInstructions}")
-
-    val sortedUnparsableInstructions = unparsableInstructions
-        .sortedBy { u -> u.fileName }
-        .toImmutableList()
-    val sortedLanguages = sortLanguages(
-      instructions.map { i -> i.language }.distinct())
-
-    // 2017-02-08 Cort Spellman
-    // Switch the unparsable instructions recyclerview to databinding and the
-    // languages to a viewpager and databinding so that you can change the
-    // viewmodel here instead of manipulating the view manually.
-    Log.d(this.javaClass.simpleName, "About to refresh unparsable instructions")
-    activity.refreshUnparsableInstructions(sortedUnparsableInstructions)
-    Log.d(this.javaClass.simpleName, "About to refresh language tabs")
-    activity.refreshLanguageTabs(sortedLanguages)
-
-    return Pair(sortedLanguages, sortedUnparsableInstructions)
-  }
-
-  fun getInstructions() {
+  fun showInstructions() {
     Log.d(this.javaClass.simpleName, "About to get instructions")
     getInstructions.getInstructions()
-      .subscribeOn(Schedulers.io())
-      .observeOn(AndroidSchedulers.mainThread())
       .doOnSuccess { parsedInstructions ->
         instructions = parsedInstructions.instructions
+        Log.d(this.javaClass.simpleName, "Instructions: ${instructions}")
       }
+      .subscribeOn(Schedulers.io())
+      .observeOn(AndroidSchedulers.mainThread())
       .subscribe(
         { parsedInstructions ->
-          updateLanguagesAndUnparsedInstructions(
-            parsedInstructions.instructions,
-            parsedInstructions.unparsableInstructions
+          val unparsableInstructionViewModels =
+          parsedInstructions.unparsableInstructions
               .map { u: UnparsableInstruction ->
                 UnparsableInstructionViewModel(
                   u.fileName,
                   instructionParsingFailureToMessage(u.failure)
                 )
               }
-              .toImmutableSet()
-          )
+            .sortedBy { u -> u.fileName }
+            .toImmutableList()
+
+          val languages = sortLanguages(
+            instructions.map { i -> i.language }
+              .distinct())
+            .toImmutableList()
+
+          // 2017-02-08 Cort Spellman
+          // Switch the unparsable instructions recyclerview to databinding and the
+          // languages to a viewpager and databinding so that you can change the
+          // viewmodel here instead of manipulating the view manually.
+          Log.d(this.javaClass.simpleName, "About to refresh unparsable instructions")
+          activity.refreshUnparsableInstructions(unparsableInstructionViewModels)
+          Log.d(this.javaClass.simpleName, "About to refresh language tabs")
+          activity.refreshLanguageTabs(languages)
+          Log.d(this.javaClass.simpleName, "About to set language to ${selectedLanguage}")
+          activity.selectLanguageTab(languages.indexOf(selectedLanguage))
         },
         { throwable ->
           Log.d(this.javaClass.simpleName, "About to show message for failing to read instructions")
@@ -94,6 +66,7 @@ class MainPresenter(
     // the device's current language.
     // Can I do this in databinding instead?
     Log.d(this.javaClass.simpleName, "About to set language to ${language}")
+    selectedLanguage = language
     activity.refreshInstructionsForCurrentLanguage(
       instructions.filter { i -> i.language == language }
         .sortedBy { i -> i.subject }
@@ -114,11 +87,10 @@ class MainPresenter(
     activity.showMessageForInstructionPlayFailure(displayMessage)
   }
 
-  fun sortLanguages(ls : Iterable<String>) : ImmutableList<String> {
+  fun sortLanguages(ls : Iterable<String>) : List<String> {
     return ls.sortedWith(
       compareBy { l: String -> l != defaultLanguage() }
         .thenBy { l: String -> l })
-      .toImmutableList()
   }
 
   fun defaultLanguage(): String {
