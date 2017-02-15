@@ -7,16 +7,31 @@
         />
   </data>
 
-  <TextView
+  <android.support.v7.widget.LinearLayoutCompat
       xmlns:android="http://schemas.android.com/apk/res/android"
+      android:orientation="horizontal"
       android:layout_width="match_parent"
-      android:layout_height="@dimen/subject_height"
-      android:text="@{item.subject}"
-      android:clickable="true"
+      android:layout_height="96dp"
       android:gravity="start|center_vertical"
-      android:paddingStart="@dimen/subject_padding_start"
-      android:paddingEnd="@dimen/subject_padding_end"
-      android:textSize="@dimen/subject_text_size"
-      android:textColor="@color/colorPrimaryText"
-      />
+      android:clickable="true"
+      android:paddingStart="16dp"
+      android:paddingEnd="16dp"
+      android:background="?android:attr/selectableItemBackground"
+      >
+    <android.support.v7.widget.AppCompatImageView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/ic_subject_placeholder"
+        android:paddingEnd="16dp"
+        android:tint="#FFB0B0B0"
+        />
+
+    <android.support.v7.widget.AppCompatTextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@{item.subject}"
+        android:textAppearance="@style/TextAppearance.AppCompat.Display1"
+        />
+
+  </android.support.v7.widget.LinearLayoutCompat>
 </layout>

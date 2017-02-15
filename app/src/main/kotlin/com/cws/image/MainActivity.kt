@@ -12,6 +12,7 @@ import android.support.design.widget.Snackbar
 import android.support.v4.app.ActivityCompat
 import android.support.v4.content.ContextCompat
 import android.support.v7.app.AppCompatActivity
+import android.support.v7.widget.DividerItemDecoration
 import android.support.v7.widget.LinearLayoutManager
 import android.support.v7.widget.RecyclerView
 import android.util.Log
@@ -120,6 +121,13 @@ class MainActivity : AppCompatActivity() {
                           onSubjectClicked)
 
     instructionsForCurrentLanguage.setHasFixedSize(true)
+    val divider =
+      android.support.v7.widget.DividerItemDecoration(
+        this,
+        LinearLayoutManager.VERTICAL)
+    divider.setDrawable(
+      ContextCompat.getDrawable(this, R.drawable.vertical_list_divider))
+    instructionsForCurrentLanguage.addItemDecoration(divider)
   }
 
   fun initUnparsableInstructionsRecyclerView() {

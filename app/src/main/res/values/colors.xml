@@ -4,8 +4,9 @@
   <color name="colorPrimaryDark">#303F9F</color>
   <color name="colorAccent">#FF4081</color>
 
-  <color name="tabIndicatorColor">#FFFFFF</color>
-
   <color name="colorPrimaryText">#DE000000</color>
   <color name="colorSecondaryText">#8A000000</color>
+
+  <color name="dangerForeground">#FFA94442</color>
+  <color name="dangerBackground">#FFF2DEDE</color>
 </resources>
