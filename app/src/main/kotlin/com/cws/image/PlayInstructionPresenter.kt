@@ -6,7 +6,7 @@ import io.reactivex.disposables.Disposable
 class PlayInstructionPresenter(
   private val activity: PlayInstructionActivity,
   private val mediaPlayerFragment: PlayInstructionFragment,
-  private val instruction: Instruction
+  private val instruction: InstructionViewModel
   ) {
   private val audioSubscription: Disposable
   init {
@@ -60,7 +60,7 @@ class PlayInstructionPresenter(
   }
 
   fun prepareInstructionAudio() {
-    mediaPlayerFragment.prepareInstructionAudio(instruction.absolutePath)
+    mediaPlayerFragment.prepareInstructionAudio(instruction.audioAbsolutePath)
   }
 
   fun startInstructionAudio() {

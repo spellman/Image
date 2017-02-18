@@ -29,12 +29,12 @@ class PlayInstructionActivity : AppCompatActivity() {
     }
   }
   private val presenter by lazy {
-    val instruction = intent.getParcelableExtra<Instruction>("instruction")
+    val instruction = intent.getParcelableExtra<InstructionViewModel>("instruction")
     PlayInstructionPresenter(this, mediaPlayerFragment, instruction)
   }
 
   companion object {
-    fun startForResult(activity: Activity, requestCode: Int, instruction: Instruction) {
+    fun startForResult(activity: Activity, requestCode: Int, instruction: InstructionViewModel) {
       val intent = Intent(activity, PlayInstructionActivity::class.java)
       intent.putExtra("instruction", instruction)
       activity.startActivityForResult(intent, requestCode)
@@ -61,7 +61,7 @@ class PlayInstructionActivity : AppCompatActivity() {
     finish()
   }
 
-  fun finishWithInstructionError(instruction: Instruction, message: String) {
+  fun finishWithInstructionError(instruction: InstructionViewModel, message: String) {
     setResult(
       Activity.RESULT_FIRST_USER,
       Intent().putExtra("instruction", instruction)

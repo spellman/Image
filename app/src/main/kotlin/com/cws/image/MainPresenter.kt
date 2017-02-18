@@ -11,14 +11,16 @@ class MainPresenter(
   val activity: MainActivity,
   val getInstructions: GetInstructions
 ) {
-  var instructions: ImmutableSet<Instruction> = immutableSetOf()
+  var instructions: ImmutableSet<InstructionViewModel> = immutableSetOf()
   var selectedLanguage: String? = null
 
   fun showInstructions() {
     Log.d(this.javaClass.simpleName, "About to get instructions")
     getInstructions.getInstructions()
       .doOnSuccess { parsedInstructions ->
-        instructions = parsedInstructions.instructions
+        instructions = instructionsToInstructionViewModels(
+          parsedInstructions.instructions,
+          parsedInstructions.icons)
         Log.d(this.javaClass.simpleName, "Instructions: ${instructions}")
       }
       .subscribeOn(Schedulers.io())
@@ -26,8 +28,8 @@ class MainPresenter(
       .subscribe(
         { parsedInstructions ->
           val unparsableInstructionViewModels =
-          parsedInstructions.unparsableInstructions
-              .map { u: UnparsableInstruction ->
+          parsedInstructions.unparsableFiles
+              .map { u: UnparsableFile ->
                 UnparsableInstructionViewModel(
                   u.fileName,
                   instructionParsingFailureToMessage(u.failure)
@@ -74,17 +76,34 @@ class MainPresenter(
     )
   }
 
-  fun playInstruction(instruction: Instruction) {
+  fun playInstruction(instruction: InstructionViewModel) {
     activity.startPlayInstructionActivity(instruction)
   }
 
-  fun couldNotPlayInstruction(instruction: Instruction?, message: String?) {
+  fun couldNotPlayInstruction(instruction: InstructionViewModel?, message: String?) {
     val displayMessage =
       instruction?.let {
         "The ${it.language} ${it.subject} instruction could not be played.\n${message}"
       }
       ?: "The instruction could not be played."
     activity.showMessageForInstructionPlayFailure(displayMessage)
+  }
+
+  fun instructionsToInstructionViewModels(
+    instructions: ImmutableSet<Instruction>,
+    icons: ImmutableSet<Icon>
+  ): ImmutableSet<InstructionViewModel> {
+    val iconPathsBySubject = icons.map { icon -> Pair(icon.subject, icon) }.toImmutableMap()
+    return instructions.map { instruction ->
+      InstructionViewModel(
+        subject = instruction.subject,
+        language = instruction.language,
+        audioAbsolutePath = instruction.absolutePath,
+        cueStartTime = instruction.cueStartTime,
+        iconAbsolutePath = iconPathsBySubject[instruction.subject]?.absolutePath
+      )
+    }
+      .toImmutableSet()
   }
 
   fun sortLanguages(ls : Iterable<String>) : List<String> {
@@ -99,14 +118,20 @@ class MainPresenter(
     return "english"
   }
 
-  fun instructionParsingFailureToMessage(f: InstructionParsingFailure) : String {
+  fun instructionParsingFailureToMessage(f: ParsingFailure) : String {
     val r = activity.resources
     val name = when (f) {
-      is InstructionParsingFailure.FileNameFormatFailure ->
-        "instruction_file_name_format_failure_explanation"
+      is ParsingFailure.FileNameEncoding ->
+        "resource_file_name_encoding_failure_explanation"
 
-      is InstructionParsingFailure.CueTimeFailure ->
+      is ParsingFailure.FileFormat ->
+        "resource_file_format_failure_explanation"
+
+      is ParsingFailure.InstructionCueTime ->
         "instruction_cue_time_failure_explanation"
+
+      is ParsingFailure.InstructionFileNameFormat ->
+        "instruction_file_name_format_failure_explanation"
     }
 
     return r.getString(

@@ -5,6 +5,8 @@ import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.databinding.DataBindingUtil
+import android.graphics.Bitmap
+import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.os.Parcel
 import android.os.Parcelable
@@ -12,14 +14,14 @@ import android.support.design.widget.Snackbar
 import android.support.v4.app.ActivityCompat
 import android.support.v4.content.ContextCompat
 import android.support.v7.app.AppCompatActivity
-import android.support.v7.widget.DividerItemDecoration
 import android.support.v7.widget.LinearLayoutManager
 import android.support.v7.widget.RecyclerView
 import android.util.Log
 import android.view.View
 import android.widget.TextView
 import com.cws.image.databinding.MainActivityBinding
-import com.github.andrewoma.dexx.kollection.*
+import com.github.andrewoma.dexx.kollection.ImmutableList
+import com.github.andrewoma.dexx.kollection.immutableListOf
 import com.jakewharton.rxbinding.support.design.widget.RxTabLayout
 import hu.akarnokd.rxjava.interop.RxJavaInterop
 import io.reactivex.disposables.Disposable
@@ -30,20 +32,28 @@ class ViewModel {
 }
 
 @PaperParcel
-data class UnparsableInstructionViewModel(
-  val fileName: String,
-  val failureMessage: String
+data class InstructionViewModel(
+  val subject: String,
+  val language: String,
+  val audioAbsolutePath: String,
+  val cueStartTime: Long,
+  val iconAbsolutePath: String?
 ) : Parcelable {
   companion object {
-    @JvmField val CREATOR = PaperParcelUnparsableInstructionViewModel.CREATOR
+    @JvmField val CREATOR = PaperParcelInstructionViewModel.CREATOR
   }
 
   override fun describeContents() = 0
 
   override fun writeToParcel(dest: Parcel, flags: Int) {
-    PaperParcelUnparsableInstructionViewModel.writeToParcel(this, dest, flags)
+    PaperParcelInstructionViewModel.writeToParcel(this, dest, flags)
   }
 }
+
+data class UnparsableInstructionViewModel(
+  val fileName: String,
+  val failureMessage: String
+)
 
 class MainActivity : AppCompatActivity() {
   private val PERMISSION_REQUEST_WRITE_EXTERNAL_STORAGE = 0
@@ -102,8 +112,8 @@ class MainActivity : AppCompatActivity() {
 
   fun initInstructionsRecyclerView() {
     val onSubjectClicked: (View, Int, Any?) -> Unit = { view: View, position: Int, item: Any? ->
-      if (item as? Instruction != null) {
-        presenter.playInstruction(item as Instruction)
+      if (item as? InstructionViewModel != null) {
+        presenter.playInstruction(item as InstructionViewModel)
       }
       else {
         Log.e(this.javaClass.simpleName, "Cannot prepare to play instruction because ${item}, the ${position + 1}th item in the list of instructions, is not a valid instruction.")
@@ -138,8 +148,7 @@ class MainActivity : AppCompatActivity() {
     unparsableInstructions.adapter =
       UnparsableInstructionsAdapter(R.layout.unparsable_instruction_layout,
                                     this,
-                                    immutableListOf(),
-                                    null)
+                                    immutableListOf())
   }
 
   fun showMessageForInstructionsLoadFailure(message: String) {
@@ -212,8 +221,16 @@ class MainActivity : AppCompatActivity() {
   ) {
     Log.d(this.javaClass.simpleName, "refreshUnparsableInstructions")
     Log.d("unpars instructs", unparsableInstructions.toString())
-    (binding.unparsableInstructions.adapter as UnparsableInstructionsAdapter)
-      .refreshUnparsableInstructions(unparsableInstructions)
+    if (unparsableInstructions.isEmpty()) {
+      binding.unparsableInstructionsTitle.visibility = View.GONE
+      binding.unparsableInstructions.visibility = View.GONE
+    }
+    else {
+      binding.unparsableInstructionsTitle.visibility = View.VISIBLE
+      binding.unparsableInstructions.visibility = View.VISIBLE
+      (binding.unparsableInstructions.adapter as UnparsableInstructionsAdapter)
+        .refreshUnparsableInstructions(unparsableInstructions)
+    }
   }
 
   fun selectLanguageTab(index: Int) {
@@ -252,14 +269,14 @@ class MainActivity : AppCompatActivity() {
     }
   }
 
-  fun refreshInstructionsForCurrentLanguage(instructions: ImmutableList<Instruction>) {
+  fun refreshInstructionsForCurrentLanguage(instructions: ImmutableList<InstructionViewModel>) {
     Log.d(this.javaClass.simpleName, "refreshInstructionsForCurrentLanguage")
     Log.d("instructions", instructions.toString())
     (binding.instructions.adapter as InstructionsAdapter)
       .refreshInstructions(instructions)
   }
 
-  fun startPlayInstructionActivity(instruction: Instruction) {
+  fun startPlayInstructionActivity(instruction: InstructionViewModel) {
     PlayInstructionActivity.startForResult(this,
                                            REQUEST_CODE_PLAY_INSTRUCTION,
                                            instruction)
@@ -277,7 +294,7 @@ class MainActivity : AppCompatActivity() {
 
           Activity.RESULT_FIRST_USER ->
             presenter.couldNotPlayInstruction(
-              data?.getParcelableExtra<Instruction>("instruction"),
+              data?.getParcelableExtra<InstructionViewModel>("instruction"),
               data?.getStringExtra("message")
             )
 
