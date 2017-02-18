@@ -49,7 +49,7 @@ class InstructionsAdapter(
 
     }
     else {
-      subjectIconImageView?.setColorFilter(Color.parseColor("#FFB0B0B0"))
+      subjectIconImageView?.setColorFilter(Color.parseColor("#FFC0C0C0"))
       subjectIconImageView?.setImageDrawable(
         ContextCompat.getDrawable(context, R.drawable.ic_subject_placeholder))
     }
