@@ -96,7 +96,7 @@ class MainPresenter(
     val iconPathsBySubject = icons.map { icon -> Pair(icon.subject, icon) }.toImmutableMap()
     return instructions.map { instruction ->
       InstructionViewModel(
-        subject = instruction.subject,
+        subject = titleCase(instruction.subject),
         language = instruction.language,
         audioAbsolutePath = instruction.absolutePath,
         cueStartTime = instruction.cueStartTime,
@@ -110,6 +110,10 @@ class MainPresenter(
     return ls.sortedWith(
       compareBy { l: String -> l != defaultLanguage() }
         .thenBy { l: String -> l })
+  }
+
+  fun titleCase(s: String): String {
+    return s.split(" ").map { s -> s.capitalize() }.joinToString(" ")
   }
 
   fun defaultLanguage(): String {
