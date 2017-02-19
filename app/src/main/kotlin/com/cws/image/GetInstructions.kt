@@ -109,7 +109,7 @@ class GetInstructions(
       val (subject, language, cueTime) =
         fileName.substringBeforeLast(".").split('_')
 
-      Log.d("parse instruction", "subject: ${subject}    language: ${language}    cueStartTime: ${cueTime}")
+      Log.d("parse instruction", "subject: ${subject}    language: ${language}    cueStartTimeMilliseconds: ${cueTime}")
 
       Result.Ok(
         Instruction(

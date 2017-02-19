@@ -7,4 +7,5 @@
    </string>
   <string name="instruction_cue_time_failure_explanation">The segment following the second underscore must be a number, representing the cue time in milliseconds.</string>
   <string name="instruction_file_name_format_failure_explanation">The filename must be of the format &lt;x-ray subject&gt;_&lt;language&gt;_&lt;cue time in milliseconds&gt;.ogg (or appropriate file extension).</string>
+  <string name="cue_text">Take The Image Now</string>
 </resources>

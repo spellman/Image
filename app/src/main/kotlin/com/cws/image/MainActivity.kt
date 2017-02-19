@@ -27,7 +27,7 @@ import hu.akarnokd.rxjava.interop.RxJavaInterop
 import io.reactivex.disposables.Disposable
 import paperparcel.PaperParcel
 
-class ViewModel {
+class MainViewModel {
   val appVersionInfo = "Version ${BuildConfig.VERSION_NAME} | Version Code ${BuildConfig.VERSION_CODE} | Commit ${BuildConfig.GIT_SHA}"
 }
 
@@ -36,7 +36,7 @@ data class InstructionViewModel(
   val subject: String,
   val language: String,
   val audioAbsolutePath: String,
-  val cueStartTime: Long,
+  val cueStartTimeMilliseconds: Long,
   val iconAbsolutePath: String?
 ) : Parcelable {
   companion object {
@@ -59,7 +59,7 @@ class MainActivity : AppCompatActivity() {
   private val PERMISSION_REQUEST_WRITE_EXTERNAL_STORAGE = 0
   private val REQUEST_CODE_PLAY_INSTRUCTION = 1
   private val SELECTED_LANGUAGE = "selected-language"
-  private val viewModel by lazy { ViewModel() }
+  private val viewModel by lazy { MainViewModel() }
   private val presenter by lazy {
     MainPresenter(this, provideGetInstructions(application as App))
   }

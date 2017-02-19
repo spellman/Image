@@ -4,7 +4,7 @@
     <import type="android.view.View" />
     <variable
         name="viewModel"
-        type="com.cws.image.ViewModel"
+        type="com.cws.image.MainViewModel"
       />
   </data>
 

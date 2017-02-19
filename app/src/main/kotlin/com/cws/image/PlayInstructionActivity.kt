@@ -7,10 +7,26 @@ import android.media.AudioManager
 import android.os.Bundle
 import android.support.v7.app.AppCompatActivity
 import android.util.Log
+import android.view.View
 import com.cws.image.databinding.PlayInstructionActivityBinding
 
+class PlayInstructionViewModel(
+  val subject: String,
+  val language: String
+) {
+  val appVersionInfo = "Version ${BuildConfig.VERSION_NAME} | Version Code ${BuildConfig.VERSION_CODE} | Commit ${BuildConfig.GIT_SHA}"
+}
+
 class PlayInstructionActivity : AppCompatActivity() {
-  private val viewModel by lazy { ViewModel() }
+  private val instruction by lazy {
+    intent.getParcelableExtra<InstructionViewModel>("instruction")
+  }
+  private val viewModel by lazy {
+    PlayInstructionViewModel(
+      subject = instruction.subject,
+      language = instruction.language
+    )
+  }
   private val binding: PlayInstructionActivityBinding by lazy {
     DataBindingUtil.setContentView<PlayInstructionActivityBinding>(
       this,
@@ -29,7 +45,6 @@ class PlayInstructionActivity : AppCompatActivity() {
     }
   }
   private val presenter by lazy {
-    val instruction = intent.getParcelableExtra<InstructionViewModel>("instruction")
     PlayInstructionPresenter(this, mediaPlayerFragment, instruction)
   }
 
@@ -54,6 +69,14 @@ class PlayInstructionActivity : AppCompatActivity() {
   override fun onBackPressed() {
     presenter.stopInstruction()
     super.onBackPressed()
+  }
+
+  fun setInstructionProgress(percent: Int) {
+    binding.instructionProgress.progress = percent
+  }
+
+  fun showCue() {
+    binding.cueText.visibility = View.VISIBLE
   }
 
   fun finishWithInstructionComplete() {

@@ -6,6 +6,7 @@ import android.media.MediaPlayer
 import android.os.Bundle
 import android.util.Log
 import io.reactivex.Observable
+import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.disposables.Disposable
 import io.reactivex.functions.BiFunction
 import io.reactivex.subjects.BehaviorSubject
@@ -20,13 +21,19 @@ sealed class MediaPlayerEvents {
   class Preparing : MediaPlayerEvents()
 }
 
-class PlayInstructionFragment() : BaseFragment() {
-  var mediaPlayer: MediaPlayer? = null
+sealed class VisualEvents {
+  class TimeRemainingUpdate(val timeRemainingMilliseconds: Long) : VisualEvents()
+}
+
+class PlayInstructionFragment : BaseFragment() {
+  private var mediaPlayer: MediaPlayer? = null
   val mediaPlayerEvents: BehaviorSubject<MediaPlayerEvents> =
     BehaviorSubject.create()
-
-  val lostFocus: (Int) -> Boolean = { audioFocusChange -> audioFocusChange <= 0 }
-  val onAudioFocusChange: (Int) -> Unit = { audioFocusChange ->
+  val timerEvents: BehaviorSubject<VisualEvents> =
+    BehaviorSubject.create()
+  private lateinit var timerEventsSubscription : Disposable
+  private val lostFocus: (Int) -> Boolean = { audioFocusChange -> audioFocusChange <= 0 }
+  private val onAudioFocusChange: (Int) -> Unit = { audioFocusChange ->
     if (lostFocus(audioFocusChange)) {
       // 2017-02-11 Cort Spellman
       // TODO: This should not happen and is not acceptable.
@@ -53,22 +60,24 @@ class PlayInstructionFragment() : BaseFragment() {
       }
     }
   }
-  val audioFocusChanges: BehaviorSubject<Int> = BehaviorSubject.create()
-  val onAudioFocusChangedCallBack =
+  private val audioFocusChanges: BehaviorSubject<Int> = BehaviorSubject.create()
+  private val onAudioFocusChangedCallBack =
     object : AudioManager.OnAudioFocusChangeListener {
       override fun onAudioFocusChange(audioFocusChange: Int) {
         audioFocusChanges.onNext(audioFocusChange)
       }
     }
-  lateinit var audioFocusChangeSubscription: Disposable
-  val audioManager by lazy {
+  private lateinit var audiofocusChangesSubscription: Disposable
+  private val audioManager by lazy {
     activity?.getSystemService(Context.AUDIO_SERVICE) as AudioManager
   }
+  private lateinit var timerSubscription: Disposable
+
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     retainInstance = true
-    audioFocusChangeSubscription =
+    audiofocusChangesSubscription =
       audioFocusChanges.subscribe(onAudioFocusChange)
   }
 
@@ -170,11 +179,37 @@ class PlayInstructionFragment() : BaseFragment() {
     }
   }
 
+  fun startVisualTimeRemainingIndicator(
+    cueStartTimeMilliseconds: Long,
+    tickInterval: Long
+  ) {
+    val cueStartTimeNanoseconds = System.nanoTime() + cueStartTimeMilliseconds * 1000000L
+//    val tickInterval = (1000 / 16).toLong()
+    val numberOfTicks = cueStartTimeMilliseconds / tickInterval
+
+    timerEventsSubscription = Observable.interval(tickInterval, TimeUnit.MILLISECONDS)
+      .map { tick -> (cueStartTimeNanoseconds - System.nanoTime()) / 1000000L }
+      .take(numberOfTicks)
+      .subscribe(
+        { timeRemainingMilliseconds ->
+          timerEvents.onNext(
+            VisualEvents.TimeRemainingUpdate(timeRemainingMilliseconds))
+        },
+        { e -> timerEvents.onError(e) },
+        { timerEvents.onComplete() }
+      )
+  }
+
+  fun stopVisualTimeRemainingIndicator() {
+    timerEventsSubscription.dispose()
+  }
+
   override fun onDestroy() {
     Log.d(this.javaClass.simpleName, "Abandoning audio focus.")
     audioManager.abandonAudioFocus(onAudioFocusChangedCallBack)
     Log.d(this.javaClass.simpleName, "Unsubscribing from audio focus changes stream.")
-    audioFocusChangeSubscription.dispose()
+    audiofocusChangesSubscription.dispose()
+    timerEventsSubscription.dispose()
 
     if (mediaPlayer != null) {
       try {

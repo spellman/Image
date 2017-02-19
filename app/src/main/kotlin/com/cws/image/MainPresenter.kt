@@ -99,7 +99,7 @@ class MainPresenter(
         subject = titleCase(instruction.subject),
         language = instruction.language,
         audioAbsolutePath = instruction.absolutePath,
-        cueStartTime = instruction.cueStartTime,
+        cueStartTimeMilliseconds = instruction.cueStartTime,
         iconAbsolutePath = iconPathsBySubject[instruction.subject]?.absolutePath
       )
     }
