@@ -44,6 +44,7 @@ class PlayInstructionPresenter(
     Log.d(this.javaClass.simpleName, "Subscribing to timer events.")
     compositeDisposable.add(
       mediaPlayerFragment.timerEvents
+        .subscribeOn(Schedulers.computation())
         .observeOn(AndroidSchedulers.mainThread())
         .subscribe(
           { event ->
@@ -83,8 +84,7 @@ class PlayInstructionPresenter(
   }
 
   fun isInstructionInitiated(): Boolean {
-    return mediaPlayerFragment.mediaPlayerEvents.hasValue()
-    || mediaPlayerFragment.mediaPlayerEvents.hasComplete()
+    return mediaPlayerFragment.hasBegunPreparingInstruction()
   }
 
   fun prepareInstructionAudio() {

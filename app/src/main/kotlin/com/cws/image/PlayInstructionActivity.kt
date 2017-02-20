@@ -72,6 +72,7 @@ class PlayInstructionActivity : AppCompatActivity() {
   }
 
   fun setInstructionProgress(percent: Int) {
+    Log.d(this.javaClass.simpleName, "Setting progress to ${percent}")
     binding.instructionProgress.progress = percent
   }
 

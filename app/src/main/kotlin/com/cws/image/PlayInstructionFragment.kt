@@ -27,6 +27,8 @@ sealed class VisualEvents {
 
 class PlayInstructionFragment : BaseFragment() {
   private var mediaPlayer: MediaPlayer? = null
+  private var hasBegunPreparingMediaPlayer = false
+  private var hasSubscribedToTimerEvents = false
   val mediaPlayerEvents: BehaviorSubject<MediaPlayerEvents> =
     BehaviorSubject.create()
   val timerEvents: BehaviorSubject<VisualEvents> =
@@ -99,9 +101,12 @@ class PlayInstructionFragment : BaseFragment() {
     }
   }
 
-  fun prepareInstructionAudio(audioFilePath: String) {
-    mediaPlayerEvents.onNext(MediaPlayerEvents.Preparing())
+  fun hasBegunPreparingInstruction(): Boolean {
+    return hasBegunPreparingMediaPlayer
+  }
 
+  fun prepareInstructionAudio(audioFilePath: String) {
+    hasBegunPreparingMediaPlayer = true
     mediaPlayer = MediaPlayer()
     mediaPlayer?.setAudioStreamType(AudioManager.STREAM_MUSIC)
     mediaPlayer?.setOnPreparedListener { mp ->
@@ -179,25 +184,41 @@ class PlayInstructionFragment : BaseFragment() {
     }
   }
 
+  fun millisecondsToNanoseconds(milliseconds: Long): Long {
+    return milliseconds * 1000000L
+  }
+
+  fun nanoSecondsToMilliseconds(nanoseconds: Long): Long {
+    return nanoseconds / 1000000L
+  }
+
   fun startVisualTimeRemainingIndicator(
     cueStartTimeMilliseconds: Long,
     tickInterval: Long
   ) {
-    val cueStartTimeNanoseconds = System.nanoTime() + cueStartTimeMilliseconds * 1000000L
-//    val tickInterval = (1000 / 16).toLong()
-    val numberOfTicks = cueStartTimeMilliseconds / tickInterval
+    if (!hasSubscribedToTimerEvents) {
+      hasSubscribedToTimerEvents = true
 
-    timerEventsSubscription = Observable.interval(tickInterval, TimeUnit.MILLISECONDS)
-      .map { tick -> (cueStartTimeNanoseconds - System.nanoTime()) / 1000000L }
-      .take(numberOfTicks)
-      .subscribe(
-        { timeRemainingMilliseconds ->
-          timerEvents.onNext(
-            VisualEvents.TimeRemainingUpdate(timeRemainingMilliseconds))
-        },
-        { e -> timerEvents.onError(e) },
-        { timerEvents.onComplete() }
-      )
+      val cueStartTimeNanoseconds =
+        System.nanoTime() + millisecondsToNanoseconds(cueStartTimeMilliseconds)
+      val numberOfTicks = cueStartTimeMilliseconds / tickInterval
+
+      Log.d(this.javaClass.simpleName, "About to subscribe to interval.")
+      timerEventsSubscription = Observable.interval(tickInterval,
+                                                    TimeUnit.MILLISECONDS)
+        .map { tick ->
+          nanoSecondsToMilliseconds(cueStartTimeNanoseconds - System.nanoTime())
+        }
+        .take(numberOfTicks)
+        .subscribe(
+          { timeRemainingMilliseconds ->
+            timerEvents.onNext(
+              VisualEvents.TimeRemainingUpdate(timeRemainingMilliseconds))
+          },
+          { e -> timerEvents.onError(e) },
+          { timerEvents.onComplete() }
+        )
+    }
   }
 
   fun stopVisualTimeRemainingIndicator() {
