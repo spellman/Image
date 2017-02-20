@@ -6,7 +6,6 @@ import android.media.MediaPlayer
 import android.os.Bundle
 import android.util.Log
 import io.reactivex.Observable
-import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.disposables.Disposable
 import io.reactivex.functions.BiFunction
 import io.reactivex.subjects.BehaviorSubject
@@ -18,7 +17,7 @@ sealed class MediaPlayerEvents {
   class AudiofocusLoss : MediaPlayerEvents()
   class AudiofocusTransientLoss : MediaPlayerEvents()
   class Prepared : MediaPlayerEvents()
-  class Preparing : MediaPlayerEvents()
+  class DelayInObtainingAudiofocus : MediaPlayerEvents()
 }
 
 sealed class VisualEvents {
@@ -116,12 +115,17 @@ class PlayInstructionFragment : BaseFragment() {
             .zipWith(Observable.range(4, 12),
                      BiFunction({ error: Throwable, i: Int -> i }))
             .flatMap { numberOfRetries ->
-              // 2017-02-11 Cort Spellman
-              // TODO: If number of retries gets to 10 (2 ^ 10 = 1024 ms),
-              // then show a snackbar saying, "Working" or something like that.
-              Observable.timer(Math.pow(2.toDouble(),
-                                        numberOfRetries.toDouble()).toLong(),
-                               TimeUnit.MILLISECONDS) }
+              // 2017-02-19 Cort Spellman
+              // integral(2 ^ x, x, x = 4, x = 8, x <- Z) = 496
+              // 496 milliseconds ~ a half-second delay
+              if (numberOfRetries == 8) {
+                mediaPlayerEvents.onNext(
+                  MediaPlayerEvents.DelayInObtainingAudiofocus())
+              }
+
+              val durationUntilRetry = Math.pow(2.toDouble(), numberOfRetries.toDouble()).toLong()
+              Log.d(this.javaClass.simpleName, "Unable to obtain audiofocus. Failure #${numberOfRetries}. Trying again in ${durationUntilRetry} milliseconds.")
+              Observable.timer(durationUntilRetry, TimeUnit.MILLISECONDS) }
         }
         .subscribe(
           { audioFocusObtained ->

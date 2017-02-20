@@ -21,9 +21,6 @@ class PlayInstructionPresenter(
         .subscribe(
           { event ->
             val unused = when (event) {
-              is MediaPlayerEvents.Preparing ->
-                Log.d(this.javaClass.simpleName, "Note that media player is preparing.")
-
               is MediaPlayerEvents.Prepared -> startInstruction()
 
               is MediaPlayerEvents.AudiofocusTransientLoss -> pauseInstruction()
@@ -31,6 +28,8 @@ class PlayInstructionPresenter(
               is MediaPlayerEvents.AudiofocusLoss -> stopInstruction()
 
               is MediaPlayerEvents.AudiofocusGain -> resumeInstruction()
+
+              is MediaPlayerEvents.DelayInObtainingAudiofocus -> showDelayMessage()
             }
           },
           {
@@ -104,6 +103,10 @@ class PlayInstructionPresenter(
       0.0
     ).toInt()
     activity.setInstructionProgress(percent)
+  }
+
+  fun showDelayMessage() {
+    activity.showDelayMessage("Working...")
   }
 
   fun showCue() {

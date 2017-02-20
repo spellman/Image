@@ -5,6 +5,7 @@ import android.content.Intent
 import android.databinding.DataBindingUtil
 import android.media.AudioManager
 import android.os.Bundle
+import android.support.design.widget.Snackbar
 import android.support.v7.app.AppCompatActivity
 import android.util.Log
 import android.view.View
@@ -69,6 +70,10 @@ class PlayInstructionActivity : AppCompatActivity() {
   override fun onBackPressed() {
     presenter.stopInstruction()
     super.onBackPressed()
+  }
+
+  fun showDelayMessage(message: String) {
+    Snackbar.make(binding.root, message, Snackbar.LENGTH_INDEFINITE).show()
   }
 
   fun setInstructionProgress(percent: Int) {
