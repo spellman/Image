@@ -4,7 +4,7 @@
     <import type="android.view.View" />
     <variable
         name="viewModel"
-        type="com.cws.image.ViewModel"
+        type="com.cws.image.MainViewModel"
       />
   </data>
 
@@ -37,58 +37,70 @@
           android:layout_width="match_parent"
           android:layout_height="wrap_content"
           app:tabMode="scrollable"
+          app:tabIndicatorColor="@android:color/white"
+          app:tabIndicatorHeight="2dp"
+          app:tabPaddingStart="8dp"
+          app:tabPaddingEnd="8dp"
           />
 
     </android.support.design.widget.AppBarLayout>
 
-    <android.support.constraint.ConstraintLayout
+    <android.support.v7.widget.LinearLayoutCompat
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         app:layout_behavior="@string/appbar_scrolling_view_behavior"
+        android:orientation="vertical"
         tools:context="com.cws.image.MainActivity"
         tools:showIn="@layout/main_activity"
         >
 
-      <android.support.v7.widget.RecyclerView
-          android:id="@+id/instructions"
-          android:layout_width="0dp"
-          android:layout_height="wrap_content"
-          app:layout_constraintTop_toTopOf="parent"
-          app:layout_constraintLeft_toLeftOf="parent"
-          app:layout_constraintRight_toRightOf="parent"
+        <android.support.v7.widget.RecyclerView
+            android:id="@+id/instructions"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
+            >
+        </android.support.v7.widget.RecyclerView>
+
+      <android.support.v7.widget.LinearLayoutCompat
+          android:layout_width="match_parent"
+          android:layout_height="200dp"
+          android:orientation="vertical"
+          android:background="@color/dangerBackground"
           >
-      </android.support.v7.widget.RecyclerView>
+
+        <android.support.v7.widget.AppCompatTextView
+            android:id="@+id/unparsable_instructions_title"
+            android:text="@string/unparsable_instructions_title"
+            android:layout_width="match_parent"
+            android:layout_height="24dp"
+            android:gravity="center"
+            android:textAppearance="@style/TextAppearance.AppCompat.Title"
+            android:textColor="@color/dangerForeground"
+            />
+
+          <android.support.v7.widget.RecyclerView
+              android:id="@+id/unparsable_instructions"
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:paddingTop="8dp"
+              android:paddingBottom="8dp"
+              >
+          </android.support.v7.widget.RecyclerView>
+
+      </android.support.v7.widget.LinearLayoutCompat>
 
       <android.support.v7.widget.AppCompatTextView
-          android:id="@+id/unparsable_instructions_title"
-          android:text="@string/unparsable_instructions_title"
-          android:layout_width="wrap_content"
-          android:layout_height="wrap_content"
-          app:layout_constraintTop_toBottomOf="@+id/instructions"
-          app:layout_constraintLeft_toLeftOf="parent"
-          app:layout_constraintRight_toRightOf="parent"
-          />
-
-      <android.support.v7.widget.RecyclerView
-          android:id="@+id/unparsable_instructions"
-          android:layout_width="0dp"
-          android:layout_height="wrap_content"
-          app:layout_constraintTop_toBottomOf="@+id/unparsable_instructions_title"
-          app:layout_constraintLeft_toLeftOf="parent"
-          app:layout_constraintRight_toRightOf="parent"
-          >
-      </android.support.v7.widget.RecyclerView>
-
-      <android.support.v7.widget.AppCompatTextView
+          android:id="@+id/app_version_info"
           android:text="@{viewModel.appVersionInfo}"
-          android:layout_width="wrap_content"
+          android:layout_width="match_parent"
           android:layout_height="wrap_content"
-          app:layout_constraintBottom_toBottomOf="parent"
-          app:layout_constraintLeft_toLeftOf="parent"
-          app:layout_constraintRight_toRightOf="parent"
+          android:gravity="center"
           />
 
-    </android.support.constraint.ConstraintLayout>
+    </android.support.v7.widget.LinearLayoutCompat>
 
   </android.support.design.widget.CoordinatorLayout>
 </layout>

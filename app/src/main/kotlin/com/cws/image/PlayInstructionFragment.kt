@@ -17,16 +17,24 @@ sealed class MediaPlayerEvents {
   class AudiofocusLoss : MediaPlayerEvents()
   class AudiofocusTransientLoss : MediaPlayerEvents()
   class Prepared : MediaPlayerEvents()
-  class Preparing : MediaPlayerEvents()
+  class DelayInObtainingAudiofocus : MediaPlayerEvents()
 }
 
-class PlayInstructionFragment() : BaseFragment() {
-  var mediaPlayer: MediaPlayer? = null
+sealed class VisualEvents {
+  class TimeRemainingUpdate(val timeRemainingMilliseconds: Long) : VisualEvents()
+}
+
+class PlayInstructionFragment : BaseFragment() {
+  private var mediaPlayer: MediaPlayer? = null
+  private var hasBegunPreparingMediaPlayer = false
+  private var hasSubscribedToTimerEvents = false
   val mediaPlayerEvents: BehaviorSubject<MediaPlayerEvents> =
     BehaviorSubject.create()
-
-  val lostFocus: (Int) -> Boolean = { audioFocusChange -> audioFocusChange <= 0 }
-  val onAudioFocusChange: (Int) -> Unit = { audioFocusChange ->
+  val timerEvents: BehaviorSubject<VisualEvents> =
+    BehaviorSubject.create()
+  private lateinit var timerEventsSubscription : Disposable
+  private val lostFocus: (Int) -> Boolean = { audioFocusChange -> audioFocusChange <= 0 }
+  private val onAudioFocusChange: (Int) -> Unit = { audioFocusChange ->
     if (lostFocus(audioFocusChange)) {
       // 2017-02-11 Cort Spellman
       // TODO: This should not happen and is not acceptable.
@@ -53,22 +61,24 @@ class PlayInstructionFragment() : BaseFragment() {
       }
     }
   }
-  val audioFocusChanges: BehaviorSubject<Int> = BehaviorSubject.create()
-  val onAudioFocusChangedCallBack =
+  private val audioFocusChanges: BehaviorSubject<Int> = BehaviorSubject.create()
+  private val onAudioFocusChangedCallBack =
     object : AudioManager.OnAudioFocusChangeListener {
       override fun onAudioFocusChange(audioFocusChange: Int) {
         audioFocusChanges.onNext(audioFocusChange)
       }
     }
-  lateinit var audioFocusChangeSubscription: Disposable
-  val audioManager by lazy {
+  private lateinit var audiofocusChangesSubscription: Disposable
+  private val audioManager by lazy {
     activity?.getSystemService(Context.AUDIO_SERVICE) as AudioManager
   }
+  private lateinit var timerSubscription: Disposable
+
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     retainInstance = true
-    audioFocusChangeSubscription =
+    audiofocusChangesSubscription =
       audioFocusChanges.subscribe(onAudioFocusChange)
   }
 
@@ -90,9 +100,12 @@ class PlayInstructionFragment() : BaseFragment() {
     }
   }
 
-  fun prepareInstructionAudio(audioFilePath: String) {
-    mediaPlayerEvents.onNext(MediaPlayerEvents.Preparing())
+  fun hasBegunPreparingInstruction(): Boolean {
+    return hasBegunPreparingMediaPlayer
+  }
 
+  fun prepareInstructionAudio(audioFilePath: String) {
+    hasBegunPreparingMediaPlayer = true
     mediaPlayer = MediaPlayer()
     mediaPlayer?.setAudioStreamType(AudioManager.STREAM_MUSIC)
     mediaPlayer?.setOnPreparedListener { mp ->
@@ -102,12 +115,17 @@ class PlayInstructionFragment() : BaseFragment() {
             .zipWith(Observable.range(4, 12),
                      BiFunction({ error: Throwable, i: Int -> i }))
             .flatMap { numberOfRetries ->
-              // 2017-02-11 Cort Spellman
-              // TODO: If number of retries gets to 10 (2 ^ 10 = 1024 ms),
-              // then show a snackbar saying, "Working" or something like that.
-              Observable.timer(Math.pow(2.toDouble(),
-                                        numberOfRetries.toDouble()).toLong(),
-                               TimeUnit.MILLISECONDS) }
+              // 2017-02-19 Cort Spellman
+              // integral(2 ^ x, x, x = 4, x = 8, x <- Z) = 496
+              // 496 milliseconds ~ a half-second delay
+              if (numberOfRetries == 8) {
+                mediaPlayerEvents.onNext(
+                  MediaPlayerEvents.DelayInObtainingAudiofocus())
+              }
+
+              val durationUntilRetry = Math.pow(2.toDouble(), numberOfRetries.toDouble()).toLong()
+              Log.d(this.javaClass.simpleName, "Unable to obtain audiofocus. Failure #${numberOfRetries}. Trying again in ${durationUntilRetry} milliseconds.")
+              Observable.timer(durationUntilRetry, TimeUnit.MILLISECONDS) }
         }
         .subscribe(
           { audioFocusObtained ->
@@ -170,11 +188,53 @@ class PlayInstructionFragment() : BaseFragment() {
     }
   }
 
+  fun millisecondsToNanoseconds(milliseconds: Long): Long {
+    return milliseconds * 1000000L
+  }
+
+  fun nanoSecondsToMilliseconds(nanoseconds: Long): Long {
+    return nanoseconds / 1000000L
+  }
+
+  fun startVisualTimeRemainingIndicator(
+    cueStartTimeMilliseconds: Long,
+    tickInterval: Long
+  ) {
+    if (!hasSubscribedToTimerEvents) {
+      hasSubscribedToTimerEvents = true
+
+      val cueStartTimeNanoseconds =
+        System.nanoTime() + millisecondsToNanoseconds(cueStartTimeMilliseconds)
+      val numberOfTicks = cueStartTimeMilliseconds / tickInterval
+
+      Log.d(this.javaClass.simpleName, "About to subscribe to interval.")
+      timerEventsSubscription = Observable.interval(tickInterval,
+                                                    TimeUnit.MILLISECONDS)
+        .map { tick ->
+          nanoSecondsToMilliseconds(cueStartTimeNanoseconds - System.nanoTime())
+        }
+        .take(numberOfTicks)
+        .subscribe(
+          { timeRemainingMilliseconds ->
+            timerEvents.onNext(
+              VisualEvents.TimeRemainingUpdate(timeRemainingMilliseconds))
+          },
+          { e -> timerEvents.onError(e) },
+          { timerEvents.onComplete() }
+        )
+    }
+  }
+
+  fun stopVisualTimeRemainingIndicator() {
+    timerEventsSubscription.dispose()
+  }
+
   override fun onDestroy() {
     Log.d(this.javaClass.simpleName, "Abandoning audio focus.")
     audioManager.abandonAudioFocus(onAudioFocusChangedCallBack)
     Log.d(this.javaClass.simpleName, "Unsubscribing from audio focus changes stream.")
-    audioFocusChangeSubscription.dispose()
+    audiofocusChangesSubscription.dispose()
+    timerEventsSubscription.dispose()
 
     if (mediaPlayer != null) {
       try {

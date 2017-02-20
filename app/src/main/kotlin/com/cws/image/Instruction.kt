@@ -1,33 +1,27 @@
 package com.cws.image
 
-import android.os.Parcel
-import android.os.Parcelable
-import paperparcel.PaperParcel
+interface Resource
 
-@PaperParcel
 data class Instruction(
   val subject: String,
   val language: String,
   val absolutePath: String,
   val cueStartTime: Long
-) : Parcelable {
-  companion object {
-    @JvmField val CREATOR = PaperParcelInstruction.CREATOR
-  }
+) : Resource
 
-  override fun describeContents() = 0
+data class Icon(
+  val subject: String,
+  val absolutePath: String
+) : Resource
 
-  override fun writeToParcel(dest: Parcel, flags: Int) {
-    PaperParcelInstruction.writeToParcel(this, dest, flags)
-  }
+sealed class ParsingFailure {
+  class FileFormat : ParsingFailure()
+  class FileNameEncoding : ParsingFailure()
+  class InstructionCueTime : ParsingFailure()
+  class InstructionFileNameFormat : ParsingFailure()
 }
 
-sealed class InstructionParsingFailure {
-  class FileNameFormatFailure : InstructionParsingFailure()
-  class CueTimeFailure : InstructionParsingFailure()
-}
-
-data class UnparsableInstruction(
+data class UnparsableFile(
   val fileName: String,
-  val failure: InstructionParsingFailure
+  val failure: ParsingFailure
 )
