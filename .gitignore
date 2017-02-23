@@ -37,5 +37,10 @@ Thumbs.db
 .classpath
 .project
 
-#NDK
+# NDK
 obj/
+
+# Crashlytics
+crashlytics-build.properties
+crashlytics.properties
+com_crashlytics_export_strings.xml

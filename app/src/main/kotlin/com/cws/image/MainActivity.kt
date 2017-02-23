@@ -110,6 +110,34 @@ class MainActivity : AppCompatActivity() {
     super.onDestroy()
   }
 
+  override fun onActivityResult(requestCode: Int,
+                                resultCode: Int,
+                                data: Intent?) {
+    when (requestCode) {
+      REQUEST_CODE_PLAY_INSTRUCTION -> {
+        when (resultCode) {
+          Activity.RESULT_OK -> {}
+
+          Activity.RESULT_CANCELED -> {}
+
+          Activity.RESULT_FIRST_USER ->
+            presenter.couldNotPlayInstruction(
+              data?.getParcelableExtra<InstructionViewModel>("instruction"),
+              data?.getStringExtra("message")
+            )
+
+          else -> {
+            Log.d(this.javaClass.simpleName, "Unhandled activity-result result-code: ${resultCode} for request-code ${requestCode}")
+          }
+        }
+      }
+
+      else -> {
+        Log.d(this.javaClass.simpleName, "Unknown activity-result request-code: ${requestCode}")
+      }
+    }
+  }
+
   fun initInstructionsRecyclerView() {
     val onSubjectClicked: (View, Int, Any?) -> Unit = { view: View, position: Int, item: Any? ->
       if (item as? InstructionViewModel != null) {
@@ -280,33 +308,5 @@ class MainActivity : AppCompatActivity() {
     PlayInstructionActivity.startForResult(this,
                                            REQUEST_CODE_PLAY_INSTRUCTION,
                                            instruction)
-  }
-
-  override fun onActivityResult(requestCode: Int,
-                                resultCode: Int,
-                                data: Intent?) {
-    when (requestCode) {
-      REQUEST_CODE_PLAY_INSTRUCTION -> {
-        when (resultCode) {
-          Activity.RESULT_OK -> {}
-
-          Activity.RESULT_CANCELED -> {}
-
-          Activity.RESULT_FIRST_USER ->
-            presenter.couldNotPlayInstruction(
-              data?.getParcelableExtra<InstructionViewModel>("instruction"),
-              data?.getStringExtra("message")
-            )
-
-          else -> {
-            Log.d(this.javaClass.simpleName, "Unhandled activity-result result-code: ${resultCode} for request-code ${requestCode}")
-          }
-        }
-      }
-
-      else -> {
-        Log.d(this.javaClass.simpleName, "Unknown activity-result request-code: ${requestCode}")
-      }
-    }
   }
 }

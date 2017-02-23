@@ -2,9 +2,11 @@ package com.cws.image
 
 import android.app.Application
 import android.os.Environment
+import com.crashlytics.android.Crashlytics
 import com.facebook.stetho.Stetho
 import com.squareup.leakcanary.LeakCanary
 import com.squareup.leakcanary.RefWatcher
+import io.fabric.sdk.android.Fabric
 import java.io.File
 
 class App : Application() {
@@ -29,6 +31,7 @@ class App : Application() {
 
   override fun onCreate() {
     super.onCreate()
+    Fabric.with(this, Crashlytics())
     refWatcher = LeakCanary.install(this)
     Stetho.initializeWithDefaults(this)
   }

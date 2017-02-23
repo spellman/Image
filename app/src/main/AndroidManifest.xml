@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+<manifest
+    xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.cws.image">
 
   <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+  <uses-permission android:name="android.permission.INTERNET" />
 
   <application
       android:allowBackup="true"
@@ -20,6 +22,11 @@
     </activity>
     <activity android:name=".PlayInstructionActivity">
     </activity>
+
+    <meta-data
+        android:name="io.fabric.ApiKey"
+        android:value="8c7a128abd9f112911957e09e2bf2d03428f9ec8"
+        />
   </application>
 
 </manifest>
