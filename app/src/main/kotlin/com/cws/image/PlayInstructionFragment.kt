@@ -70,10 +70,8 @@ class PlayInstructionFragment : BaseFragment() {
     }
   private lateinit var audiofocusChangesSubscription: Disposable
   private val audioManager by lazy {
-    activity?.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
   }
-  private lateinit var timerSubscription: Disposable
-
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
