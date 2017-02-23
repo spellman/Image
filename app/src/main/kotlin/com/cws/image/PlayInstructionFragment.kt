@@ -32,7 +32,7 @@ class PlayInstructionFragment : BaseFragment() {
     BehaviorSubject.create()
   val timerEvents: BehaviorSubject<VisualEvents> =
     BehaviorSubject.create()
-  private lateinit var timerEventsSubscription : Disposable
+  private var timerEventsSubscription: Disposable? = null
   private val lostFocus: (Int) -> Boolean = { audioFocusChange -> audioFocusChange <= 0 }
   private val onAudioFocusChange: (Int) -> Unit = { audioFocusChange ->
     if (lostFocus(audioFocusChange)) {
@@ -226,7 +226,7 @@ class PlayInstructionFragment : BaseFragment() {
   }
 
   fun stopVisualTimeRemainingIndicator() {
-    timerEventsSubscription.dispose()
+    timerEventsSubscription?.dispose()
   }
 
   override fun onDestroy() {
@@ -234,7 +234,7 @@ class PlayInstructionFragment : BaseFragment() {
     audioManager.abandonAudioFocus(onAudioFocusChangedCallBack)
     Log.d(this.javaClass.simpleName, "Unsubscribing from audio focus changes stream.")
     audiofocusChangesSubscription.dispose()
-    timerEventsSubscription.dispose()
+    timerEventsSubscription?.dispose()
 
     if (mediaPlayer != null) {
       try {
