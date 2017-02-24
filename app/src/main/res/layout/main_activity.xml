@@ -65,14 +65,15 @@
         </android.support.v7.widget.RecyclerView>
 
       <android.support.v7.widget.LinearLayoutCompat
+          android:id="@+id/unparsable_instructions_container"
           android:layout_width="match_parent"
           android:layout_height="200dp"
           android:orientation="vertical"
           android:background="@color/dangerBackground"
+          android:visibility="gone"
           >
 
         <android.support.v7.widget.AppCompatTextView
-            android:id="@+id/unparsable_instructions_title"
             android:text="@string/unparsable_instructions_title"
             android:layout_width="match_parent"
             android:layout_height="24dp"

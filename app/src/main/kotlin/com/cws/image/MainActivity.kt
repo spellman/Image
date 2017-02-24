@@ -250,12 +250,12 @@ class MainActivity : AppCompatActivity() {
     Log.d(this.javaClass.simpleName, "refreshUnparsableInstructions")
     Log.d("unpars instructs", unparsableInstructions.toString())
     if (unparsableInstructions.isEmpty()) {
-      binding.unparsableInstructionsTitle.visibility = View.GONE
-      binding.unparsableInstructions.visibility = View.GONE
+      binding.unparsableInstructionsContainer.visibility = View.GONE
+      (binding.unparsableInstructions.adapter as UnparsableInstructionsAdapter)
+        .refreshUnparsableInstructions(unparsableInstructions)
     }
     else {
-      binding.unparsableInstructionsTitle.visibility = View.VISIBLE
-      binding.unparsableInstructions.visibility = View.VISIBLE
+      binding.unparsableInstructionsContainer.visibility = View.VISIBLE
       (binding.unparsableInstructions.adapter as UnparsableInstructionsAdapter)
         .refreshUnparsableInstructions(unparsableInstructions)
     }
