@@ -70,7 +70,6 @@ class MainPresenter(
           // viewmodel here instead of manipulating the view manually.
           activity.refreshUnparsableInstructions(unparsableInstructionViewModels)
           activity.refreshLanguageTabs(languages)
-          activity.selectLanguageTab(languages.indexOf(selectedLanguage))
         },
         { throwable ->
           val message = (throwable.message as? String)

@@ -87,7 +87,9 @@ class MainActivity : AppCompatActivity() {
         }
 
     if (savedInstanceState != null) {
-      presenter.selectedLanguage = savedInstanceState.getString(SELECTED_LANGUAGE)
+      val savedSelectedLanguage = savedInstanceState.getString(SELECTED_LANGUAGE)
+      Timber.d("Restoring language selection: ${savedSelectedLanguage}")
+      presenter.selectedLanguage = savedSelectedLanguage
     }
 
     showInstructions()
@@ -95,6 +97,7 @@ class MainActivity : AppCompatActivity() {
 
   override fun onSaveInstanceState(outState: Bundle?) {
     super.onSaveInstanceState(outState)
+    Timber.d("Saving language selection: ${presenter.selectedLanguage}")
     outState?.putString(SELECTED_LANGUAGE, presenter.selectedLanguage)
   }
 
@@ -261,8 +264,7 @@ class MainActivity : AppCompatActivity() {
   }
 
   fun refreshLanguageTabs(languages: ImmutableList<String>) {
-    // 2017-02-25 Cort Spellman
-    // TODO: Can I use a ViewPager for this instead?
+    val previouslySelectedLanguage = presenter.selectedLanguage
     val languageTabs = binding.languages
 
     languageTabs.removeAllTabs()
@@ -270,6 +272,17 @@ class MainActivity : AppCompatActivity() {
     languages.forEach { l ->
       languageTabs.addTab(
         languageTabs.newTab().setTag(l).setText(l))
+    }
+
+    // 2017-02-25 Cort Spellman
+    // TODO: Can I use a ViewPager instead of adding tabs manually above?
+    // When there are no tabs, the first tab added becomes the selected tab,
+    // necessitating this reset to the previously selected language.
+    // NOTE: I have to reset here because selecting the tab, whether by a
+    // user's click or by TabLayout#addTab when there are no tabs, sets
+    // MainPresenter#selectedLanguage.
+    previouslySelectedLanguage?.let {
+      selectLanguageTab(languages.indexOf(previouslySelectedLanguage))
     }
   }
 
