@@ -18,6 +18,14 @@ class PlayInstructionViewModel(
 }
 
 class PlayInstructionActivity : AppCompatActivity() {
+  companion object {
+    fun startForResult(activity: Activity, requestCode: Int, instruction: InstructionViewModel) {
+      val intent = Intent(activity, PlayInstructionActivity::class.java)
+      intent.putExtra("instruction", instruction)
+      activity.startActivityForResult(intent, requestCode)
+    }
+  }
+
   private val instruction by lazy {
     intent.getParcelableExtra<InstructionViewModel>("instruction")
   }
@@ -45,14 +53,6 @@ class PlayInstructionActivity : AppCompatActivity() {
   }
   private val presenter by lazy {
     PlayInstructionPresenter(this, mediaPlayerFragment, instruction)
-  }
-
-  companion object {
-    fun startForResult(activity: Activity, requestCode: Int, instruction: InstructionViewModel) {
-      val intent = Intent(activity, PlayInstructionActivity::class.java)
-      intent.putExtra("instruction", instruction)
-      activity.startActivityForResult(intent, requestCode)
-    }
   }
 
   override fun onCreate(savedInstanceState: Bundle?) {

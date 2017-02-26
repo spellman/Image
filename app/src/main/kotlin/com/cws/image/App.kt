@@ -32,10 +32,8 @@ class App : Application() {
   // current locale.
 
   override fun onCreate() {
-    // 2017-02-23 Cort Spellman
-    // TODO: Add app-crash handler: slides 13 and 14 at
-    // https://www.slideshare.net/Infinum/infinum-android-talks-15-timber-crashlytics-a-match-made-in-heaven
     super.onCreate()
+    Thread.setDefaultUncaughtExceptionHandler(AppCrashHandler(this))
     Fabric.with(this, Crashlytics())
     Fabric.with(this, Answers())
     if (BuildConfig.DEBUG) {
