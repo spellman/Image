@@ -7,7 +7,6 @@ import android.media.AudioManager
 import android.os.Bundle
 import android.support.design.widget.Snackbar
 import android.support.v7.app.AppCompatActivity
-import android.util.Log
 import android.view.View
 import com.cws.image.databinding.PlayInstructionActivityBinding
 
@@ -37,7 +36,6 @@ class PlayInstructionActivity : AppCompatActivity() {
     val fragmentTag = PlayInstructionFragment::class.java.name
     val fm = supportFragmentManager
     fm.findFragmentByTag(fragmentTag) as? PlayInstructionFragment ?: let {
-      Log.d(this.javaClass.simpleName, "Making new PlayInstructionFragment.")
       val fragment = PlayInstructionFragment()
       fm.beginTransaction()
         .add(fragment, fragmentTag)
@@ -77,7 +75,6 @@ class PlayInstructionActivity : AppCompatActivity() {
   }
 
   fun setInstructionProgress(percent: Int) {
-    Log.d(this.javaClass.simpleName, "Setting progress to ${percent}")
     binding.instructionProgress.progress = percent
   }
 

@@ -3,15 +3,17 @@ package com.cws.image
 import android.content.Context
 import android.databinding.DataBindingUtil
 import android.databinding.ViewDataBinding
-import android.graphics.Color
 import android.support.v4.content.ContextCompat
 import android.support.v7.widget.RecyclerView
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import com.bumptech.glide.Glide
 import com.cws.image.databinding.SubjectLayoutBinding
 import com.github.andrewoma.dexx.kollection.ImmutableList
+import com.squareup.picasso.Callback
+import com.squareup.picasso.Picasso
+import timber.log.Timber
+import java.io.File
 
 class InstructionsAdapter(
   val layoutId: Int,
@@ -41,15 +43,25 @@ class InstructionsAdapter(
       (holder?.binding as? SubjectLayoutBinding)?.subjectIcon
 
     if (instructionViewModel.iconAbsolutePath != null) {
-      Glide.with(context)
-        .load(instructionViewModel.iconAbsolutePath)
-        .asBitmap()
-        .placeholder(ContextCompat.getDrawable(context, R.drawable.ic_subject_placeholder))
-        .into(subjectIconImageView)
+      Picasso.with(context)
+        .load(File(instructionViewModel.iconAbsolutePath))
+        .error(R.drawable.ic_subject_placeholder)
+        .into(subjectIconImageView, object: Callback {
+          override fun onSuccess() {}
 
+          override fun onError() {
+            Timber.i("Instruction: ${instructionViewModel}")
+            Timber.e(
+              Exception(
+                "Failed to load subject icon ${instructionViewModel.iconAbsolutePath}"))
+            subjectIconImageView?.setColorFilter(
+              ContextCompat.getColor(context, R.color.placeholderIcon))
+          }
+        })
     }
     else {
-      subjectIconImageView?.setColorFilter(Color.parseColor("#FFC0C0C0"))
+      subjectIconImageView?.setColorFilter(
+        ContextCompat.getColor(context, R.color.placeholderIcon))
       subjectIconImageView?.setImageDrawable(
         ContextCompat.getDrawable(context, R.drawable.ic_subject_placeholder))
     }

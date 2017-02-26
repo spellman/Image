@@ -14,7 +14,6 @@ import android.support.v4.content.ContextCompat
 import android.support.v7.app.AppCompatActivity
 import android.support.v7.widget.LinearLayoutManager
 import android.support.v7.widget.RecyclerView
-import android.util.Log
 import android.view.View
 import android.widget.TextView
 import com.cws.image.databinding.MainActivityBinding
@@ -24,6 +23,7 @@ import com.jakewharton.rxbinding.support.design.widget.RxTabLayout
 import hu.akarnokd.rxjava.interop.RxJavaInterop
 import io.reactivex.disposables.Disposable
 import paperparcel.PaperParcel
+import timber.log.Timber
 
 // 2017-02-19 Cort Spellman
 // TODO: Put version info in a menu item that doesn't do anything when clicked.
@@ -81,18 +81,13 @@ class MainActivity : AppCompatActivity() {
       RxJavaInterop.toV2Observable(
         RxTabLayout.selections(binding.languages))
         .map { tab -> tab.tag as String }
-        .doOnNext { language ->
-          Log.d(this.javaClass.simpleName, "RxTabLayout.selections")
-          Log.d("selected tab", language)
-        }
         .subscribe { language ->
+          Timber.i("Selected language: ${language}")
           presenter.showInstructionsForLanguage(language)
         }
 
     if (savedInstanceState != null) {
-      Log.d(this.javaClass.simpleName, "restoring savedInstanceState")
       presenter.selectedLanguage = savedInstanceState.getString(SELECTED_LANGUAGE)
-      Log.d(this.javaClass.simpleName, "selectedLanguage: ${presenter.selectedLanguage}")
     }
 
     showInstructions()
@@ -100,8 +95,6 @@ class MainActivity : AppCompatActivity() {
 
   override fun onSaveInstanceState(outState: Bundle?) {
     super.onSaveInstanceState(outState)
-    Log.d(this.javaClass.simpleName,
-          "onSaveInstanceState selectedLanguage: ${presenter.selectedLanguage}")
     outState?.putString(SELECTED_LANGUAGE, presenter.selectedLanguage)
   }
 
@@ -127,13 +120,13 @@ class MainActivity : AppCompatActivity() {
             )
 
           else -> {
-            Log.d(this.javaClass.simpleName, "Unhandled activity-result result-code: ${resultCode} for request-code ${requestCode}")
+            Timber.d("Unhandled activity result code: ${resultCode} for request-code ${requestCode}")
           }
         }
       }
 
       else -> {
-        Log.d(this.javaClass.simpleName, "Unknown activity-result request-code: ${requestCode}")
+        Timber.d("Unknown activity-result request-code: ${requestCode}")
       }
     }
   }
@@ -144,7 +137,7 @@ class MainActivity : AppCompatActivity() {
         presenter.playInstruction(item as InstructionViewModel)
       }
       else {
-        Log.e(this.javaClass.simpleName, "Cannot prepare to play instruction because ${item}, the ${position + 1}th item in the list of instructions, is not a valid instruction.")
+        presenter.couldNotPlayNonInstruction(item, position)
       }
     }
 
@@ -198,7 +191,6 @@ class MainActivity : AppCompatActivity() {
 
   fun showInstructions() {
     if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
-      Log.d(this.javaClass.simpleName, "About to get instructions")
       presenter.showInstructions()
     }
     else {
@@ -212,7 +204,6 @@ class MainActivity : AppCompatActivity() {
       // this thread waiting for the user's response! After the user sees the
       // explanation (dialog or snackbar are easy), try again to request the
       // permission.
-      Log.d("TODO:", "Show request permission rationale for write external storage.")
       ActivityCompat.requestPermissions(
         this,
         arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
@@ -247,8 +238,6 @@ class MainActivity : AppCompatActivity() {
   fun refreshUnparsableInstructions(
     unparsableInstructions: ImmutableList<UnparsableInstructionViewModel>
   ) {
-    Log.d(this.javaClass.simpleName, "refreshUnparsableInstructions")
-    Log.d("unpars instructs", unparsableInstructions.toString())
     if (unparsableInstructions.isEmpty()) {
       binding.unparsableInstructionsContainer.visibility = View.GONE
       (binding.unparsableInstructions.adapter as UnparsableInstructionsAdapter)
@@ -262,27 +251,19 @@ class MainActivity : AppCompatActivity() {
   }
 
   fun selectLanguageTab(index: Int) {
-    Log.d(this.javaClass.simpleName, "selectLanguageTab")
-    Log.d("index", index.toString())
     val tab = binding.languages.getTabAt(index)
     if (tab != null) {
-      Log.d(this.javaClass.simpleName, "programmatically selecting tab for language ${tab.tag}")
       tab.select()
     }
     else {
-      Log.d("selectLanguageTab", "Tab of index ${index} is not available. Selected default language tab instead.")
       binding.languages.getTabAt(0)?.select()
     }
   }
 
   fun refreshLanguageTabs(languages: ImmutableList<String>) {
-    // 2017-01-28 Cort Spellman
-    // TODO: Use a viewpager -- this is stupid to be depending on the tabs
-    // being in the same order as another list.
-    Log.d(this.javaClass.simpleName, "refreshLanguageTabs")
-    Log.d("languages", languages.toString())
+    // 2017-02-25 Cort Spellman
+    // TODO: Can I use a ViewPager for this instead?
     val languageTabs = binding.languages
-    val previouslySelectedLanguage = presenter.selectedLanguage
 
     languageTabs.removeAllTabs()
 
@@ -290,16 +271,9 @@ class MainActivity : AppCompatActivity() {
       languageTabs.addTab(
         languageTabs.newTab().setTag(l).setText(l))
     }
-
-    previouslySelectedLanguage?.let {
-      Log.d("refreshLanguagesTabs", "Setting language to selected language of ${previouslySelectedLanguage}.")
-      selectLanguageTab(languages.indexOf(previouslySelectedLanguage))
-    }
   }
 
   fun refreshInstructionsForCurrentLanguage(instructions: ImmutableList<InstructionViewModel>) {
-    Log.d(this.javaClass.simpleName, "refreshInstructionsForCurrentLanguage")
-    Log.d("instructions", instructions.toString())
     (binding.instructions.adapter as InstructionsAdapter)
       .refreshInstructions(instructions)
   }

@@ -1,9 +1,9 @@
 package com.cws.image
 
-import android.util.Log
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.schedulers.Schedulers
+import timber.log.Timber
 
 class PlayInstructionPresenter(
   private val activity: PlayInstructionActivity,
@@ -13,7 +13,6 @@ class PlayInstructionPresenter(
   private val compositeDisposable = CompositeDisposable()
   private val cueStartTimeMilliseconds = instruction.cueStartTimeMilliseconds.toDouble()
   init {
-    Log.d(this.javaClass.simpleName, "Subscribing to mediaplayer events.")
     compositeDisposable.add(
       mediaPlayerFragment.mediaPlayerEvents
         .subscribeOn(Schedulers.io())
@@ -23,24 +22,22 @@ class PlayInstructionPresenter(
             val unused = when (event) {
               is MediaPlayerEvents.Prepared -> startInstruction()
 
-              is MediaPlayerEvents.AudiofocusTransientLoss -> pauseInstruction()
-
-              is MediaPlayerEvents.AudiofocusLoss -> stopInstruction()
-
-              is MediaPlayerEvents.AudiofocusGain -> resumeInstruction()
+              is MediaPlayerEvents.AudiofocusLoss -> {
+                stopInstruction()
+                activity.finishWithInstructionError(
+                  instruction,
+                  "Lost audiofocus, having requested and gained exclusive audiofocus.")
+              }
 
               is MediaPlayerEvents.DelayInObtainingAudiofocus -> showDelayMessage()
             }
           },
-          {
-            throwable ->
-            activity.finishWithInstructionError(instruction,
-                                                throwable.message as String)
+          { e ->
+            activity.finishWithInstructionError(instruction, e.message as String)
           },
           { activity.finishWithInstructionComplete() }
         ))
 
-    Log.d(this.javaClass.simpleName, "Subscribing to timer events.")
     compositeDisposable.add(
       mediaPlayerFragment.timerEvents
         .subscribeOn(Schedulers.computation())
@@ -53,28 +50,15 @@ class PlayInstructionPresenter(
               }
             }
           },
-          { e ->
-            // 2017-02-18 Cort Spellman
-            // This should never happen. What do you want to do if it does?
-            Log.e(this.javaClass.simpleName, e.message)
-          },
+          { e -> Timber.e(e) },
           { showCue() }
         ))
   }
 
   fun playInstruction() {
     if (!isInstructionInitiated()) {
-      Log.d(this.javaClass.simpleName, "Instruction not already initiated. Initiating playing now.")
       prepareInstructionAudio()
     }
-  }
-
-  fun pauseInstruction() {
-    mediaPlayerFragment.pauseInstruction()
-  }
-
-  fun resumeInstruction() {
-    mediaPlayerFragment.startInstructionAudio()
   }
 
   fun stopInstruction() {
@@ -106,7 +90,7 @@ class PlayInstructionPresenter(
   }
 
   fun showDelayMessage() {
-    activity.showDelayMessage("Working...")
+    activity.showDelayMessage("Preparing...")
   }
 
   fun showCue() {
@@ -114,7 +98,6 @@ class PlayInstructionPresenter(
   }
 
   fun onDestroy() {
-    Log.d(this.javaClass.simpleName, "Unsubscribing to mediaplayer events and timer events.")
     compositeDisposable.dispose()
   }
 }

@@ -4,18 +4,16 @@ import android.content.Context
 import android.media.AudioManager
 import android.media.MediaPlayer
 import android.os.Bundle
-import android.util.Log
 import io.reactivex.Observable
 import io.reactivex.disposables.Disposable
 import io.reactivex.functions.BiFunction
 import io.reactivex.subjects.BehaviorSubject
+import timber.log.Timber
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 sealed class MediaPlayerEvents {
-  class AudiofocusGain : MediaPlayerEvents()
   class AudiofocusLoss : MediaPlayerEvents()
-  class AudiofocusTransientLoss : MediaPlayerEvents()
   class Prepared : MediaPlayerEvents()
   class DelayInObtainingAudiofocus : MediaPlayerEvents()
 }
@@ -34,50 +32,32 @@ class PlayInstructionFragment : BaseFragment() {
     BehaviorSubject.create()
   private var timerEventsSubscription: Disposable? = null
   private val lostFocus: (Int) -> Boolean = { audioFocusChange -> audioFocusChange <= 0 }
-  private val onAudioFocusChange: (Int) -> Unit = { audioFocusChange ->
-    if (lostFocus(audioFocusChange)) {
-      // 2017-02-11 Cort Spellman
-      // TODO: This should not happen and is not acceptable.
-      Log.e(this.javaClass.simpleName, "Lost audio focus, having requested and gained exclusive focus.")
-    }
-    when (audioFocusChange) {
-      AudioManager.AUDIOFOCUS_LOSS -> {
-        Log.d(this.javaClass.simpleName, "AudioManager.AUDIOFOCUS_LOSS")
-        mediaPlayerEvents.onNext(MediaPlayerEvents.AudiofocusLoss())
-      }
-
-      AudioManager.AUDIOFOCUS_LOSS_TRANSIENT, AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
-        Log.d(this.javaClass.simpleName, "AudioManager.AUDIOFOCUS_LOSS_TRANSIENT")
-        mediaPlayerEvents.onNext(MediaPlayerEvents.AudiofocusTransientLoss())
-      }
-
-      AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE -> {
-        Log.d(this.javaClass.simpleName, "AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE")
-        mediaPlayerEvents.onNext(MediaPlayerEvents.AudiofocusGain())
-      }
-
-      else -> {
-        Log.d(this.javaClass.simpleName, "Unhandled audio focus change event with Int value: ${audioFocusChange}")
-      }
-    }
-  }
-  private val audioFocusChanges: BehaviorSubject<Int> = BehaviorSubject.create()
   private val onAudioFocusChangedCallBack =
     object : AudioManager.OnAudioFocusChangeListener {
       override fun onAudioFocusChange(audioFocusChange: Int) {
-        audioFocusChanges.onNext(audioFocusChange)
+        if (lostFocus(audioFocusChange)) {
+          // 2017-02-11 Cort Spellman
+          // I don't think this should happen, having requested and gained
+          // exclusive audiofocus.
+          Timber.e(
+            Exception(
+             "Lost audiofocus, having requested and gained exclusive audiofocus."))
+          mediaPlayerEvents.onNext(MediaPlayerEvents.AudiofocusLoss())
+        }
       }
     }
-  private lateinit var audiofocusChangesSubscription: Disposable
   private val audioManager by lazy {
     context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+  }
+  private val failedToGainAudiofocusException by lazy {
+    Exception(
+      "Failed to gain AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE audio focus."
+    )
   }
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     retainInstance = true
-    audiofocusChangesSubscription =
-      audioFocusChanges.subscribe(onAudioFocusChange)
   }
 
   fun obtainAudioFocus(): Observable<String> {
@@ -88,12 +68,10 @@ class PlayInstructionFragment : BaseFragment() {
 
     return Observable.create<String> { emitter ->
       if (audioFocusResult == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
-        emitter.onNext("play instruction")
+        emitter.onNext("play-instruction")
       }
       else {
-        emitter.onError(
-          Exception(
-            "Failed to gain AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE audio focus."))
+        emitter.onError(failedToGainAudiofocusException)
       }
     }
   }
@@ -121,22 +99,22 @@ class PlayInstructionFragment : BaseFragment() {
                   MediaPlayerEvents.DelayInObtainingAudiofocus())
               }
 
-              val durationUntilRetry = Math.pow(2.toDouble(), numberOfRetries.toDouble()).toLong()
-              Log.d(this.javaClass.simpleName, "Unable to obtain audiofocus. Failure #${numberOfRetries}. Trying again in ${durationUntilRetry} milliseconds.")
+              // 2017-02-19 Cort Spellman: Exponential backoff.
+              val durationUntilRetry =
+                Math.pow(2.toDouble(), numberOfRetries.toDouble()).toLong()
+
+              Timber.i("Unable to obtain audiofocus. Failure #${numberOfRetries}. Trying again in ${durationUntilRetry} milliseconds.")
               Observable.timer(durationUntilRetry, TimeUnit.MILLISECONDS) }
         }
         .subscribe(
           { audioFocusObtained ->
             mediaPlayerEvents.onNext(MediaPlayerEvents.Prepared())
           },
-          { throwable ->
-            Log.e(this.javaClass.simpleName, throwable.message)
-            mediaPlayerEvents.onError(throwable)
+          { e ->
+            Timber.e(e)
+            mediaPlayerEvents.onError(e)
           },
-          { mediaPlayerEvents.onError(
-            Exception(
-              "Failed to gain AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE audio focus."))
-          }
+          { mediaPlayerEvents.onError(failedToGainAudiofocusException) }
         )
     }
     mediaPlayer?.setOnErrorListener { mp, what, extra ->
@@ -161,11 +139,11 @@ class PlayInstructionFragment : BaseFragment() {
       mediaPlayer?.prepareAsync()
     }
     catch (e: IOException) {
-      Log.e(this.javaClass.simpleName, e.message)
+      Timber.e(e)
       mediaPlayerEvents.onError(e)
     }
     catch (e: IllegalArgumentException) {
-      Log.e(this.javaClass.simpleName, e.message)
+      Timber.e(e)
       mediaPlayerEvents.onError(e)
     }
   }
@@ -175,15 +153,7 @@ class PlayInstructionFragment : BaseFragment() {
   }
 
   fun stopInstructionAudio() {
-    if (mediaPlayer?.isPlaying ?: false) {
-      mediaPlayer?.stop()
-    }
-  }
-
-  fun pauseInstruction() {
-    if (mediaPlayer?.isPlaying ?: false) {
-      mediaPlayer?.pause()
-    }
+    mediaPlayer?.stop()
   }
 
   fun millisecondsToNanoseconds(milliseconds: Long): Long {
@@ -205,7 +175,6 @@ class PlayInstructionFragment : BaseFragment() {
         System.nanoTime() + millisecondsToNanoseconds(cueStartTimeMilliseconds)
       val numberOfTicks = cueStartTimeMilliseconds / tickInterval
 
-      Log.d(this.javaClass.simpleName, "About to subscribe to interval.")
       timerEventsSubscription = Observable.interval(tickInterval,
                                                     TimeUnit.MILLISECONDS)
         .map { tick ->
@@ -228,10 +197,7 @@ class PlayInstructionFragment : BaseFragment() {
   }
 
   override fun onDestroy() {
-    Log.d(this.javaClass.simpleName, "Abandoning audio focus.")
     audioManager.abandonAudioFocus(onAudioFocusChangedCallBack)
-    Log.d(this.javaClass.simpleName, "Unsubscribing from audio focus changes stream.")
-    audiofocusChangesSubscription.dispose()
     timerEventsSubscription?.dispose()
 
     if (mediaPlayer != null) {

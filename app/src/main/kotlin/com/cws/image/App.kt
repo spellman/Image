@@ -3,10 +3,12 @@ package com.cws.image
 import android.app.Application
 import android.os.Environment
 import com.crashlytics.android.Crashlytics
+import com.crashlytics.android.answers.Answers
 import com.facebook.stetho.Stetho
 import com.squareup.leakcanary.LeakCanary
 import com.squareup.leakcanary.RefWatcher
 import io.fabric.sdk.android.Fabric
+import timber.log.Timber
 import java.io.File
 
 class App : Application() {
@@ -30,8 +32,16 @@ class App : Application() {
   // current locale.
 
   override fun onCreate() {
+    // 2017-02-23 Cort Spellman
+    // TODO: Add app-crash handler: slides 13 and 14 at
+    // https://www.slideshare.net/Infinum/infinum-android-talks-15-timber-crashlytics-a-match-made-in-heaven
     super.onCreate()
     Fabric.with(this, Crashlytics())
+    Fabric.with(this, Answers())
+    if (BuildConfig.DEBUG) {
+        Timber.plant(Timber.DebugTree())
+    }
+    Timber.plant(CrashlyticsTree())
     refWatcher = LeakCanary.install(this)
     Stetho.initializeWithDefaults(this)
   }

@@ -1,9 +1,9 @@
 package com.cws.image
 
-import android.util.Log
 import com.github.andrewoma.dexx.kollection.ImmutableSet
 import com.github.andrewoma.dexx.kollection.toImmutableSet
 import io.reactivex.Single
+import timber.log.Timber
 import java.io.File
 import java.io.UnsupportedEncodingException
 import java.net.URLDecoder
@@ -45,17 +45,12 @@ class GetInstructions(
   var parsedResourcess: ParsedResourcess? = null
 
   fun getInstructions(): Single<ParsedResourcess> {
-    Log.d(this.javaClass.simpleName, "About to get instructions")
     if (parsedResourcess != null) {
-      Log.d(this.javaClass.simpleName, "Returning saved parsed-instructions.")
       return Single.just(parsedResourcess)
     }
     else {
-      Log.d(this.javaClass.simpleName, "No parsed-instructions saved. Loading and parsing instructions now.")
       return instructionsGateway.getInstructionFiles()
         .map { instructionFiles ->
-          Log.d(this.javaClass.simpleName,
-                "Loaded instruction files; about to parse instructions")
           val parseResults = instructionFiles.map { file ->
             parse(file)
           }
@@ -63,18 +58,14 @@ class GetInstructions(
           val unparsableFiles = parseResults.filterIsInstance<Result.Err<UnparsableFile, Resource>>()
             .map { x -> x.errValue }
             .toImmutableSet()
-          Log.d(this.javaClass.simpleName, "unparsableFiles: ${unparsableFiles}")
           val resources = parseResults.filterIsInstance<Result.Ok<UnparsableFile, Resource>>()
             .map { x -> x.okValue }
-          Log.d(this.javaClass.simpleName, "resources: ${resources}")
 
           parsedResourcess = ParsedResourcess(
             unparsableFiles = unparsableFiles,
             instructions = resources.filterIsInstance<Instruction>().toImmutableSet(),
             icons = resources.filterIsInstance<Icon>().toImmutableSet()
           )
-          Log.d(this.javaClass.simpleName, "Parsed resources")
-          Log.d(this.javaClass.simpleName, parsedResourcess.toString())
           parsedResourcess
         }
     }
@@ -91,12 +82,17 @@ class GetInstructions(
         fileToIcon(file, fileName)
       }
       else {
+        Timber.e(
+          Exception(
+            "File extension indicates neither an audio file nor an icon file: ${fileName}"))
         return Result.Err(
           UnparsableFile(file.absolutePath, ParsingFailure.FileFormat()))
       }
     }
     catch (e: UnsupportedEncodingException) {
-      Log.e("parse file", "parse failure: ${e}")
+      Timber.e(
+        Exception(
+          "Filename does not consist of valid UTF-8 characters: ${file}", e))
       Result.Err<UnparsableFile, Resource>(
         UnparsableFile(file.name,
                        ParsingFailure.FileNameEncoding()))
@@ -104,12 +100,9 @@ class GetInstructions(
   }
 
   fun fileToInstruction(file: File, fileName: String): Result<UnparsableFile, Instruction> {
-    Log.d("parse instruction", "Instruction file to parse: ${file.absolutePath}")
     return try {
       val (subject, language, cueTime) =
         fileName.substringBeforeLast(".").split('_')
-
-      Log.d("parse instruction", "subject: ${subject}    language: ${language}    cueStartTimeMilliseconds: ${cueTime}")
 
       Result.Ok(
         Instruction(
@@ -119,15 +112,17 @@ class GetInstructions(
           cueStartTime = cueTime.toLong()))
     }
     catch (e: IndexOutOfBoundsException) {
-      e.printStackTrace()
-      Log.e("parse instruction", "parse failure: ${e}")
+      Timber.e(
+        Exception(
+          "Invalid instruction file name format: ${file}"))
       Result.Err(
         UnparsableFile(file.name,
                        ParsingFailure.InstructionFileNameFormat()))
     }
     catch (e: NumberFormatException) {
-      e.printStackTrace()
-      Log.e("parse instruction", "parse failure: ${e}")
+      Timber.e(
+        NumberFormatException(
+          "Invalid instruction cue time in file name: ${file}"))
       Result.Err(
         UnparsableFile(file.name,
                        ParsingFailure.InstructionCueTime()))
@@ -135,10 +130,7 @@ class GetInstructions(
   }
 
   fun fileToIcon(file: File, fileName: String): Result<UnparsableFile, Icon> {
-    Log.d("parse icon", "Icon file to parse: ${file.absolutePath}")
     val subject = fileName.substringBeforeLast(".")
-
-    Log.d("parse icon", "subject: ${subject}")
 
     return Result.Ok(
       Icon(

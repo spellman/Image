@@ -10,4 +10,6 @@
 
   <color name="dangerForeground">#FFA94442</color>
   <color name="dangerBackground">#FFF2DEDE</color>
+
+  <color name ="placeholderIcon">#FFC0C0C0</color>
 </resources>
