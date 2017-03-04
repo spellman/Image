@@ -95,12 +95,19 @@ dependencies {
   compile fileTree(dir: "libs", include: ["*.jar"])
 
   compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
-  kapt "com.android.databinding:compiler:2.2.0"
+
+  // NOTE: The version number in "com.android.databinding:compiler:<version number>"
+  // must match the version of com.android.tools.build:gradle in
+  // root build.gradle > classpath "com.android.tools.build:gradle:<version number>"
+  // https://code.google.com/p/android/issues/detail?id=227741
+  kapt "com.android.databinding:compiler:2.3.0"
 
   compile "com.android.support:appcompat-v7:25.2.0"
   compile "com.android.support:design:25.2.0"
   compile "com.android.support:recyclerview-v7:25.2.0"
   compile "com.android.support:support-v4:25.2.0"
+
+  compile "com.android.support.constraint:constraint-layout:1.0.1"
 
   compile "com.github.andrewoma.dexx:kollection:0.7"
 
@@ -113,11 +120,11 @@ dependencies {
 
   compile "com.github.akarnokd:rxjava2-interop:0.9.2"
 
-  compile "com.jakewharton.rxbinding:rxbinding-kotlin:1.0.0"
-  compile "com.jakewharton.rxbinding:rxbinding-appcompat-v7-kotlin:1.0.0"
-  compile "com.jakewharton.rxbinding:rxbinding-design-kotlin:1.0.0"
-  compile "com.jakewharton.rxbinding:rxbinding-recyclerview-v7-kotlin:1.0.0"
-  compile "com.jakewharton.rxbinding:rxbinding-support-v4-kotlin:1.0.0"
+  compile "com.jakewharton.rxbinding:rxbinding-kotlin:1.0.1"
+  compile "com.jakewharton.rxbinding:rxbinding-appcompat-v7-kotlin:1.0.1"
+  compile "com.jakewharton.rxbinding:rxbinding-design-kotlin:1.0.1"
+  compile "com.jakewharton.rxbinding:rxbinding-recyclerview-v7-kotlin:1.0.1"
+  compile "com.jakewharton.rxbinding:rxbinding-support-v4-kotlin:1.0.1"
 
   compile "com.squareup.picasso:picasso:2.5.2"
 
@@ -136,9 +143,4 @@ dependencies {
 
   compile "com.facebook.stetho:stetho:1.4.2"
   compile "com.facebook.stetho:stetho-okhttp3:1.4.2"
-  compile 'com.android.support.constraint:constraint-layout:1.0.0'
-}
-
-kapt {
-  generateStubs = true
 }
