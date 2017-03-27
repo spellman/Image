@@ -37,7 +37,7 @@ class App : Application() {
     Fabric.with(this, Crashlytics())
     Fabric.with(this, Answers())
     if (BuildConfig.DEBUG) {
-        Timber.plant(Timber.DebugTree())
+      Timber.plant(Timber.DebugTree())
     }
     Timber.plant(CrashlyticsTree())
     refWatcher = LeakCanary.install(this)
