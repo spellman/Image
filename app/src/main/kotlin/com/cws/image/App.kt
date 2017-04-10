@@ -33,7 +33,7 @@ class App : Application() {
 
   override fun onCreate() {
     super.onCreate()
-    Thread.setDefaultUncaughtExceptionHandler(AppCrashHandler(this))
+//    Thread.setDefaultUncaughtExceptionHandler(AppCrashHandler(this))
     Fabric.with(this, Crashlytics())
     Fabric.with(this, Answers())
     if (BuildConfig.DEBUG) {

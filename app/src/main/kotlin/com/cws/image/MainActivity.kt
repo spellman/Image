@@ -14,6 +14,8 @@ import android.support.v4.content.ContextCompat
 import android.support.v7.app.AppCompatActivity
 import android.support.v7.widget.LinearLayoutManager
 import android.support.v7.widget.RecyclerView
+import android.view.Menu
+import android.view.MenuItem
 import android.view.View
 import android.widget.TextView
 import com.cws.image.databinding.MainActivityBinding
@@ -22,6 +24,8 @@ import com.github.andrewoma.dexx.kollection.immutableListOf
 import com.jakewharton.rxbinding.support.design.widget.RxTabLayout
 import hu.akarnokd.rxjava.interop.RxJavaInterop
 import io.reactivex.disposables.Disposable
+import kotlinx.coroutines.experimental.CommonPool
+import kotlinx.coroutines.experimental.launch
 import paperparcel.PaperParcel
 import timber.log.Timber
 
@@ -61,7 +65,10 @@ class MainActivity : AppCompatActivity() {
   private val SELECTED_LANGUAGE = "selected-language"
   private val viewModel by lazy { MainViewModel() }
   private val presenter by lazy {
-    MainPresenter(this, provideGetInstructions(application as App))
+    MainPresenter(
+      this,
+      provideGetInstructions(application as App),
+      provideAuthentication(applicationContext))
   }
   private val binding: MainActivityBinding by lazy {
     DataBindingUtil.setContentView<MainActivityBinding>(this, R.layout.main_activity)
@@ -87,9 +94,7 @@ class MainActivity : AppCompatActivity() {
         }
 
     if (savedInstanceState != null) {
-      val savedSelectedLanguage = savedInstanceState.getString(SELECTED_LANGUAGE)
-      Timber.d("Restoring language selection: ${savedSelectedLanguage}")
-      presenter.selectedLanguage = savedSelectedLanguage
+      presenter.selectedLanguage = savedInstanceState.getString(SELECTED_LANGUAGE)
     }
 
     showInstructions()
@@ -97,7 +102,6 @@ class MainActivity : AppCompatActivity() {
 
   override fun onSaveInstanceState(outState: Bundle?) {
     super.onSaveInstanceState(outState)
-    Timber.d("Saving language selection: ${presenter.selectedLanguage}")
     outState?.putString(SELECTED_LANGUAGE, presenter.selectedLanguage)
   }
 
@@ -134,15 +138,81 @@ class MainActivity : AppCompatActivity() {
     }
   }
 
-  fun initInstructionsRecyclerView() {
-    val onSubjectClicked: (View, Int, Any?) -> Unit = { view: View, position: Int, item: Any? ->
-      if (item as? InstructionViewModel != null) {
-        presenter.playInstruction(item as InstructionViewModel)
+  override fun onCreateOptionsMenu(menu: Menu): Boolean {
+    super.onCreateOptionsMenu(menu)
+    menuInflater.inflate(R.menu.main_activity, menu)
+
+    menu.findItem(R.id.set_up_kiosk_mode)
+      .isVisible = presenter.isSetUpKioskModeMenuItemVisible()
+
+    menu.findItem(R.id.set_password)
+      .isVisible = presenter.isSetPasswordMenuItemVisible()
+
+    val enterKioskModeMenuItem = menu.findItem(R.id.enter_kiosk_mode)
+    enterKioskModeMenuItem.isVisible = presenter.isEnterKioskModeMenuItemVisible()
+    enterKioskModeMenuItem.isEnabled = presenter.isEnterKioskModeMenuItemEnabled()
+
+    menu.findItem(R.id.exit_kiosk_mode)
+      .isVisible = presenter.isExitKioskModeMenuItemVisible()
+
+    return true
+  }
+
+  override fun onOptionsItemSelected(item: MenuItem?): Boolean {
+    return when (item?.itemId) {
+      R.id.set_up_kiosk_mode -> {
+        presenter.showInstructionsToSetUpLockedMode()
+        true
       }
-      else {
-        presenter.couldNotPlayNonInstruction(item, position)
+
+      R.id.set_password -> {
+        launch(CommonPool) {
+          presenter.setPassword()
+        }
+        true
+      }
+
+      R.id.enter_kiosk_mode -> {
+        presenter.enterKioskMode()
+        supportInvalidateOptionsMenu()
+        true
+      }
+
+      R.id.exit_kiosk_mode -> {
+        presenter.exitKioskMode()
+        supportInvalidateOptionsMenu()
+        true
+      }
+
+      else -> {
+        super.onOptionsItemSelected(item)
       }
     }
+  }
+
+  override fun finish() {
+    if (presenter.isInLockTaskMode()) {
+      Snackbar.make(binding.root,
+                    "To quit the app, first exit kiosk mode.",
+                    Snackbar.LENGTH_SHORT)
+        .show()
+      return
+    }
+    else {
+      super.finish()
+    }
+  }
+
+  fun initInstructionsRecyclerView() {
+    val onSubjectClicked: (View, Int, Any?) -> Unit =
+      { view: View, position: Int, item: Any? ->
+        if (item as? InstructionViewModel != null) {
+          presenter.playInstruction(item as InstructionViewModel)
+        }
+        else {
+          presenter.couldNotPlayNonInstruction(item, position)
+        }
+      }
 
     val instructionsLayoutManager = LinearLayoutManager(this)
     instructionsLayoutManager.orientation = LinearLayoutManager.VERTICAL
@@ -295,5 +365,29 @@ class MainActivity : AppCompatActivity() {
     PlayInstructionActivity.startForResult(this,
                                            REQUEST_CODE_PLAY_INSTRUCTION,
                                            instruction)
+  }
+
+  fun showDialogToSetPassword() {
+    SetPasswordDialogFragment()
+      .show(supportFragmentManager, EnterPasswordDialogFragment::class.java.name)
+  }
+
+  fun setPassword(password: String) {
+    presenter.setPassword(password)
+  }
+
+  fun showDialogWithInstructionsToSetUpKioskMode() {
+    InstructionsToSetUpKioskModeDialogFragment()
+      .show(supportFragmentManager,
+            InstructionsToSetUpKioskModeDialogFragment::class.java.name)
+  }
+
+  fun showDialogToEnterPasswordToExitKioskMode() {
+    EnterPasswordDialogFragment()
+      .show(supportFragmentManager, EnterPasswordDialogFragment::class.java.name)
+  }
+
+  fun exitKioskModeIfPasswordIsCorrect(password: String) {
+    presenter.exitKioskModeIfPasswordIsCorrect(password)
   }
 }

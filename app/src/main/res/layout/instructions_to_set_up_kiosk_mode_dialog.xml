@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layout>
+  <android.support.v7.widget.AppCompatTextView
+      xmlns:android="http://schemas.android.com/apk/res/android"
+      android:id="@+id/should_enter_unlocked_kiosk_mode_message"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:text="@string/instructions_to_set_up_kiosk_mode_message"
+      android:linksClickable="true"
+      android:autoLink="all"
+      android:paddingTop="20dp"
+      android:paddingBottom="@dimen/dialog_content_padding"
+      android:paddingLeft="@dimen/dialog_content_padding"
+      android:paddingRight="@dimen/dialog_content_padding"
+      android:textSize="@dimen/dialog_message_text_size"
+      >
+  </android.support.v7.widget.AppCompatTextView>
+</layout>

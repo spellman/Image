@@ -1,22 +1,42 @@
 package com.cws.image
 
+import android.app.ActivityManager
+import android.app.admin.DevicePolicyManager
+import android.content.ComponentName
+import android.content.Context
+import android.os.Build
 import com.github.andrewoma.dexx.kollection.*
 import io.reactivex.Observable
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.functions.BiFunction
 import io.reactivex.schedulers.Schedulers
+import kotlinx.coroutines.experimental.CommonPool
+import kotlinx.coroutines.experimental.android.UI
+import kotlinx.coroutines.experimental.channels.Channel
+import kotlinx.coroutines.experimental.launch
+import kotlinx.coroutines.experimental.run
+import kotlinx.coroutines.experimental.selects.selectUnbiased
 import timber.log.Timber
 import java.io.IOException
 import java.util.concurrent.TimeUnit
-import kotlin.comparisons.compareBy
-import kotlin.comparisons.thenBy
 
 class MainPresenter(
   val activity: MainActivity,
-  val getInstructions: GetInstructions
+  val getInstructions: GetInstructions,
+  val authentication: Authentication
 ) {
+  val activityManager by lazy {
+    activity.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+  }
   var instructions: ImmutableSet<InstructionViewModel> = immutableSetOf()
   var selectedLanguage: String? = null
+  val devicePolicyManager by lazy {
+    activity.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+  }
+  val deviceAdminReceiver by lazy {
+    ComponentName(activity.applicationContext, ImageDeviceAdminReceiver::class.java)
+  }
+  val canEnterKioskMode: Boolean by lazy { _canEnterKioskMode() }
 
   fun showInstructions() {
     getInstructions.getInstructions()
@@ -181,5 +201,136 @@ class MainPresenter(
 
     return r.getString(
       r.getIdentifier(name, "string", activity.packageName))
+  }
+
+  fun _canEnterKioskMode(): Boolean {
+    if (!devicePolicyManager.isDeviceOwnerApp(activity.packageName)) {
+      // TODO: This should not happen so log an error to Crashlytics.
+      Timber.d("${activity.packageName} is not the device owner so we can't enter kiosk mode.")
+      return false
+    }
+
+    Timber.d("${activity.packageName} is the device owner.")
+    devicePolicyManager.setLockTaskPackages(deviceAdminReceiver,
+                                            arrayOf(activity.packageName))
+
+    if (!devicePolicyManager.isLockTaskPermitted(activity.packageName)) {
+      // TODO: This should not happen so log an error to Crashlytics.
+      Timber.d("Lock task mode is not permitted.")
+      return false
+    }
+
+    return true
+  }
+
+  fun showInstructionsToSetUpLockedMode() {
+    activity.showDialogWithInstructionsToSetUpKioskMode()
+  }
+
+  fun setPassword() {
+    activity.showDialogToSetPassword()
+  }
+
+  fun setPassword(password: String) {
+    launch(CommonPool) {
+      val result = authentication.setPassword(password)
+
+      run(UI) {
+        when (result) {
+          is Result.Err -> {
+            // TODO: This should be extremely rare, if it happens at all, so log this.
+            // TODO: Show feedback to user.
+            Timber.d(result.errValue)
+          }
+          is Result.Ok -> {
+            // TODO: Show feedback to user.
+            Timber.d("Password set.")
+          }
+        }
+      }
+    }
+  }
+
+ fun isInLockTaskMode(): Boolean {
+    if (Build.VERSION.SDK_INT in
+      Build.VERSION_CODES.LOLLIPOP..Build.VERSION_CODES.LOLLIPOP_MR1) {
+      // 2017-03-31 Cort Spellman
+      // isInLockTaskMode is deprecated in API version 23.
+      return activityManager.isInLockTaskMode
+    }
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+      return activityManager.lockTaskModeState != ActivityManager.LOCK_TASK_MODE_NONE
+    }
+
+    return false
+  }
+
+  fun enterKioskMode() {
+    Timber.d("Trying to enter kiosk mode.")
+    if (!canEnterKioskMode) {
+      // TODO: Provide feedback to user.
+      return
+    }
+
+    Timber.d("App can enter lock task mode.")
+
+    if (!authentication.isPasswordSet()) {
+      Timber.d("Cannot enter kiosk mode because password is not set.")
+      // TODO: This should not happen so log an error to Crashlytics.
+      // TODO: Provide feedback to user.
+      return
+    }
+
+    Timber.d("Password has been set.")
+    activity.startLockTask()
+    // TODO: Provide feedback to user.
+    Timber.d("Entered kiosk mode.")
+  }
+
+  fun exitKioskMode() {
+    Timber.d("About to try to exit kiosk mode.")
+    if (!isInLockTaskMode()) {
+      Timber.d("Not in lock task mode. No need to exit.")
+      // TODO: Provide feedback to user.
+      return
+    }
+
+    activity.showDialogToEnterPasswordToExitKioskMode()
+  }
+
+  fun exitKioskModeIfPasswordIsCorrect(password: String) {
+    launch(CommonPool) {
+      if (authentication.isPasswordCorrect(password)) {
+        run(UI) {
+          activity.stopLockTask()
+          // TODO: Provide feedback to user.
+          Timber.d("Exited kiosk mode.")
+        }
+      }
+      else {
+        // TODO: Provide feedback to user.
+      }
+    }
+  }
+
+  fun isSetUpKioskModeMenuItemVisible(): Boolean {
+    return !canEnterKioskMode
+  }
+
+  fun isSetPasswordMenuItemVisible(): Boolean {
+    return canEnterKioskMode && !isInLockTaskMode()
+  }
+
+  fun isEnterKioskModeMenuItemVisible(): Boolean {
+    return canEnterKioskMode && !isInLockTaskMode()
+  }
+
+  fun isEnterKioskModeMenuItemEnabled(): Boolean {
+    return authentication.isPasswordSet()
+  }
+
+  fun isExitKioskModeMenuItemVisible(): Boolean {
+    return canEnterKioskMode && isInLockTaskMode()
   }
 }

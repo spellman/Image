@@ -1,23 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.cws.image">
 
-  <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-  <uses-permission android:name="android.permission.INTERNET" />
+  <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+  <uses-permission android:name="android.permission.INTERNET"/>
+
+  <!-- To auto-complete the email text field in the login form with the user's emails -->
+  <uses-permission android:name="android.permission.GET_ACCOUNTS"/>
+  <uses-permission android:name="android.permission.READ_PROFILE"/>
+  <uses-permission android:name="android.permission.READ_CONTACTS"/>
 
   <application
       android:allowBackup="true"
       android:icon="@mipmap/ic_launcher"
       android:label="@string/app_name"
+      android:name=".App"
       android:supportsRtl="true"
-      android:theme="@style/AppTheme.NoActionBar"
-      android:name=".App">
-    <activity android:name=".MainActivity">
+      android:theme="@style/AppTheme.NoActionBar">
+    <activity
+        android:launchMode="singleInstance"
+        android:name=".MainActivity"
+        android:windowActionBar="false">
       <intent-filter>
         <action android:name="android.intent.action.MAIN"/>
 
         <category android:name="android.intent.category.LAUNCHER"/>
+        <category android:name="android.intent.category.HOME"/>
+        <category android:name="android.intent.category.DEFAULT"/>
       </intent-filter>
     </activity>
     <activity android:name=".PlayInstructionActivity">
@@ -25,8 +34,12 @@
 
     <meta-data
         android:name="io.fabric.ApiKey"
-        android:value="8c7a128abd9f112911957e09e2bf2d03428f9ec8"
-        />
+        android:value="8c7a128abd9f112911957e09e2bf2d03428f9ec8"/>
+
+    <activity
+        android:label="@string/title_activity_login"
+        android:name=".LoginActivity">
+    </activity>
   </application>
 
 </manifest>
