@@ -7,6 +7,7 @@ import android.support.v4.app.DialogFragment
 import android.support.v7.app.AlertDialog
 import android.view.LayoutInflater
 import android.view.View
+import android.widget.TextView
 import com.cws.image.databinding.SetPasswordDialogBinding
 import com.github.andrewoma.dexx.kollection.ImmutableList
 import com.github.andrewoma.dexx.kollection.immutableListOf
@@ -32,6 +33,13 @@ class SetPasswordDialogFragment : DialogFragment() {
         })
       .setNegativeButton(android.R.string.cancel, null)
       .create()
+
+    val message = dialog.findViewById(android.R.id.message) as TextView
+    val paddingTop = resources.getDimensionPixelSize(R.dimen.dialog_message_padding_top)
+    val paddingBottom = message.paddingBottom
+    val paddingLeft = message.paddingLeft
+    val paddingRight = message.paddingRight
+    message.setPadding(paddingLeft, paddingTop, paddingRight, paddingBottom)
 
     val setPasswordButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
     setPasswordButton.isEnabled = false

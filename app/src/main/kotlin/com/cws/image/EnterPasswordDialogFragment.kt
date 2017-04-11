@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.support.v4.app.DialogFragment
 import android.support.v7.app.AlertDialog
 import android.view.LayoutInflater
+import android.widget.TextView
 import com.cws.image.databinding.EnterPasswordDialogBinding
 
 class EnterPasswordDialogFragment : DialogFragment() {
@@ -15,7 +16,7 @@ class EnterPasswordDialogFragment : DialogFragment() {
   }
 
   override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
-    return AlertDialog.Builder(activity)
+    val dialog = AlertDialog.Builder(activity)
       .setView(binding.root)
       .setTitle(R.string.enter_password)
       .setMessage(R.string.enter_password_to_exit_kiosk_mode_dialog_message)
@@ -26,5 +27,14 @@ class EnterPasswordDialogFragment : DialogFragment() {
         })
       .setNegativeButton(android.R.string.cancel, null)
       .create()
+
+    val message = dialog.findViewById(android.R.id.message) as TextView
+    val paddingTop = resources.getDimensionPixelSize(R.dimen.dialog_message_padding_top)
+    val paddingBottom = message.paddingBottom
+    val paddingLeft = message.paddingLeft
+    val paddingRight = message.paddingRight
+    message.setPadding(paddingLeft, paddingTop, paddingRight, paddingBottom)
+
+    return dialog
   }
 }

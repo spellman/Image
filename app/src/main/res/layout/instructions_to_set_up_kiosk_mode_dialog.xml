@@ -8,7 +8,7 @@
       android:text="@string/instructions_to_set_up_kiosk_mode_message"
       android:linksClickable="true"
       android:autoLink="all"
-      android:paddingTop="20dp"
+      android:paddingTop="@dimen/dialog_message_padding_top"
       android:paddingBottom="@dimen/dialog_content_padding"
       android:paddingLeft="@dimen/dialog_content_padding"
       android:paddingRight="@dimen/dialog_content_padding"
