@@ -12,10 +12,8 @@ import io.reactivex.functions.BiFunction
 import io.reactivex.schedulers.Schedulers
 import kotlinx.coroutines.experimental.CommonPool
 import kotlinx.coroutines.experimental.android.UI
-import kotlinx.coroutines.experimental.channels.Channel
 import kotlinx.coroutines.experimental.launch
 import kotlinx.coroutines.experimental.run
-import kotlinx.coroutines.experimental.selects.selectUnbiased
 import timber.log.Timber
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -23,7 +21,8 @@ import java.util.concurrent.TimeUnit
 class MainPresenter(
   val activity: MainActivity,
   val getInstructions: GetInstructions,
-  val authentication: Authentication
+  val authentication: Authentication,
+  val kioskModeSetting: KioskModeSetting
 ) {
   val activityManager by lazy {
     activity.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
@@ -282,13 +281,14 @@ class MainPresenter(
       return
     }
 
-    Timber.d("Password has been set.")
+    Timber.d("A password has been set.")
     activity.startLockTask()
     // TODO: Provide feedback to user.
+    kioskModeSetting.setShouldBeInKioskMode(true)
     Timber.d("Entered kiosk mode.")
   }
 
-  fun exitKioskMode() {
+  fun tryExitKioskMode() {
     Timber.d("About to try to exit kiosk mode.")
     if (!isInLockTaskMode()) {
       Timber.d("Not in lock task mode. No need to exit.")
@@ -296,6 +296,7 @@ class MainPresenter(
       return
     }
 
+    Timber.d("In lock task mode. About to show dialog to allow user to enter password to exit kisok mode.")
     activity.showDialogToEnterPasswordToExitKioskMode()
   }
 
@@ -305,12 +306,32 @@ class MainPresenter(
         run(UI) {
           activity.stopLockTask()
           // TODO: Provide feedback to user.
-          Timber.d("Exited kiosk mode.")
         }
+        kioskModeSetting.setShouldBeInKioskMode(false)
+        Timber.d("Exited kiosk mode.")
       }
       else {
+        Timber.d("Password is not correct. Cannot exit kiosk mode.")
         // TODO: Provide feedback to user.
       }
+    }
+  }
+
+  fun forceExitKioskMode() {
+    Timber.d("About to force-exit kiosk mode.")
+//    if (!isInLockTaskMode()) {
+//      Timber.d("Not in lock task mode. No need to exit.")
+//      // TODO: Provide feedback to user.
+//      return
+//    }
+    activity.stopLockTask()
+    kioskModeSetting.setShouldBeInKioskMode(false)
+  }
+
+  fun resumeKioskModeIfItWasInterrupted() {
+    if (kioskModeSetting.getShouldBeInKioskMode()
+      && !isInLockTaskMode()) {
+      enterKioskMode()
     }
   }
 

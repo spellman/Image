@@ -18,8 +18,9 @@
 
   <string name="set_password_dialog_title">Set password</string>
   <string name="set_password_dialog_message">Enter a password to be used to unlock the device from running only this app.</string>
-  <string name="password_min_length">Password must be at least 8 characters long.</string>
+  <string name="password_min_length">Password must be at least %1$d characters long.</string>
   <string name="password_cannot_contain_password">Password cannot contain the word \"password\" or similar.</string>
+  <string name="password_cannot_contain_common_sequence">Password cannot contain common, and therefore easily guessable, sequences of characters.</string>
   <string name="passwords_must_match">Passwords must match.</string>
 
   <string name="enter_password">Enter password</string>

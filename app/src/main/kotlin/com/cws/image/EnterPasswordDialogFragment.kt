@@ -26,7 +26,7 @@ class EnterPasswordDialogFragment : DialogFragment() {
           (activity as MainActivity).exitKioskModeIfPasswordIsCorrect(binding.password.text.toString())
         })
       .setNegativeButton(android.R.string.cancel, null)
-      .create()
+      .show()
 
     val message = dialog.findViewById(android.R.id.message) as TextView
     val paddingTop = resources.getDimensionPixelSize(R.dimen.dialog_message_padding_top)

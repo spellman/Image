@@ -6,23 +6,28 @@
     tools:context=".MainActivity"
     >
   <item
-    android:id="@+id/set_up_kiosk_mode"
-    android:title="@string/set_up_kiosk_mode"
-    app:showAsAction="never"
-    />
+      android:id="@+id/set_up_kiosk_mode"
+      android:title="@string/set_up_kiosk_mode"
+      app:showAsAction="never"
+      />
   <item
       android:id="@+id/set_password"
       android:title="@string/set_password_menu_item"
       app:showAsAction="never"
       />
   <item
-    android:id="@+id/enter_kiosk_mode"
-    android:title="@string/enter_kiosk_mode"
-    app:showAsAction="never"
-    />
+      android:id="@+id/enter_kiosk_mode"
+      android:title="@string/enter_kiosk_mode"
+      app:showAsAction="never"
+      />
   <item
       android:id="@+id/exit_kiosk_mode"
       android:title="@string/exit_kiosk_mode"
+      app:showAsAction="never"
+      />
+  <item
+      android:id="@+id/force_exit_kiosk_mode"
+      android:title="Force Exit Kiosk Mode"
       app:showAsAction="never"
       />
 </menu>

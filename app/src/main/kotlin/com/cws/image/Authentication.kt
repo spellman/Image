@@ -1,8 +1,8 @@
 package com.cws.image
 
 interface AuthenticationGateway {
-  suspend fun getPassword(): Result<String, String>
-  suspend fun setPassword(password: String): Result<String, Unit>
+  fun getPassword(): Result<String, String>
+  fun setPassword(password: String): Result<String, Unit>
   fun isPasswordSet(): Boolean
 }
 
@@ -25,15 +25,15 @@ class Authentication(
     }
   }
 
-  suspend fun getPassword(): Result<String, String> {
+  fun getPassword(): Result<String, String> {
     return authenticationGateway.getPassword()
   }
 
-  suspend fun setPassword(password: String): Result<String, Unit> {
+  fun setPassword(password: String): Result<String, Unit> {
     return authenticationGateway.setPassword(Hash.sha256(password))
   }
 
-  suspend fun isPasswordCorrect(password: String): Boolean {
+  fun isPasswordCorrect(password: String): Boolean {
     return try {
       val result = getPassword()
       when (result) {

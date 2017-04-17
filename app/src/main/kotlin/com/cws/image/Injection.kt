@@ -63,14 +63,20 @@ fun provideRxSharedPreferences(context: Context): RxSharedPreferences {
   return RxSharedPreferencesSingleton.getInstance(context)
 }
 
-fun provideSharedPreferencesPasswordStorage(
+fun provideSharedPreferencesStorage(
   context: Context
-): SharedPreferencesPasswordStorage {
-  return SharedPreferencesPasswordStorage(context)
+): SharedPreferencesStorage {
+  return SharedPreferencesStorage(context)
 }
 
 fun provideAuthentication(context: Context): Authentication {
   return Authentication.getInstance(
-    provideSharedPreferencesPasswordStorage(context)
+    provideSharedPreferencesStorage(context)
+  )
+}
+
+fun provideKioskModeSetting(context: Context): KioskModeSetting {
+  return KioskModeSetting.getInstance(
+    provideSharedPreferencesStorage(context)
   )
 }

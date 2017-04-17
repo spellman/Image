@@ -32,9 +32,5 @@ class ImageDeviceAdminReceiver : DeviceAdminReceiver() {
   override fun onLockTaskModeExiting(context: Context, intent: Intent) {
     Toast.makeText(context, "Kiosk mode disabled.",
                    Toast.LENGTH_SHORT).show()
-    // TODO: How do I get a reference to the activity? Is it the context? Through the context?
-    // https://stackoverflow.com/questions/2068084/kiosk-mode-in-android
-    // Here you must re-lock your app.
-    // Make your activity know of this event and make it call startLockTask again!
   }
 }

@@ -68,7 +68,9 @@ class MainActivity : AppCompatActivity() {
     MainPresenter(
       this,
       provideGetInstructions(application as App),
-      provideAuthentication(applicationContext))
+      provideAuthentication(applicationContext),
+      provideKioskModeSetting(applicationContext)
+    )
   }
   private val binding: MainActivityBinding by lazy {
     DataBindingUtil.setContentView<MainActivityBinding>(this, R.layout.main_activity)
@@ -77,6 +79,8 @@ class MainActivity : AppCompatActivity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+
+    presenter.resumeKioskModeIfItWasInterrupted()
 
     setSupportActionBar(binding.toolbar)
     binding.viewModel = viewModel
@@ -142,6 +146,11 @@ class MainActivity : AppCompatActivity() {
     super.onCreateOptionsMenu(menu)
     menuInflater.inflate(R.menu.main_activity, menu)
 
+    return true
+  }
+
+  override fun onPrepareOptionsMenu(menu: Menu): Boolean {
+    super.onPrepareOptionsMenu(menu)
     menu.findItem(R.id.set_up_kiosk_mode)
       .isVisible = presenter.isSetUpKioskModeMenuItemVisible()
 
@@ -166,21 +175,22 @@ class MainActivity : AppCompatActivity() {
       }
 
       R.id.set_password -> {
-        launch(CommonPool) {
-          presenter.setPassword()
-        }
+        presenter.setPassword()
         true
       }
 
       R.id.enter_kiosk_mode -> {
         presenter.enterKioskMode()
-        supportInvalidateOptionsMenu()
         true
       }
 
       R.id.exit_kiosk_mode -> {
-        presenter.exitKioskMode()
-        supportInvalidateOptionsMenu()
+        presenter.tryExitKioskMode()
+        true
+      }
+
+      R.id.force_exit_kiosk_mode -> {
+        presenter.forceExitKioskMode()
         true
       }
 
