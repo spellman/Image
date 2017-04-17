@@ -89,7 +89,7 @@ class PlayInstructionFragment : BaseFragment() {
         .retryWhen { errors ->
           errors
             .zipWith(Observable.range(4, 12),
-                     BiFunction({ error: Throwable, i: Int -> i }))
+                     BiFunction { error: Throwable, i: Int -> i })
             .flatMap { numberOfRetries ->
               // 2017-02-19 Cort Spellman
               // integral(2 ^ x, x, x = 4, x = 8, x <- Z) = 496

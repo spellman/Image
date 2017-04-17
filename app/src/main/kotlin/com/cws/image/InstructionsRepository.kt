@@ -11,25 +11,11 @@ import io.reactivex.Single
 import java.io.File
 import java.io.IOException
 
-class InstructionsRepository(
-  context: Context,
-  storageDir: File,
-  tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb: File
-) : InstructionsGateway {
-  val localFileSystemInstructionsStorage =
-    LocalFileSystemInstructionsStorage(
-      context, storageDir, tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb)
-
-  override fun getInstructionFiles(): Single<ImmutableSet<File>> {
-    return localFileSystemInstructionsStorage.getInstructionFiles()
-  }
-}
-
 class LocalFileSystemInstructionsStorage(
   val context: Context,
   val storageDir: File,
   val tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb: File
-) {
+) : InstructionsGateway {
   val filesToSkip = immutableSetOf(tokenFileToMakeDirAppearWhenDeviceIsMountedViaUsb)
 
   fun isExternalStorageWritable(): Boolean {
@@ -44,7 +30,7 @@ class LocalFileSystemInstructionsStorage(
     ).contains(s)
   }
 
-  fun getInstructionFiles(): Single<ImmutableSet<File>> {
+  override fun getInstructionFiles(): Single<ImmutableSet<File>> {
     return Single.just(ensureInstructionsDirExists())
       .flatMap { dir -> ensureInstructionsDirIsAccessibleFromPC() }
       .map { dir ->
