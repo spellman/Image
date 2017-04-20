@@ -14,7 +14,7 @@
 
   <string name="enter_kiosk_mode">Enter Kiosk Mode</string>
   <string name="exit_kiosk_mode">Exit Kiosk Mode</string>
-  <string name="set_password_menu_item">Set Unlock Password</string>
+  <string name="set_password">Set Unlock Password</string>
 
   <string name="set_password_dialog_title">Set password</string>
   <string name="set_password_dialog_message">Enter a password to be used to unlock the device from running only this app.</string>
@@ -25,6 +25,7 @@
 
   <string name="enter_password">Enter password</string>
   <string name="enter_password_to_exit_kiosk_mode_dialog_message">Enter password to unlock the device from running only this app.</string>
+  <string name="wrong_password">Wrong password</string>
 
   <string name="instructions_to_set_up_kiosk_mode_title">The device can\'t yet be locked to this app.</string>
   <string name="instructions_to_set_up_kiosk_mode_message">This app must be set as the device owner before the device can be locked to run only this app. Follow these instructions: http://www.instructions.com\n\nNote that this process involves factory-resetting the device.</string>
@@ -49,4 +50,6 @@
   <string name="error_incorrect_password">This password is incorrect</string>
   <string name="error_field_required">This field is required</string>
   <string name="permission_rationale">"Contacts permissions are needed for providing email completions."</string>
+
+  <string name="error_has_been_logged">This error has been logged and will be reviewed.</string>
 </resources>

@@ -175,7 +175,7 @@ class MainActivity : AppCompatActivity() {
       }
 
       R.id.set_password -> {
-        presenter.setPassword()
+        presenter.startWorkflowToSetPassword()
         true
       }
 
@@ -185,12 +185,12 @@ class MainActivity : AppCompatActivity() {
       }
 
       R.id.exit_kiosk_mode -> {
-        presenter.tryExitKioskMode()
+        presenter.startWorkflowToExitKioskMode()
         true
       }
 
       R.id.force_exit_kiosk_mode -> {
-        presenter.forceExitKioskMode()
+        presenter.exitKioskMode()
         true
       }
 
@@ -255,20 +255,18 @@ class MainActivity : AppCompatActivity() {
                                     immutableListOf())
   }
 
-  fun showMessageForInstructionsLoadFailure(message: String) {
-    val snackbar =
-      Snackbar.make(binding.root, message, Snackbar.LENGTH_INDEFINITE)
+  fun showSnackbarShort(message: String) = showSnackbar(message, Snackbar.LENGTH_SHORT)
+  fun showSnackbarLong(message: String) = showSnackbar(message, Snackbar.LENGTH_LONG)
+  fun showSnackbarIndefinite(message: String) = showSnackbar(message, Snackbar.LENGTH_INDEFINITE)
+  // TODO: Use reddish letters for error text.
+  // Add an optional type argument to the above functions.
+  // Style the text based on the type in showSnackbar.
+
+  fun showSnackbar(message: String, duration: Int, maxLines: Int = 3) {
+    val snackbar = Snackbar.make(binding.root, message, duration)
     val snackbarTextView = snackbar.view.findViewById(
       android.support.design.R.id.snackbar_text) as? TextView
-    snackbarTextView?.maxLines = 3
-    snackbar.show()
-  }
-
-  fun showMessageForInstructionPlayFailure(message: String) {
-    val snackbar = Snackbar.make(binding.root, message, 5000)
-    (snackbar.view.findViewById(
-      android.support.design.R.id.snackbar_text) as? TextView)
-      ?.maxLines = 3
+    snackbarTextView?.maxLines = maxLines
     snackbar.show()
   }
 
@@ -397,7 +395,11 @@ class MainActivity : AppCompatActivity() {
       .show(supportFragmentManager, EnterPasswordDialogFragment::class.java.name)
   }
 
-  fun exitKioskModeIfPasswordIsCorrect(password: String) {
-    presenter.exitKioskModeIfPasswordIsCorrect(password)
+  fun exitKioskMode() {
+    presenter.exitKioskMode()
+  }
+
+  fun exitKioskMode(message: String) {
+    presenter.exitKioskMode(message)
   }
 }

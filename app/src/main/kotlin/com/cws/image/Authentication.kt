@@ -1,5 +1,7 @@
 package com.cws.image
 
+import timber.log.Timber
+
 interface AuthenticationGateway {
   fun getPassword(): Result<String, String>
   fun setPassword(password: String): Result<String, Unit>
@@ -33,19 +35,11 @@ class Authentication(
     return authenticationGateway.setPassword(Hash.sha256(password))
   }
 
-  fun isPasswordCorrect(password: String): Boolean {
-    return try {
-      val result = getPassword()
-      when (result) {
-        is Result.Err -> {
-          // TODO: This should never happen so log this.
-          false
-        }
-        is Result.Ok -> result.okValue == Hash.sha256(password)
-      }
-    }
-    catch (e: IllegalArgumentException) {
-      false
+  fun isPasswordCorrect(password: String): Result<String, Boolean> {
+    val res = getPassword()
+    return when (res) {
+      is Result.Err -> Result.Err(res.errValue)
+      is Result.Ok -> Result.Ok(res.okValue == Hash.sha256(password))
     }
   }
 

@@ -12,7 +12,7 @@
       />
   <item
       android:id="@+id/set_password"
-      android:title="@string/set_password_menu_item"
+      android:title="@string/set_password"
       app:showAsAction="never"
       />
   <item

@@ -5,15 +5,12 @@ import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
 import android.os.Build
+import android.support.design.widget.Snackbar
 import com.github.andrewoma.dexx.kollection.*
 import io.reactivex.Observable
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.functions.BiFunction
 import io.reactivex.schedulers.Schedulers
-import kotlinx.coroutines.experimental.CommonPool
-import kotlinx.coroutines.experimental.android.UI
-import kotlinx.coroutines.experimental.launch
-import kotlinx.coroutines.experimental.run
 import timber.log.Timber
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -43,13 +40,13 @@ class MainPresenter(
       .retryWhen { errors ->
         errors
           .zipWith(Observable.range(4, 12),
-                   BiFunction({ error: Throwable, i: Int -> i }))
+                   BiFunction({ err: Throwable, i: Int -> i }))
           .flatMap { numberOfRetries ->
             // 2017-02-19 Cort Spellman
             // integral(2 ^ x, x, x = 4, x = 8, x <- Z) = 496
             // 496 milliseconds ~ a half-second delay
             if (numberOfRetries == 8) {
-              // TODO: Show snackbar message "Loading..." or similar.
+              activity.showSnackbarShort("Loading instructions...")
             }
 
             // 2017-02-19 Cort Spellman: Retry with exponential backoff.
@@ -84,9 +81,10 @@ class MainPresenter(
             .toImmutableList()
 
           // 2017-02-08 Cort Spellman
-          // Switch the unparsable instructions recyclerview to databinding and the
-          // languages to a viewpager and databinding so that you can change the
-          // viewmodel here instead of manipulating the view manually.
+          // TODO: Switch the unparsable instructions recyclerview to
+          // databinding and the languages to a viewpager and databinding so
+          // that you can change the viewmodel here instead of manipulating the
+          // view manually.
           activity.refreshUnparsableInstructions(unparsableInstructionViewModels)
           activity.refreshLanguageTabs(languages)
         },
@@ -94,7 +92,7 @@ class MainPresenter(
           val message = (throwable.message as? String)
                         ?: "Could not read instructions. (No reason given.)"
           Timber.e(IOException(message))
-          activity.showMessageForInstructionsLoadFailure(message)
+          activity.showSnackbarIndefinite(message)
         }
       )
   }
@@ -123,7 +121,7 @@ class MainPresenter(
     Timber.e(
       Exception(
         "Cannot play non-instruction item ${item}, element number ${positionInList + 1} in the list of instructions."))
-    activity.showMessageForInstructionPlayFailure("Could not play the selected item.")
+    activity.showSnackbarShort("Could not play the selected item.")
   }
 
   fun couldNotPlayInstruction(instruction: InstructionViewModel?, message: String?) {
@@ -132,7 +130,7 @@ class MainPresenter(
         "The ${it.language} ${it.subject} instruction could not be played.\n${message}"
       }
       ?: "The instruction could not be played.\n${message}"
-    activity.showMessageForInstructionPlayFailure(displayMessage)
+    activity.showSnackbarShort(displayMessage)
   }
 
   fun instructionsToInstructionViewModels(
@@ -204,18 +202,15 @@ class MainPresenter(
 
   fun _canEnterKioskMode(): Boolean {
     if (!devicePolicyManager.isDeviceOwnerApp(activity.packageName)) {
-      // TODO: This should not happen so log an error to Crashlytics.
-      Timber.d("${activity.packageName} is not the device owner so we can't enter kiosk mode.")
       return false
     }
 
-    Timber.d("${activity.packageName} is the device owner.")
     devicePolicyManager.setLockTaskPackages(deviceAdminReceiver,
                                             arrayOf(activity.packageName))
 
     if (!devicePolicyManager.isLockTaskPermitted(activity.packageName)) {
       // TODO: This should not happen so log an error to Crashlytics.
-      Timber.d("Lock task mode is not permitted.")
+      Timber.e("DevicePolicyManager#isDeviceOwnerApp just returned true and we just made this a lo")
       return false
     }
 
@@ -226,28 +221,48 @@ class MainPresenter(
     activity.showDialogWithInstructionsToSetUpKioskMode()
   }
 
-  fun setPassword() {
+  fun startWorkflowToSetPassword() {
     activity.showDialogToSetPassword()
   }
 
   fun setPassword(password: String) {
-    launch(CommonPool) {
-      val result = authentication.setPassword(password)
-
-      run(UI) {
-        when (result) {
-          is Result.Err -> {
-            // TODO: This should be extremely rare, if it happens at all, so log this.
-            // TODO: Show feedback to user.
-            Timber.d(result.errValue)
-          }
-          is Result.Ok -> {
-            // TODO: Show feedback to user.
-            Timber.d("Password set.")
-          }
+    Observable.just(authentication.setPassword(password))
+      .map { res ->
+        when (res) {
+          is Result.Err -> throw Exception(res.errValue)
+          is Result.Ok -> res.okValue
         }
       }
-    }
+      .retryWhen { errors ->
+        errors
+          .zipWith(Observable.range(4, 12),
+                   BiFunction({ error: Throwable, i: Int -> Pair(error, i) }))
+          .flatMap { (err, numberOfRetries) ->
+            // 2017-04-18 Cort Spellman
+            // integral(2 ^ x, x, x = 4, x = 8, x <- Z) = 496
+            // 496 milliseconds ~ a half-second delay
+            if (numberOfRetries == 8) {
+              activity.showSnackbarShort("Working...")
+            }
+
+            // 2017-02-19 Cort Spellman: Retry with exponential backoff.
+            val durationUntilRetry =
+              Math.pow(2.toDouble(), numberOfRetries.toDouble()).toLong()
+
+            Timber.d("${err.message} Failure #${numberOfRetries}. Trying again in ${durationUntilRetry} milliseconds.")
+            Observable.timer(durationUntilRetry, TimeUnit.MILLISECONDS) }
+      }
+      .subscribeOn(Schedulers.io())
+      .observeOn(AndroidSchedulers.mainThread())
+      .subscribe(
+        { _ ->
+          activity.showSnackbarShort("Password set.")
+        },
+        { err ->
+          Timber.e(err.message)
+          activity.showSnackbarShort("Password could not be saved after several attempts. Trying again may work.\n${activity.getString(R.string.error_has_been_logged)}")
+        }
+      )
   }
 
  fun isInLockTaskMode(): Boolean {
@@ -268,31 +283,30 @@ class MainPresenter(
   fun enterKioskMode() {
     Timber.d("Trying to enter kiosk mode.")
     if (!canEnterKioskMode) {
-      // TODO: Provide feedback to user.
+      Timber.e("We are trying to enter authorized lock-task mode when the device is not set up to do so. Why was the action available to the user?.")
+      activity.showSnackbarShort("This device isn't set up for kiosk mode yet. Select ${activity.getString(R.string.set_up_kiosk_mode)} from the menu to set up the device.")
       return
     }
 
     Timber.d("App can enter lock task mode.")
 
     if (!authentication.isPasswordSet()) {
-      Timber.d("Cannot enter kiosk mode because password is not set.")
-      // TODO: This should not happen so log an error to Crashlytics.
-      // TODO: Provide feedback to user.
+      Timber.e("We are trying to enter authorized lock-task mode before the unlock password has been set. Why was the action available to the user?.")
+      activity.showSnackbarShort("You need to be able to unlock kiosk mode before you enter it. Select ${activity.getString(R.string.set_password)} from the menu to set your password.")
       return
     }
 
     Timber.d("A password has been set.")
     activity.startLockTask()
-    // TODO: Provide feedback to user.
-    kioskModeSetting.setShouldBeInKioskMode(true)
+    setShouldBeInKioskMode(true)
     Timber.d("Entered kiosk mode.")
   }
 
-  fun tryExitKioskMode() {
+  fun startWorkflowToExitKioskMode() {
     Timber.d("About to try to exit kiosk mode.")
     if (!isInLockTaskMode()) {
-      Timber.d("Not in lock task mode. No need to exit.")
-      // TODO: Provide feedback to user.
+      Timber.e("We are trying to exit lock-task mode when the app is not in the mode. Why was the action available to the user?.")
+      activity.showSnackbarShort("Oops, it looks like the device was already not in kiosk mode.")
       return
     }
 
@@ -300,32 +314,18 @@ class MainPresenter(
     activity.showDialogToEnterPasswordToExitKioskMode()
   }
 
-  fun exitKioskModeIfPasswordIsCorrect(password: String) {
-    launch(CommonPool) {
-      if (authentication.isPasswordCorrect(password)) {
-        run(UI) {
-          activity.stopLockTask()
-          // TODO: Provide feedback to user.
-        }
-        kioskModeSetting.setShouldBeInKioskMode(false)
-        Timber.d("Exited kiosk mode.")
-      }
-      else {
-        Timber.d("Password is not correct. Cannot exit kiosk mode.")
-        // TODO: Provide feedback to user.
-      }
-    }
+  fun exitKioskMode() {
+    Timber.d("About to exit kiosk mode.")
+    activity.stopLockTask()
+    setShouldBeInKioskMode(false)
+    Timber.d("Exited kiosk mode.")
   }
 
-  fun forceExitKioskMode() {
-    Timber.d("About to force-exit kiosk mode.")
-//    if (!isInLockTaskMode()) {
-//      Timber.d("Not in lock task mode. No need to exit.")
-//      // TODO: Provide feedback to user.
-//      return
-//    }
-    activity.stopLockTask()
-    kioskModeSetting.setShouldBeInKioskMode(false)
+  fun exitKioskMode(message: String) {
+    activity.showSnackbarLong(
+      "${message} ${activity.getString(R.string.error_has_been_logged)}"
+    )
+    exitKioskMode()
   }
 
   fun resumeKioskModeIfItWasInterrupted() {
@@ -353,5 +353,53 @@ class MainPresenter(
 
   fun isExitKioskModeMenuItemVisible(): Boolean {
     return canEnterKioskMode && isInLockTaskMode()
+  }
+
+  fun setShouldBeInKioskMode(shouldBeInKioskMode: Boolean) {
+    Observable.just(kioskModeSetting.setShouldBeInKioskMode(shouldBeInKioskMode))
+      .map { res ->
+        when (res) {
+          is Result.Err -> throw Exception(res.errValue)
+          is Result.Ok -> res.okValue
+        }
+      }
+      .retryWhen { errors ->
+        errors
+          .zipWith(Observable.range(4, 12),
+                   BiFunction({ error: Throwable, i: Int -> Pair(error, i) }))
+          .flatMap { (err, numberOfRetries) ->
+            // 2017-04-18 Cort Spellman
+            // integral(2 ^ x, x, x = 4, x = 8, x <- Z) = 496
+            // 496 milliseconds ~ a half-second delay
+            if (numberOfRetries == 8) {
+              activity.showSnackbarShort("Working...")
+            }
+
+            // 2017-04-19 Cort Spellman: Retry with exponential backoff.
+            val durationUntilRetry =
+              Math.pow(2.toDouble(), numberOfRetries.toDouble()).toLong()
+
+            Timber.d("${err.message} Failure #${numberOfRetries}. Trying again in ${durationUntilRetry} milliseconds.")
+            Observable.timer(durationUntilRetry, TimeUnit.MILLISECONDS) }
+      }
+      .subscribeOn(Schedulers.io())
+      .observeOn(AndroidSchedulers.mainThread())
+      .subscribe(
+        { _ -> },
+        { err ->
+          Timber.e("${err.message}. Could not save kiosk-mode status.")
+          val modeSpecificMessage = if (isInLockTaskMode()) {
+            "The device is NOT secure. If it restarts (e.g., after losing power), it will not resume kiosk mode."
+          }
+          else {
+            "This app will resume kiosk mode on quitting and restarting or if the device is physically rotated or on any number of other conditions that cause Android to re-create this screen."
+          }
+          activity.showSnackbar(
+            message = "Kiosk-mode status could not be saved after several attempts.\n${modeSpecificMessage}\n${activity.getString(R.string.error_has_been_logged)}",
+            duration = Snackbar.LENGTH_LONG,
+            maxLines = 6
+            )
+        }
+      )
   }
 }

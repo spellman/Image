@@ -63,7 +63,7 @@ class SetPasswordDialogFragment : DialogFragment() {
         Pair(password, validator.validate(password, passwordConfirmation))
       }
       .observeOn(AndroidSchedulers.mainThread())
-      .forEach { (_, errors) ->
+      .subscribe { (_, errors) ->
         errorMessages.text =
           errors.map { error -> "* ${error}" }.joinToString("\n")
 

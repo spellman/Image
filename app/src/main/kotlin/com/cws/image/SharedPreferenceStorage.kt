@@ -26,7 +26,7 @@ class SharedPreferencesStorage(
     }
     else {
       Result.Err(
-        "Writing password string to ${ctx.getString(R.string.shared_preferences_file_key)} shared preferences failed")
+        "Writing password string ${password} to ${ctx.getString(R.string.shared_preferences_file_key)} shared preferences failed.")
     }
   }
 
@@ -51,7 +51,7 @@ class SharedPreferencesStorage(
     }
     else {
       Result.Err(
-        "Writing shouldBeInKioskMode boolean to ${ctx.getString(R.string.shared_preferences_file_key)} shared preferences failed")
+        "Writing shouldBeInKioskMode boolean ${shouldBeInKioskMode} to ${ctx.getString(R.string.shared_preferences_file_key)} shared preferences failed.")
     }
   }
 }
