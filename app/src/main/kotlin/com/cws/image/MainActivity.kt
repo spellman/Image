@@ -24,8 +24,6 @@ import com.github.andrewoma.dexx.kollection.immutableListOf
 import com.jakewharton.rxbinding.support.design.widget.RxTabLayout
 import hu.akarnokd.rxjava.interop.RxJavaInterop
 import io.reactivex.disposables.Disposable
-import kotlinx.coroutines.experimental.CommonPool
-import kotlinx.coroutines.experimental.launch
 import paperparcel.PaperParcel
 import timber.log.Timber
 

@@ -28,7 +28,7 @@ fun <T> Collection<T>.partitionBy(n: Int): ImmutableList<ImmutableList<T>> {
 }
 
 fun <T> Collection<T>.partitionBy(n: Int, step: Int): ImmutableList<ImmutableList<T>> {
-  return _partitionBy<T>(immutableListOf(), this.toImmutableList(), n, step)
+  return _partitionBy(immutableListOf(), this.toImmutableList(), n, step)
 }
 
 fun String.partitionBy(n: Int): ImmutableList<ImmutableList<Char>> {

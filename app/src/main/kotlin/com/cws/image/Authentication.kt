@@ -1,7 +1,5 @@
 package com.cws.image
 
-import timber.log.Timber
-
 interface AuthenticationGateway {
   fun getPassword(): Result<String, String>
   fun setPassword(password: String): Result<String, Unit>
