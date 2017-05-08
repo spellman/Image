@@ -1,10 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.cws.image"
-    >
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.cws.image">
 
-  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
   <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
   <uses-permission android:name="android.permission.INTERNET"/>
 
@@ -17,43 +15,50 @@
       android:theme="@style/AppTheme.NoActionBar">
     <activity
         android:launchMode="singleInstance"
-        android:name=".MainActivity"
-        android:windowActionBar="false"
-        >
-      <intent-filter>
-        <action android:name="android.intent.action.MAIN"/>
-        <category android:name="android.intent.category.LAUNCHER"/>
-        <category android:name="android.intent.category.DEFAULT"/>
-      </intent-filter>
+       android:name=".MainActivity"
+        android:windowActionBar="false">
+      <!--<intent-filter>-->
+        <!--<action android:name="android.intent.action.MAIN"/>-->
+
+        <!--<category android:name="android.intent.category.LAUNCHER"/>-->
+        <!--<category android:name="android.intent.category.DEFAULT"/>-->
+      <!--</intent-filter>-->
     </activity>
 
     <activity android:name=".PlayInstructionActivity">
     </activity>
 
+    <activity android:name=".ProgressIndicatorTestActivity">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN"/>
+
+        <category android:name="android.intent.category.LAUNCHER"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+      </intent-filter>
+    </activity>
+
     <meta-data
         android:name="io.fabric.ApiKey"
-        android:value="8c7a128abd9f112911957e09e2bf2d03428f9ec8"
-        />
+        android:value="8c7a128abd9f112911957e09e2bf2d03428f9ec8"/>
 
     <receiver
-        android:name=".ImageDeviceAdminReceiver"
         android:label="@string/app_name"
-        android:permission="android.permission.BIND_DEVICE_ADMIN"
-        >
+        android:name=".ImageDeviceAdminReceiver"
+        android:permission="android.permission.BIND_DEVICE_ADMIN">
       <meta-data
           android:name="android.app.device_admin"
-          android:resource="@xml/device_admin"
-          />
+          android:resource="@xml/device_admin"/>
+
       <intent-filter>
-        <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+        <action android:name="android.app.action.DEVICE_ADMIN_ENABLED"/>
       </intent-filter>
     </receiver>
-
     <receiver android:name=".BootBroadcastReceiver">
       <intent-filter>
-        <action android:name="android.intent.action.BOOT_COMPLETED" />
-        <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+        <action android:name="android.intent.action.BOOT_COMPLETED"/>
+        <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
         <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
+
         <category android:name="android.intent.category.DEFAULT"/>
       </intent-filter>
     </receiver>

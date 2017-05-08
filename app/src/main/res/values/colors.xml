@@ -7,9 +7,13 @@
 
   <color name="colorPrimaryText">#DE000000</color>
   <color name="colorSecondaryText">#8A000000</color>
+  <color name="colorDisabledText">#60000000</color>
 
   <color name="dangerForeground">#FFA94442</color>
   <color name="dangerBackground">#FFF2DEDE</color>
 
   <color name ="placeholderIcon">#FFC0C0C0</color>
+
+  <color name="timeToCueInitial">#FFFF0000</color>
+  <color name="timeToCueFinal">#FF00FF00</color>
 </resources>
