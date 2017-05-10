@@ -15,10 +15,6 @@ import android.widget.Button
 import android.widget.ImageView
 import com.cws.image.databinding.ProgressIndicatorTestActivityBinding
 import io.reactivex.disposables.Disposable
-import kotlinx.coroutines.experimental.CommonPool
-import kotlinx.coroutines.experimental.android.UI
-import kotlinx.coroutines.experimental.launch
-import kotlinx.coroutines.experimental.run
 import timber.log.Timber
 import kotlin.properties.Delegates
 
@@ -83,13 +79,12 @@ class ProgressIndicatorTestActivity : AppCompatActivity() {
     binding.viewModel = viewModel
     Timber.d("Bound viewModel: ${viewModel}")
 
-    launch(CommonPool) {
-      if (animationStartTimeMilliseconds != null && !circleCueTimer.hasCompleted.blockingFirst()) {
-        run(UI) {
+    circleCueTimer.hasCompleted()
+      .subscribe { hasCompleted ->
+        if (animationStartTimeMilliseconds != null && hasCompleted) {
           resumeAnimation()
         }
       }
-    }
 
 //    if (savedInstanceState == null) {
 //      Timber.d("There is no saved state. Initing timer with timerDurationMilliseconds: ${timerDurationMilliseconds}, elapsedTimeMilliseconds: ${0L}.")

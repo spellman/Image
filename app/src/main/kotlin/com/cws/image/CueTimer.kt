@@ -16,6 +16,7 @@ import android.widget.FrameLayout
 import com.github.andrewoma.dexx.kollection.ImmutableList
 import com.github.andrewoma.dexx.kollection.toImmutableList
 import io.reactivex.Observable
+import io.reactivex.Single
 import io.reactivex.functions.BiFunction
 import io.reactivex.functions.Function3
 import io.reactivex.subjects.PublishSubject
@@ -74,7 +75,25 @@ class CueTimer(
     }
   private var elapsedTimeAtInitMilliseconds: Long by Delegates.notNull<Long>()
   val countdownAnimator: ObjectAnimator by lazy { makeCountdownAnimator() }
-  val hasCompleted: PublishSubject<Boolean> = PublishSubject.create()
+  val hasCompletedStream: PublishSubject<Boolean> = PublishSubject.create()
+  var _hasCompleted: Boolean? = null
+
+  fun hasCompleted(): Single<Boolean> {
+    val h = _hasCompleted
+    if (h != null) {
+      return Single.just(h)
+    }
+    else {
+      return Single.create<Boolean>(
+        { emitter ->
+          hasCompletedStream.subscribe(
+            { x -> emitter.onSuccess(x) },
+            { e -> emitter.onError(e) }
+          )
+        }
+      )
+    }
+  }
 
   var needleAngleDegrees = 0F
     set(value) {
@@ -132,6 +151,8 @@ class CueTimer(
       .subscribe { (timerDurationMilliseconds, elapsedTimeMilliseconds) ->
         init(timerDurationMilliseconds, elapsedTimeMilliseconds)
       }
+
+    hasCompletedStream.subscribe { x -> _hasCompleted = x }
   }
 
   override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
@@ -176,11 +197,11 @@ class CueTimer(
     this.timerDurationMilliseconds = timerDurationMilliseconds
     if (elapsedTimeMilliseconds < timerDurationMilliseconds) {
       elapsedTimeAtInitMilliseconds = elapsedTimeMilliseconds
-      hasCompleted.onNext(false)
+      hasCompletedStream.onNext(false)
     }
     else {
       elapsedTimeAtInitMilliseconds = timerDurationMilliseconds.toLong()
-      hasCompleted.onNext(true)
+      hasCompletedStream.onNext(true)
     }
 
     Timber.d("About to init needle\n  arcStartAngleDegrees: ${arcStartAngleDegrees}\n  arcSweepAngleDegrees: ${arcSweepAngleDegrees}\n  timerDurationMilliseconds: ${timerDurationMilliseconds}\n  elapsedTimeAtInitMilliseconds: ${elapsedTimeAtInitMilliseconds}")
@@ -204,7 +225,7 @@ class CueTimer(
     return animator
   }
 
-  override fun onAnimationEnd(animator: Animator) { hasCompleted.onNext(true) }
+  override fun onAnimationEnd(animator: Animator) { hasCompletedStream.onNext(true) }
   override fun onAnimationStart(animation: Animator?) { }
   override fun onAnimationCancel(animation: Animator?) { }
   override fun onAnimationRepeat(animation: Animator?) { }
