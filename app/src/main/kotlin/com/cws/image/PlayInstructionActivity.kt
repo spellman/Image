@@ -75,7 +75,7 @@ class PlayInstructionActivity : AppCompatActivity() {
   }
 
   fun setInstructionProgress(percent: Int) {
-    binding.instructionProgress.progress = percent
+    binding.instructionProgress2.progress = percent
   }
 
   fun showCue() {

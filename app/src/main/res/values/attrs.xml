@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
   <declare-styleable name="CueTimer">
-    <attr name="size" format="dimension"/>
     <attr name="stroke_width" format="dimension"/>
     <attr name="start_angle_degrees" format="float"/>
     <attr name="sweep_angle_degrees" format="float"/>

@@ -1,6 +1,7 @@
 package com.cws.image
 
 import android.content.res.ColorStateList
+import android.databinding.DataBindingUtil
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.SystemClock
@@ -12,9 +13,19 @@ import android.view.ViewGroup
 import android.view.animation.LinearInterpolator
 import android.widget.Button
 import android.widget.ImageView
+import com.cws.image.databinding.ProgressIndicatorTestActivityBinding
 import io.reactivex.disposables.Disposable
+import kotlinx.coroutines.experimental.CommonPool
+import kotlinx.coroutines.experimental.android.UI
+import kotlinx.coroutines.experimental.launch
+import kotlinx.coroutines.experimental.run
 import timber.log.Timber
 import kotlin.properties.Delegates
+
+data class TimingValues(
+  val timerDurationMilliseconds: Int,
+  val elapsedTimeMilliseconds: Long
+)
 
 class ProgressIndicatorTestActivity : AppCompatActivity() {
   private val ANIMATION_START_TIME_MILLISECONDS = "animation-start-time-milliseconds"
@@ -28,37 +39,22 @@ class ProgressIndicatorTestActivity : AppCompatActivity() {
   private var countdownSubscription: Disposable? = null
   private val lengthDuration = 8000L
   private val timerDurationMilliseconds = 8000
-//  private var viewModel = TimingValues(
-//    timerDurationMilliseconds = timerDurationMilliseconds,
-//    elapsedTimeMilliseconds = 0L
-//  )
+  private var viewModel = TimingValues(
+    timerDurationMilliseconds = timerDurationMilliseconds,
+    elapsedTimeMilliseconds = 0L
+  )
   private var animationStartTimeMilliseconds: Long? = null
 
-//  private lateinit var binding: ProgressIndicatorTestActivityBinding
+  private lateinit var binding: ProgressIndicatorTestActivityBinding
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
-    setContentView(R.layout.progress_indicator_test_activity)
-//    binding = DataBindingUtil.setContentView<ProgressIndicatorTestActivityBinding>(
-//      this,
-//      R.layout.progress_indicator_test_activity
-//    )
+    //    setContentView(R.layout.progress_indicator_test_activity)
+    binding = DataBindingUtil.setContentView<ProgressIndicatorTestActivityBinding>(
+      this,
+      R.layout.progress_indicator_test_activity
+    )
 
-//    if (savedInstanceState != null) {
-//      animationStartTimeMilliseconds = savedInstanceState.getLong(ANIMATION_START_TIME_MILLISECONDS, 0L)
-//      if (animationStartTimeMilliseconds == 0L) {
-//        animationStartTimeMilliseconds = null
-//      }
-//      else {
-//        viewModel = viewModel.copy(
-//          elapsedTimeMilliseconds = SystemClock.uptimeMillis() - animationStartTimeMilliseconds as Long
-//        )
-//      }
-//    }
-
-//    Timber.d("About to bind viewModel: ${viewModel}")
-//    binding.viewModel = viewModel
-//    Timber.d("Bound viewModel: ${viewModel}")
     animationTest = findViewById(R.id.animation_test) as ViewGroup
     image = findViewById(R.id.bar_cue_timer) as ImageView
     countdown = findViewById(R.id.countdown) as AppCompatTextView
@@ -67,31 +63,56 @@ class ProgressIndicatorTestActivity : AppCompatActivity() {
     colorInitial = ContextCompat.getColor(this, R.color.timeToCueInitial)
     colorFinal = ContextCompat.getColor(this, R.color.timeToCueFinal)
 
-//    if (viewModel.elapsedTimeMilliseconds > 0) {
-//      resumeAnimation()
-//    }
-
-    if (savedInstanceState == null) {
-      Timber.d("There is no saved state.")
-      circleCueTimer.init(timerDurationMilliseconds, 0L)
-    }
-    else {
+    if (savedInstanceState != null) {
       val x = savedInstanceState.getLong(ANIMATION_START_TIME_MILLISECONDS, 0L)
-      Timber.d("Recovered ANIMATION_START_TIME_MILLISECONDS value from bundle: ${x}")
-      if (x == 0L) {
-        circleCueTimer.init(timerDurationMilliseconds, 0L)
-      }
-      else {
+      Timber.d(
+        "Recovered ANIMATION_START_TIME_MILLISECONDS value from bundle: ${x}. Initing timer with timerDurationMilliseconds: ${timerDurationMilliseconds}, elapsedTimeMilliseconds: ${0L}.")
+      if (x != 0L) {
         animationStartTimeMilliseconds = x
         val elapsedTimeMilliseconds = SystemClock.uptimeMillis() - x
         startAnimation.isEnabled = false
 
-        circleCueTimer.init(timerDurationMilliseconds, elapsedTimeMilliseconds)
-        if (!circleCueTimer.hasCompleted) {
+        Timber.d(
+          "Recovered ANIMATION_START_TIME_MILLISECONDS value from bundle: ${x}. Initing timer with timerDurationMilliseconds: ${timerDurationMilliseconds}, elapsedTimeMilliseconds: ${elapsedTimeMilliseconds}.")
+        viewModel = viewModel.copy(
+          elapsedTimeMilliseconds = elapsedTimeMilliseconds)
+      }
+    }
+
+    Timber.d("About to bind viewModel: ${viewModel}")
+    binding.viewModel = viewModel
+    Timber.d("Bound viewModel: ${viewModel}")
+
+    launch(CommonPool) {
+      if (animationStartTimeMilliseconds != null && !circleCueTimer.hasCompleted.blockingFirst()) {
+        run(UI) {
           resumeAnimation()
         }
       }
     }
+
+//    if (savedInstanceState == null) {
+//      Timber.d("There is no saved state. Initing timer with timerDurationMilliseconds: ${timerDurationMilliseconds}, elapsedTimeMilliseconds: ${0L}.")
+//      circleCueTimer.init(timerDurationMilliseconds, 0L)
+//    }
+//    else {
+//      val x = savedInstanceState.getLong(ANIMATION_START_TIME_MILLISECONDS, 0L)
+//      Timber.d("Recovered ANIMATION_START_TIME_MILLISECONDS value from bundle: ${x}. Initing timer with timerDurationMilliseconds: ${timerDurationMilliseconds}, elapsedTimeMilliseconds: ${0L}.")
+//      if (x == 0L) {
+//        circleCueTimer.init(timerDurationMilliseconds, 0L)
+//      }
+//      else {
+//        animationStartTimeMilliseconds = x
+//        val elapsedTimeMilliseconds = SystemClock.uptimeMillis() - x
+//        startAnimation.isEnabled = false
+//
+//        Timber.d("Recovered ANIMATION_START_TIME_MILLISECONDS value from bundle: ${x}. Initing timer with timerDurationMilliseconds: ${timerDurationMilliseconds}, elapsedTimeMilliseconds: ${elapsedTimeMilliseconds}.")
+//        circleCueTimer.init(timerDurationMilliseconds, elapsedTimeMilliseconds)
+//        if (!circleCueTimer.hasCompleted) {
+//          resumeAnimation()
+//        }
+//      }
+//    }
   }
 
   override fun onSaveInstanceState(outState: Bundle?) {
@@ -192,22 +213,22 @@ class ProgressIndicatorTestActivity : AppCompatActivity() {
     animationTest.removeView(image)
 
     animationTest = findViewById(R.id.animation_test) as ViewGroup
-//    binding = DataBindingUtil.setContentView<ProgressIndicatorTestActivityBinding>(
-//      this,
-//      R.layout.progress_indicator_test_activity
-//    )
-    setContentView(R.layout.progress_indicator_test_activity)
+    binding = DataBindingUtil.setContentView<ProgressIndicatorTestActivityBinding>(
+      this,
+      R.layout.progress_indicator_test_activity
+    )
     image = findViewById(R.id.bar_cue_timer) as ImageView
     countdown = findViewById(R.id.countdown) as AppCompatTextView
     circleCueTimer = findViewById(R.id.circle_cue_timer) as CueTimer
-//    viewModel = TimingValues(
-//      timerDurationMilliseconds = timerDurationMilliseconds,
-//      elapsedTimeMilliseconds = 0L
-//    )
-//    binding.viewModel = viewModel
-    animationStartTimeMilliseconds = null
-    circleCueTimer.init(timerDurationMilliseconds, 0L)
     startAnimation = findViewById(R.id.start_animation) as Button
+    animationStartTimeMilliseconds = null
+//    circleCueTimer.init(timerDurationMilliseconds, 0L)
+
+    viewModel = TimingValues(
+      timerDurationMilliseconds = timerDurationMilliseconds,
+      elapsedTimeMilliseconds = 0L
+    )
+    binding.viewModel = viewModel
 
     (image.drawable as GradientDrawable).color = ColorStateList.valueOf(colorInitial)
 

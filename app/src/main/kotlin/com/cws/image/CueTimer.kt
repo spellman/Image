@@ -3,6 +3,7 @@ package com.cws.image
 import android.animation.Animator
 import android.animation.ObjectAnimator
 import android.content.Context
+import android.databinding.BindingAdapter
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
@@ -14,25 +15,24 @@ import android.view.View
 import android.widget.FrameLayout
 import com.github.andrewoma.dexx.kollection.ImmutableList
 import com.github.andrewoma.dexx.kollection.toImmutableList
+import io.reactivex.Observable
+import io.reactivex.functions.BiFunction
+import io.reactivex.functions.Function3
+import io.reactivex.subjects.PublishSubject
 import timber.log.Timber
 import kotlin.properties.Delegates
 
-//data class TimingValues(
-//  val timerDurationMilliseconds: Int,
-//  val elapsedTimeMilliseconds: Long
-//)
+@BindingAdapter("timerDurationMilliseconds")
+fun setTimerDurationMilliseconds(cueTimer: CueTimer, timerDurationMilliseconds: Int) {
+  Timber.d("About to init timerDurationMilliseconds to ${timerDurationMilliseconds}")
+  cueTimer.timerDurationMillisecondsStream.onNext(timerDurationMilliseconds)
+}
 
-//@BindingAdapter("initTimerDurationAndElapsedTimeMilliseconds")
-//fun setInitTimerDurationAndElapsedTimeMilliseconds(
-//  cueTimer: CueTimer,
-//  timingValues: TimingValues
-//) {
-//  val (timerDurationMilliseconds, elapsedTimeMilliseconds) = timingValues
-//
-//  Timber.d("About to init timerDurationMilliseconds to ${timerDurationMilliseconds}")
-//  Timber.d("About to init elapsedTimeMilliseconds to ${elapsedTimeMilliseconds}")
-//  cueTimer.init(timerDurationMilliseconds, elapsedTimeMilliseconds)
-//}
+@BindingAdapter("elapsedTimeMilliseconds")
+fun setElapsedTimeMilliseconds(cueTimer: CueTimer, elapsedTimeMilliseconds: Long) {
+  Timber.d("About to init elapsedTimeMilliseconds to ${elapsedTimeMilliseconds}")
+  cueTimer.elapsedTimeMillisecondsStream.onNext(elapsedTimeMilliseconds)
+}
 
 class CueTimer(
   context: Context,
@@ -51,28 +51,30 @@ class CueTimer(
   private val cueTimerClockFace: CueTimerClockFace
   private val cueTimerNeedle: CueTimerNeedle
 
-  private val sizeDefaultDp = 200F
-  private val size: Float
+  private var center = PointF(0F, 0F)
   private val strokeWidthDefaultDp = 5F
   private val strokeWidth: Float
   private val startAngleDegreesDefault = 240F
   private val arcStartAngleDegrees: Float
   private val sweepAngleDegreesDefault = -330F
   private val arcSweepAngleDegrees: Float
-  private val endMarkLengthRatioDefault = 0.2F
+  private val endMarkLengthRatioDefault = 0.45F
   private val endMarkLengthRatio: Float
   private val needleLengthRatioDefault = 0.65F
   private val needleLengthRatio: Float
   private val centerRadiusDefaultDp = strokeWidthDefaultDp
   private val centerRadius: Float
-  var timerDurationMilliseconds = 0
+
+  val timerDurationMillisecondsStream: PublishSubject<Int> = PublishSubject.create()
+  val elapsedTimeMillisecondsStream: PublishSubject<Long> = PublishSubject.create()
+  private var timerDurationMilliseconds = 0
     set(value) {
       field = value
-      cueTimerClockFace.timerDurationMilliseconds = value
+      cueTimerClockFace.setTimerDuration(value)
     }
-  var elapsedTimeAtInitMilliseconds: Long by Delegates.notNull<Long>()
+  private var elapsedTimeAtInitMilliseconds: Long by Delegates.notNull<Long>()
   val countdownAnimator: ObjectAnimator by lazy { makeCountdownAnimator() }
-  var hasCompleted: Boolean by Delegates.notNull<Boolean>()
+  val hasCompleted: PublishSubject<Boolean> = PublishSubject.create()
 
   var needleAngleDegrees = 0F
     set(value) {
@@ -85,10 +87,6 @@ class CueTimer(
     val a = context.obtainStyledAttributes(
       attrs, R.styleable.CueTimer, defStyleAttr, defStyleRes
     )
-    size = a.getDimension(
-        R.styleable.CueTimer_size,
-        TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, sizeDefaultDp, displayMetrics)
-      )
     strokeWidth = a.getDimension(
       R.styleable.CueTimer_stroke_width,
       TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, strokeWidthDefaultDp, displayMetrics)
@@ -107,33 +105,48 @@ class CueTimer(
     )
     a.recycle()
 
-    val radius = size / 2
-    val center = PointF(radius, radius)
-
     cueTimerClockFace = CueTimerClockFace(
       context = context,
-      size = size,
       strokeWidth = strokeWidth,
-      center = center,
-      arcRadius = radius,
       startAngleDegrees = arcStartAngleDegrees,
       sweepAngleDegrees = arcSweepAngleDegrees,
-      endMarkLength = size * endMarkLengthRatio
+      endMarkLengthRatio = endMarkLengthRatio
       )
 
     cueTimerNeedle = CueTimerNeedle(
       context = context,
-      center = center,
-      radius = centerRadius,
-      needleLength = radius * needleLengthRatio
+      centerRadius = centerRadius,
+      needleLengthRatio = needleLengthRatio
     )
 
     addView(cueTimerClockFace)
     addView(cueTimerNeedle)
+
+    Observable.combineLatest(
+      timerDurationMillisecondsStream,
+      elapsedTimeMillisecondsStream,
+      BiFunction { timerDurationMilliseconds: Int, elapsedTimeMilliseconds: Long ->
+        Pair(timerDurationMilliseconds, elapsedTimeMilliseconds)
+      }
+    )
+      .subscribe { (timerDurationMilliseconds, elapsedTimeMilliseconds) ->
+        init(timerDurationMilliseconds, elapsedTimeMilliseconds)
+      }
   }
 
   override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
-    super.onLayout(changed, l, t, r, b)
+    if (!changed) {
+      return
+    }
+
+    center.x = width / 2F
+    center.y = height / 2F
+    val arcRadius = Math.min(center.x, center.y)
+
+    cueTimerClockFace.setDimensions(center, arcRadius)
+    cueTimerNeedle.setDimensions(center, arcRadius)
+
+    super.onLayout(changed, left, top, right, bottom)
   }
 
   fun needleAngleDegreesAtElapsedTime(
@@ -163,11 +176,11 @@ class CueTimer(
     this.timerDurationMilliseconds = timerDurationMilliseconds
     if (elapsedTimeMilliseconds < timerDurationMilliseconds) {
       elapsedTimeAtInitMilliseconds = elapsedTimeMilliseconds
-      hasCompleted = false
+      hasCompleted.onNext(false)
     }
     else {
       elapsedTimeAtInitMilliseconds = timerDurationMilliseconds.toLong()
-      hasCompleted = true
+      hasCompleted.onNext(true)
     }
 
     Timber.d("About to init needle\n  arcStartAngleDegrees: ${arcStartAngleDegrees}\n  arcSweepAngleDegrees: ${arcSweepAngleDegrees}\n  timerDurationMilliseconds: ${timerDurationMilliseconds}\n  elapsedTimeAtInitMilliseconds: ${elapsedTimeAtInitMilliseconds}")
@@ -180,7 +193,7 @@ class CueTimer(
   }
 
   private fun makeCountdownAnimator(): ObjectAnimator {
-    assert(elapsedTimeAtInitMilliseconds < timerDurationMilliseconds)
+    assert(elapsedTimeAtInitMilliseconds <= timerDurationMilliseconds)
 
     val animator = ObjectAnimator
       .ofFloat(this, "needleAngleDegrees", arcStartAngleDegrees + arcSweepAngleDegrees)
@@ -191,7 +204,7 @@ class CueTimer(
     return animator
   }
 
-  override fun onAnimationEnd(animator: Animator) { hasCompleted = true }
+  override fun onAnimationEnd(animator: Animator) { hasCompleted.onNext(true) }
   override fun onAnimationStart(animation: Animator?) { }
   override fun onAnimationCancel(animation: Animator?) { }
   override fun onAnimationRepeat(animation: Animator?) { }
@@ -201,7 +214,7 @@ class CueTimer(
 
 class CueTimerClockFace(context: Context) : View(context) {
   private lateinit var center: PointF
-  private var arcRadius: Float by Delegates.notNull<Float>()
+  private var strokeWidth: Float by Delegates.notNull<Float>()
   private var startAngleDegrees: Float by Delegates.notNull<Float>()
   private var sweepAngleDegrees: Float by Delegates.notNull<Float>()
   private var endAngleRadians: Double by Delegates.notNull<Double>()
@@ -211,82 +224,33 @@ class CueTimerClockFace(context: Context) : View(context) {
   private var arcRight: Float by Delegates.notNull<Float>()
   private var arcBottom: Float by Delegates.notNull<Float>()
 
+  private var endMarkLengthRatio: Float by Delegates.notNull<Float>()
   private lateinit var endMarkStart: PointF
   private lateinit var endMarkEnd: PointF
 
   private var numbersRadius: Float by Delegates.notNull<Float>()
   private var textOffset: Float by Delegates.notNull<Float>()
   private lateinit var countdownSecondsPoints: ImmutableList<PointF>
-  private var timerDurationSeconds = 0
-  private var numberRadiansPerSecond = 0.0
-  var timerDurationMilliseconds = 0
-    set(value) {
-      field = value
-
-      timerDurationSeconds = value / 1000
-
-      numberRadiansPerSecond = if (value > 0) {
-        Math.toRadians((sweepAngleDegrees / timerDurationSeconds).toDouble())
-      }
-      else {
-        0.0
-      }
-
-      countdownSecondsPoints = (1..timerDurationSeconds).map { i ->
-        translatePointF(
-          center.x,
-          center.y - textOffset,
-          rotatePointF(endAngleRadians,
-                       PointF(numbersRadius * Math.cos(
-                         -numberRadiansPerSecond * i).toFloat(),
-                              numbersRadius * Math.sin(
-                                -numberRadiansPerSecond * i).toFloat()
-                       )
-          )
-        )
-      }
-        .toImmutableList()
-
-      invalidate()
-    }
-
+  private var timerDurationSeconds: Int by Delegates.notNull<Int>()
   private var arcPaint = Paint(Paint.ANTI_ALIAS_FLAG)
   private var numbersPaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
+  val centerStream: PublishSubject<PointF> = PublishSubject.create<PointF>()
+  val arcRadiusStream: PublishSubject<Float> = PublishSubject.create<Float>()
+  val timerDurationMillisecondsStream: PublishSubject<Int> = PublishSubject.create<Int>()
+
   constructor(
     context: Context,
-    size: Float,
     strokeWidth: Float,
-    center: PointF,
-    arcRadius: Float,
     startAngleDegrees: Float,
     sweepAngleDegrees: Float,
-    endMarkLength: Float
+    endMarkLengthRatio: Float
   ): this(context) {
-    this.center = center
-    this.arcRadius = arcRadius
+    this.strokeWidth = strokeWidth
     this.startAngleDegrees = startAngleDegrees
     this.sweepAngleDegrees = sweepAngleDegrees
     this.endAngleRadians = Math.toRadians((startAngleDegrees + sweepAngleDegrees).toDouble())
-
-    arcLeft = strokeWidth
-    arcTop = strokeWidth
-    arcRight = size - strokeWidth
-    arcBottom = size - strokeWidth
-
-    val endMarkStartBeforeXf = PointF(center.x - strokeWidth / 2, 0F)
-    endMarkStart =
-      translatePointF(
-        center.x,
-        center.y,
-        rotatePointF(endAngleRadians, endMarkStartBeforeXf)
-      )
-    endMarkEnd =
-      translatePointF(
-        center.x,
-        center.y,
-        rotatePointF(endAngleRadians, PointF(endMarkStartBeforeXf.x - endMarkLength, 0F))
-      )
+    this.endMarkLengthRatio = endMarkLengthRatio
 
     arcPaint.color = ContextCompat.getColor(context, R.color.colorPrimary)
     arcPaint.style = Paint.Style.STROKE
@@ -294,15 +258,89 @@ class CueTimerClockFace(context: Context) : View(context) {
 
     numbersPaint.color = ContextCompat.getColor(context, R.color.colorPrimaryText)
     numbersPaint.textAlign = Paint.Align.CENTER
-    numbersPaint.textSize =
-      TypedValue.applyDimension(
-        TypedValue.COMPLEX_UNIT_SP,
-        Math.max(size / 30, 12F),
-        context.resources.displayMetrics
-      )
     numbersPaint.style = Paint.Style.FILL
-    numbersRadius = arcRadius - numbersPaint.textSize * 1.25F
-    textOffset = (numbersPaint.ascent() + numbersPaint.descent()) / 2
+
+    Observable.combineLatest(
+      centerStream,
+      arcRadiusStream,
+      timerDurationMillisecondsStream,
+      Function3 { center: PointF, arcRadius: Float, timerDurationMilliseconds: Int ->
+        Triple(center, arcRadius, timerDurationMilliseconds)
+      }
+    )
+      .subscribe { (center, arcRadius, timerDurationMilliseconds) ->
+        this.center = center
+
+        val arcSize = arcRadius * 2
+        arcLeft = center.x - arcRadius + strokeWidth
+        arcRight = center.x + arcRadius - strokeWidth
+        arcTop = center.y - arcRadius + strokeWidth
+        arcBottom = center.y + arcRadius - strokeWidth
+
+        numbersPaint.textSize =
+          TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_SP,
+            Math.max(arcSize / 30, 12F),
+            context.resources.displayMetrics
+          )
+        numbersRadius = arcRadius - numbersPaint.textSize * 1.25F
+        textOffset = (numbersPaint.ascent() + numbersPaint.descent()) / 2
+
+        val endMarkLength = arcRadius * endMarkLengthRatio
+        val endMarkStartBeforeXf = PointF(arcRadius - strokeWidth / 2, 0F)
+        val endMarkEndBeforeXf = PointF(endMarkStartBeforeXf.x - endMarkLength, 0F)
+        endMarkStart =
+          translatePointF(
+            center.x,
+            center.y,
+            rotatePointF(endAngleRadians, endMarkStartBeforeXf)
+          )
+        endMarkEnd =
+          translatePointF(
+            center.x,
+            center.y,
+            rotatePointF(endAngleRadians, endMarkEndBeforeXf)
+          )
+
+        Timber.d("End mark start before xf: ${endMarkStartBeforeXf}")
+        Timber.d("End mark end before xf: ${endMarkEndBeforeXf}")
+        Timber.d("End mark start: ${endMarkStart}")
+        Timber.d("End mark end: ${endMarkEnd}")
+
+        timerDurationSeconds = timerDurationMilliseconds / 1000
+
+        val radiansPerSecond = if (timerDurationMilliseconds > 0) {
+          Math.toRadians((sweepAngleDegrees / timerDurationSeconds).toDouble())
+        }
+        else {
+          0.0
+        }
+
+        countdownSecondsPoints = (1..timerDurationSeconds).map { i ->
+          translatePointF(
+            center.x,
+            center.y - textOffset,
+            rotatePointF(endAngleRadians,
+                         PointF(
+                           numbersRadius * Math.cos(-radiansPerSecond * i).toFloat(),
+                           numbersRadius * Math.sin(-radiansPerSecond * i).toFloat()
+                         )
+            )
+          )
+        }
+          .toImmutableList()
+
+        invalidate()
+      }
+  }
+
+  fun setTimerDuration(timerDurationMilliseconds: Int) {
+    timerDurationMillisecondsStream.onNext(timerDurationMilliseconds)
+  }
+
+  fun setDimensions(center: PointF, arcRadius: Float) {
+    centerStream.onNext(center)
+    arcRadiusStream.onNext(arcRadius)
   }
 
   override fun onDraw(canvas: Canvas) {
@@ -342,7 +380,8 @@ class CueTimerClockFace(context: Context) : View(context) {
 
 class CueTimerNeedle(context: Context) : View(context) {
   private lateinit var center: PointF
-  private var radius: Float by Delegates.notNull<Float>()
+  private var centerRadius: Float by Delegates.notNull<Float>()
+  private var needleLengthRatio: Float by Delegates.notNull<Float>()
 
   var thetaDegrees = 0F
     set(value) {
@@ -353,32 +392,36 @@ class CueTimerNeedle(context: Context) : View(context) {
       }
     }
   private var thetaRadians: Double = Math.toRadians(thetaDegrees.toDouble())
-  private lateinit var needlePoint1: PointF
-  private lateinit var needlePoint2: PointF
-  private lateinit var needlePoint3: PointF
+  private var needlePoint1 = PointF(0F, 0F)
+  private var needlePoint2 = PointF(0F, 0F)
+  private var needlePoint3 = PointF(0F, 0F)
   private val needlePath = Path()
 
   private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
 
   constructor(
     context: Context,
-    center: PointF,
-    radius: Float,
-    needleLength: Float
+    centerRadius: Float,
+    needleLengthRatio: Float
   ) : this(context) {
-    this.center = center
-    this.radius = radius
-
-    needlePoint1 = PointF(0F, -radius)
-    needlePoint2 = PointF(0F, radius)
-    needlePoint3 = PointF(needleLength, 0F)
+    this.centerRadius = centerRadius
+    this.needleLengthRatio = needleLengthRatio
 
     paint.color = ContextCompat.getColor(context, R.color.colorPrimary)
     paint.style = Paint.Style.FILL
   }
 
+  fun setDimensions(center: PointF, arcRadius: Float) {
+    this.center = center
+
+    val needleLength = arcRadius * needleLengthRatio
+    needlePoint1 = PointF(0F, -centerRadius)
+    needlePoint2 = PointF(0F, centerRadius)
+    needlePoint3 = PointF(needleLength, 0F)
+  }
+
   override fun onDraw(canvas: Canvas) {
-    canvas.drawCircle(center.x, center.y, radius, paint)
+    canvas.drawCircle(center.x, center.y, centerRadius, paint)
     canvas.drawPath(
       rotatePath(needlePath, center, thetaRadians, needlePoint1, needlePoint2, needlePoint3),
       paint
