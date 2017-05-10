@@ -68,7 +68,7 @@ class EnterPasswordDialogFragment : DialogFragment() {
       .subscribe { x ->
         when (x) {
           is CharSequence -> errorMessages.visibility = View.GONE
-          is Unit -> binding.errorMessages.visibility = View.VISIBLE
+          is Unit -> errorMessages.visibility = View.VISIBLE
         }
       }
 
