@@ -82,7 +82,7 @@ android {
   }
 
   dexOptions {
-    javaMaxHeapSize "12g"
+    javaMaxHeapSize "8g"
   }
 
   packagingOptions {
