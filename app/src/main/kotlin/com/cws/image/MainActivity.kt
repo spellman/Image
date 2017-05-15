@@ -21,9 +21,8 @@ import android.widget.TextView
 import com.cws.image.databinding.MainActivityBinding
 import com.github.andrewoma.dexx.kollection.ImmutableList
 import com.github.andrewoma.dexx.kollection.immutableListOf
-import com.jakewharton.rxbinding.support.design.widget.RxTabLayout
-import hu.akarnokd.rxjava.interop.RxJavaInterop
-import io.reactivex.disposables.Disposable
+import com.jakewharton.rxbinding2.support.design.widget.RxTabLayout
+import io.reactivex.disposables.CompositeDisposable
 import paperparcel.PaperParcel
 import timber.log.Timber
 
@@ -73,7 +72,7 @@ class MainActivity : AppCompatActivity() {
   private val binding: MainActivityBinding by lazy {
     DataBindingUtil.setContentView<MainActivityBinding>(this, R.layout.main_activity)
   }
-  private lateinit var languageChangeSubscription: Disposable
+  private val compositeDisposable = CompositeDisposable()
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -86,14 +85,14 @@ class MainActivity : AppCompatActivity() {
     initInstructionsRecyclerView()
     initUnparsableInstructionsRecyclerView()
 
-    languageChangeSubscription =
-      RxJavaInterop.toV2Observable(
-        RxTabLayout.selections(binding.languages))
+    compositeDisposable.add(
+      RxTabLayout.selections(binding.languages)
         .map { tab -> tab.tag as String }
         .subscribe { language ->
           Timber.i("Selected language: ${language}")
           presenter.showInstructionsForLanguage(language)
         }
+    )
 
     if (savedInstanceState != null) {
       presenter.selectedLanguage = savedInstanceState.getString(SELECTED_LANGUAGE)
@@ -108,7 +107,7 @@ class MainActivity : AppCompatActivity() {
   }
 
   override fun onDestroy() {
-    languageChangeSubscription.dispose()
+    compositeDisposable.dispose()
     super.onDestroy()
   }
 

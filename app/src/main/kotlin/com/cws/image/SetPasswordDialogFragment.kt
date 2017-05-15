@@ -9,8 +9,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.widget.TextView
 import com.cws.image.databinding.SetPasswordDialogBinding
-import com.jakewharton.rxbinding.widget.RxTextView
-import hu.akarnokd.rxjava.interop.RxJavaInterop
+import com.jakewharton.rxbinding2.widget.RxTextView
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.functions.BiFunction
 import io.reactivex.schedulers.Schedulers
@@ -50,8 +49,8 @@ class SetPasswordDialogFragment : DialogFragment() {
     val validator = validatePasswordWithConfirmation(activity)
 
     io.reactivex.Observable.combineLatest(
-      RxJavaInterop.toV2Observable(RxTextView.textChanges(binding.newPassword)),
-      RxJavaInterop.toV2Observable(RxTextView.textChanges(binding.confirmNewPassword)),
+      RxTextView.textChanges(binding.newPassword),
+      RxTextView.textChanges(binding.confirmNewPassword),
       BiFunction { password: CharSequence, passwordComfirmation: CharSequence ->
         Pair(password.toString(), passwordComfirmation.toString())
       }

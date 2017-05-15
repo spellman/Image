@@ -9,8 +9,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.widget.TextView
 import com.cws.image.databinding.EnterPasswordDialogBinding
-import com.jakewharton.rxbinding.widget.RxTextView
-import hu.akarnokd.rxjava.interop.RxJavaInterop
+import com.jakewharton.rxbinding2.widget.RxTextView
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.subjects.PublishSubject
 import kotlinx.coroutines.experimental.CommonPool
@@ -60,7 +59,7 @@ class EnterPasswordDialogFragment : DialogFragment() {
     message.setPadding(paddingLeft, paddingTop, paddingRight, paddingBottom)
 
     io.reactivex.Observable.merge(
-      RxJavaInterop.toV2Observable(RxTextView.textChanges(binding.password)),
+      RxTextView.textChanges(binding.password),
       submitPasswordSubject
     )
       .debounce(300L, TimeUnit.MILLISECONDS)
