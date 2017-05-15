@@ -8,11 +8,16 @@ import android.os.Bundle
 import android.support.design.widget.Snackbar
 import android.support.v7.app.AppCompatActivity
 import android.view.View
+import android.view.animation.LinearInterpolator
 import com.cws.image.databinding.PlayInstructionActivityBinding
+import com.jakewharton.rxbinding2.view.RxView
+import io.reactivex.disposables.CompositeDisposable
 
 class PlayInstructionViewModel(
   val subject: String,
-  val language: String
+  val language: String,
+  val timerDurationMilliseconds: Int,
+  val elapsedTimeMilliseconds: Long
 ) {
   val appVersionInfo = "Version ${BuildConfig.VERSION_NAME} | Version Code ${BuildConfig.VERSION_CODE} | Commit ${BuildConfig.GIT_SHA}"
 }
@@ -28,12 +33,6 @@ class PlayInstructionActivity : AppCompatActivity() {
 
   private val instruction by lazy {
     intent.getParcelableExtra<InstructionViewModel>("instruction")
-  }
-  private val viewModel by lazy {
-    PlayInstructionViewModel(
-      subject = instruction.subject,
-      language = instruction.language
-    )
   }
   private val binding: PlayInstructionActivityBinding by lazy {
     DataBindingUtil.setContentView<PlayInstructionActivityBinding>(
@@ -52,17 +51,28 @@ class PlayInstructionActivity : AppCompatActivity() {
     }
   }
   private val presenter by lazy {
-    PlayInstructionPresenter(this, mediaPlayerFragment, instruction)
+    PlayInstructionPresenter(
+      activity = this,
+      mediaPlayerFragment = mediaPlayerFragment,
+      instruction = instruction,
+      cueTimerHasInitialized = binding.cueTimer.hasInitialized.filter { x -> x }
+    )
   }
+  private val compositeDisposable = CompositeDisposable()
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
 
     setSupportActionBar(binding.toolbar)
-    binding.viewModel = viewModel
+    binding.viewModel = makeViewModel(mediaPlayerFragment.instructionEvents.value)
+
+    compositeDisposable.add(
+      RxView.attaches(binding.cueTimer).subscribe { _ ->
+        presenter.notifyThatViewIsReady()
+      }
+    )
 
     volumeControlStream = AudioManager.STREAM_MUSIC
-    presenter.playInstruction()
   }
 
   override fun onBackPressed() {
@@ -70,12 +80,35 @@ class PlayInstructionActivity : AppCompatActivity() {
     super.onBackPressed()
   }
 
+  fun makeViewModel(event: InstructionEvent): PlayInstructionViewModel {
+    val elapsedTimeMilliseconds = when (event) {
+      is InstructionEvent.ReadyToPrepare -> 0L
+      is InstructionEvent.AudioPreparing -> 0L
+      is InstructionEvent.AudioPrepared -> 0L
+      is InstructionEvent.InstructionStarted -> presenter.currentTime() - event.startTime
+      is InstructionEvent.CueTimerFinished -> instruction.cueStartTimeMilliseconds
+    }
+
+    return PlayInstructionViewModel(
+      subject = instruction.subject,
+      language = instruction.language,
+      timerDurationMilliseconds = instruction.cueStartTimeMilliseconds.toInt(),
+      elapsedTimeMilliseconds = elapsedTimeMilliseconds
+    )
+  }
+
+  // TODO: Factor out Snackbar stuff, as in MainActivity.
+  // FIXME: What dismisses this indefinite-duration snackbar?
   fun showDelayMessage(message: String) {
     Snackbar.make(binding.root, message, Snackbar.LENGTH_INDEFINITE).show()
   }
 
-  fun setInstructionProgress(percent: Int) {
-    binding.instructionProgress2.progress = percent
+  fun prepareCueTimer() {
+    binding.cueTimer.countdownAnimator.interpolator = LinearInterpolator()
+  }
+
+  fun startCueTimer() {
+    binding.cueTimer.countdownAnimator.start()
   }
 
   fun showCue() {
@@ -96,6 +129,7 @@ class PlayInstructionActivity : AppCompatActivity() {
   }
 
   override fun onDestroy() {
+    compositeDisposable.dispose()
     presenter.onDestroy()
     super.onDestroy()
   }

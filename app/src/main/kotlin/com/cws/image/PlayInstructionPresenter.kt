@@ -1,92 +1,142 @@
 package com.cws.image
 
+import android.os.SystemClock
+import io.reactivex.Observable
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.CompositeDisposable
+import io.reactivex.functions.Function3
 import io.reactivex.schedulers.Schedulers
-import timber.log.Timber
+import io.reactivex.subjects.PublishSubject
+import kotlinx.coroutines.experimental.CommonPool
+import kotlinx.coroutines.experimental.android.UI
+import kotlinx.coroutines.experimental.launch
+import kotlinx.coroutines.experimental.run
+import java.util.concurrent.TimeUnit
 
+sealed class CueTimerEvent {
+  class Prepared : CueTimerEvent()
+  class Started : CueTimerEvent()
+}
 class PlayInstructionPresenter(
   private val activity: PlayInstructionActivity,
   private val mediaPlayerFragment: PlayInstructionFragment,
-  private val instruction: InstructionViewModel
+  private val instruction: InstructionViewModel,
+  cueTimerHasInitialized: Observable<Boolean>
   ) {
   private val compositeDisposable = CompositeDisposable()
-  private val cueStartTimeMilliseconds = instruction.cueStartTimeMilliseconds.toDouble()
+  val cueTimerEvents: PublishSubject<CueTimerEvent> = PublishSubject.create()
+  val viewIsReady: PublishSubject<Unit> = PublishSubject.create()
+
   init {
     compositeDisposable.add(
-      mediaPlayerFragment.mediaPlayerEvents
-        .subscribeOn(Schedulers.io())
-        .observeOn(AndroidSchedulers.mainThread())
-        .subscribe(
-          { event ->
-            val unused = when (event) {
-              is MediaPlayerEvents.Prepared -> startInstruction()
-
-              is MediaPlayerEvents.AudiofocusLoss -> {
-                stopInstruction()
-                activity.finishWithInstructionError(
-                  instruction,
-                  "Lost audiofocus, having requested and gained exclusive audiofocus.")
-              }
-
-              is MediaPlayerEvents.DelayInObtainingAudiofocus -> showDelayMessage()
-            }
-          },
-          { e ->
-            activity.finishWithInstructionError(instruction, e.message as String)
-          },
-          { activity.finishWithInstructionComplete() }
-        ))
+      mediaPlayerFragment.instructionEvents.subscribe(
+        { event ->
+          if (event is InstructionEvent.ReadyToPrepare) {
+            prepareInstructionAudio()
+          }
+        },
+        { e ->
+          activity.finishWithInstructionError(instruction, e.message as String)
+        },
+        { activity.finishWithInstructionComplete() }
+      )
+    )
 
     compositeDisposable.add(
-      mediaPlayerFragment.timerEvents
-        .subscribeOn(Schedulers.computation())
+      cueTimerHasInitialized
+        .subscribeOn(Schedulers.io())
+        .observeOn(Schedulers.computation())
+        .subscribe { _ -> prepareCueTimer() }
+    )
+
+    compositeDisposable.add(
+      mediaPlayerFragment.audioFocusEvents.subscribe(
+        { event ->
+          val unused = when (event) {
+            is AudioFocusEvent.DelayInObtainingAudiofocus -> showDelayMessage()
+
+            is AudioFocusEvent.AudiofocusLoss -> {
+              stopInstruction()
+              activity.finishWithInstructionError(
+                instruction,
+                "Lost audiofocus, having requested and gained exclusive audiofocus.")
+            }
+          }
+        },
+        { e ->
+          activity.finishWithInstructionError(instruction, e.message as String)
+        }
+      )
+    )
+
+    compositeDisposable.add(
+      Observable.combineLatest(
+        mediaPlayerFragment.instructionEvents,
+        cueTimerEvents,
+        viewIsReady,
+        Function3 { instructionEvent: InstructionEvent, cueTimerEvent: CueTimerEvent, _: Unit ->
+          Pair(instructionEvent, cueTimerEvent)
+        }
+      )
         .observeOn(AndroidSchedulers.mainThread())
         .subscribe(
-          { event ->
-            val unused = when (event) {
-              is VisualEvents.TimeRemainingUpdate -> {
-                setInstructionProgress(event.timeRemainingMilliseconds)
-              }
+          { (instructionEvent, cueTimerEvent) ->
+            if (instructionEvent is InstructionEvent.AudioPrepared
+                && cueTimerEvent is CueTimerEvent.Prepared) {
+              startInstruction()
+            }
+            else if (instructionEvent is InstructionEvent.InstructionStarted
+                     && cueTimerEvent is CueTimerEvent.Prepared) {
+              startCueTimer()
+            }
+            else if (instructionEvent is InstructionEvent.CueTimerFinished) {
+              showCue()
             }
           },
-          { e -> Timber.e(e) },
-          { showCue() }
-        ))
+          {_ -> },
+          {}
+        )
+    )
   }
 
-  fun playInstruction() {
-    if (!isInstructionInitiated()) {
-      prepareInstructionAudio()
-    }
+  fun currentTime(): Long {
+    return SystemClock.uptimeMillis()
   }
 
-  fun stopInstruction() {
-    mediaPlayerFragment.stopInstructionAudio()
-    mediaPlayerFragment.stopVisualTimeRemainingIndicator()
-  }
-
-  fun isInstructionInitiated(): Boolean {
-    return mediaPlayerFragment.hasBegunPreparingInstruction()
+  fun prepareCueTimer() {
+    activity.prepareCueTimer()
+    cueTimerEvents.onNext(CueTimerEvent.Prepared())
   }
 
   fun prepareInstructionAudio() {
     mediaPlayerFragment.prepareInstructionAudio(instruction.audioAbsolutePath)
   }
 
-  fun startInstruction() {
-    mediaPlayerFragment.startVisualTimeRemainingIndicator(
-      cueStartTimeMilliseconds = instruction.cueStartTimeMilliseconds,
-      tickInterval = (1000 / 16).toLong())
-    mediaPlayerFragment.startInstructionAudio()
+  fun notifyThatViewIsReady() {
+    viewIsReady.onNext(Unit)
   }
 
-  fun setInstructionProgress(timeRemainingMilliseconds: Long) {
-    val percent = Math.max(
-      (timeRemainingMilliseconds.toDouble() / cueStartTimeMilliseconds) * 100,
-      0.0
-    ).toInt()
-    activity.setInstructionProgress(percent)
+  fun stopInstruction() {
+    mediaPlayerFragment.stopInstructionAudio()
+  }
+
+  fun startInstruction() {
+    Observable.timer(250L, TimeUnit.MILLISECONDS).subscribe { _ ->
+      launch(CommonPool) {
+        cueTimerEvents.onNext(CueTimerEvent.Started())
+        mediaPlayerFragment.startInstruction(
+          instruction.cueStartTimeMilliseconds,
+          currentTime())
+
+        run(UI) {
+          startCueTimer()
+        }
+      }
+    }
+  }
+
+  fun startCueTimer() {
+    activity.startCueTimer()
   }
 
   fun showDelayMessage() {

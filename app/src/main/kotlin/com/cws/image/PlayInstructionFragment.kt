@@ -5,32 +5,31 @@ import android.media.AudioManager
 import android.media.MediaPlayer
 import android.os.Bundle
 import io.reactivex.Observable
-import io.reactivex.disposables.Disposable
+import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.functions.BiFunction
 import io.reactivex.subjects.BehaviorSubject
+import io.reactivex.subjects.PublishSubject
 import timber.log.Timber
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
-sealed class MediaPlayerEvents {
-  class AudiofocusLoss : MediaPlayerEvents()
-  class Prepared : MediaPlayerEvents()
-  class DelayInObtainingAudiofocus : MediaPlayerEvents()
+sealed class InstructionEvent {
+  class ReadyToPrepare : InstructionEvent()
+  class AudioPreparing : InstructionEvent()
+  class AudioPrepared : InstructionEvent()
+  data class InstructionStarted(val startTime: Long) : InstructionEvent()
+  class CueTimerFinished : InstructionEvent()
 }
 
-sealed class VisualEvents {
-  class TimeRemainingUpdate(val timeRemainingMilliseconds: Long) : VisualEvents()
+sealed class AudioFocusEvent {
+  class DelayInObtainingAudiofocus : AudioFocusEvent()
+  class AudiofocusLoss : AudioFocusEvent()
 }
 
 class PlayInstructionFragment : BaseFragment() {
   private var mediaPlayer: MediaPlayer? = null
-  private var hasBegunPreparingMediaPlayer = false
-  private var hasSubscribedToTimerEvents = false
-  val mediaPlayerEvents: BehaviorSubject<MediaPlayerEvents> =
-    BehaviorSubject.create()
-  val timerEvents: BehaviorSubject<VisualEvents> =
-    BehaviorSubject.create()
-  private var timerEventsSubscription: Disposable? = null
+  val instructionEvents: BehaviorSubject<InstructionEvent> =
+    BehaviorSubject.createDefault(InstructionEvent.ReadyToPrepare())
   private val lostFocus: (Int) -> Boolean = { audioFocusChange -> audioFocusChange <= 0 }
   private val onAudioFocusChangedCallBack =
     object : AudioManager.OnAudioFocusChangeListener {
@@ -42,7 +41,7 @@ class PlayInstructionFragment : BaseFragment() {
           Timber.e(
             Exception(
              "Lost audiofocus, having requested and gained exclusive audiofocus."))
-          mediaPlayerEvents.onNext(MediaPlayerEvents.AudiofocusLoss())
+          audioFocusEvents.onNext(AudioFocusEvent.AudiofocusLoss())
         }
       }
     }
@@ -54,21 +53,23 @@ class PlayInstructionFragment : BaseFragment() {
       "Failed to gain AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE audio focus."
     )
   }
+  val audioFocusEvents: PublishSubject<AudioFocusEvent> = PublishSubject.create()
+  val compositeDisposable = CompositeDisposable()
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     retainInstance = true
   }
 
-  fun obtainAudioFocus(): Observable<String> {
+  fun obtainAudioFocus(): Observable<Unit> {
     val audioFocusResult = audioManager.requestAudioFocus(
       onAudioFocusChangedCallBack,
       AudioManager.STREAM_MUSIC,
       AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE)
 
-    return Observable.create<String> { emitter ->
+    return Observable.create<Unit> { emitter ->
       if (audioFocusResult == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
-        emitter.onNext("play-instruction")
+        emitter.onNext(Unit)
       }
       else {
         emitter.onError(failedToGainAudiofocusException)
@@ -76,15 +77,11 @@ class PlayInstructionFragment : BaseFragment() {
     }
   }
 
-  fun hasBegunPreparingInstruction(): Boolean {
-    return hasBegunPreparingMediaPlayer
-  }
-
   fun prepareInstructionAudio(audioFilePath: String) {
-    hasBegunPreparingMediaPlayer = true
+    instructionEvents.onNext(InstructionEvent.AudioPreparing())
     mediaPlayer = MediaPlayer()
-    mediaPlayer?.setAudioStreamType(AudioManager.STREAM_MUSIC)
-    mediaPlayer?.setOnPreparedListener { mp ->
+    mediaPlayer!!.setAudioStreamType(AudioManager.STREAM_MUSIC)
+    mediaPlayer!!.setOnPreparedListener { _ ->
       obtainAudioFocus()
         .retryWhen { errors ->
           errors
@@ -95,8 +92,9 @@ class PlayInstructionFragment : BaseFragment() {
               // integral(2 ^ x, x, x = 4, x = 8, x <- Z) = 496
               // 496 milliseconds ~ a half-second delay
               if (numberOfRetries == 8) {
-                mediaPlayerEvents.onNext(
-                  MediaPlayerEvents.DelayInObtainingAudiofocus())
+                audioFocusEvents.onNext(
+                  AudioFocusEvent.DelayInObtainingAudiofocus()
+                )
               }
 
               // 2017-02-19 Cort Spellman: Exponential backoff.
@@ -108,16 +106,16 @@ class PlayInstructionFragment : BaseFragment() {
         }
         .subscribe(
           { audioFocusObtained ->
-            mediaPlayerEvents.onNext(MediaPlayerEvents.Prepared())
+            instructionEvents.onNext(InstructionEvent.AudioPrepared())
           },
           { e ->
             Timber.e(e)
-            mediaPlayerEvents.onError(e)
+            audioFocusEvents.onError(e)
           },
-          { mediaPlayerEvents.onError(failedToGainAudiofocusException) }
+          { audioFocusEvents.onError(failedToGainAudiofocusException) }
         )
     }
-    mediaPlayer?.setOnErrorListener { mp, what, extra ->
+    mediaPlayer!!.setOnErrorListener { mp, what, extra ->
       // 2016-11-23 Cort Spellman
       // TODO: This is too coarse - recover from errors as appropriate
       //       and tailor the message/log to the error:
@@ -125,80 +123,45 @@ class PlayInstructionFragment : BaseFragment() {
       // https://developer.android.com/reference/android/media/MediaPlayer.OnErrorListener.html
       // Use onError for unrecoverable things? Or use onError for stuff that
       // is retryable?
-      mediaPlayerEvents.onError(
+      instructionEvents.onError(
         Exception(
           "Error preparing instruction audio. what: ${what}, extra: ${extra}"))
       true
     }
-    mediaPlayer?.setOnCompletionListener { mp ->
-      mediaPlayerEvents.onComplete()
-    }
+    mediaPlayer!!.setOnCompletionListener { _ -> instructionEvents.onComplete() }
 
     try {
-      mediaPlayer?.setDataSource(audioFilePath)
-      mediaPlayer?.prepareAsync()
+      mediaPlayer!!.setDataSource(audioFilePath)
+      mediaPlayer!!.prepareAsync()
     }
     catch (e: IOException) {
       Timber.e(e)
-      mediaPlayerEvents.onError(e)
+      instructionEvents.onError(e)
     }
     catch (e: IllegalArgumentException) {
       Timber.e(e)
-      mediaPlayerEvents.onError(e)
+      instructionEvents.onError(e)
     }
   }
 
-  fun startInstructionAudio() {
-    mediaPlayer?.start()
+  suspend fun startInstruction(instructionDuration: Long, startTime: Long) {
+    compositeDisposable.add(
+      Observable.timer(instructionDuration, TimeUnit.MILLISECONDS)
+        .subscribe { _ ->
+          instructionEvents.onNext(InstructionEvent.CueTimerFinished())
+        }
+    )
+    mediaPlayer!!.start()
+    instructionEvents.onNext(InstructionEvent.InstructionStarted(startTime))
   }
 
   fun stopInstructionAudio() {
-    mediaPlayer?.stop()
-  }
-
-  fun millisecondsToNanoseconds(milliseconds: Long): Long {
-    return milliseconds * 1000000L
-  }
-
-  fun nanoSecondsToMilliseconds(nanoseconds: Long): Long {
-    return nanoseconds / 1000000L
-  }
-
-  fun startVisualTimeRemainingIndicator(
-    cueStartTimeMilliseconds: Long,
-    tickInterval: Long
-  ) {
-    if (!hasSubscribedToTimerEvents) {
-      hasSubscribedToTimerEvents = true
-
-      val cueStartTimeNanoseconds =
-        System.nanoTime() + millisecondsToNanoseconds(cueStartTimeMilliseconds)
-      val numberOfTicks = cueStartTimeMilliseconds / tickInterval
-
-      timerEventsSubscription = Observable.interval(tickInterval,
-                                                    TimeUnit.MILLISECONDS)
-        .map { tick ->
-          nanoSecondsToMilliseconds(cueStartTimeNanoseconds - System.nanoTime())
-        }
-        .take(numberOfTicks)
-        .subscribe(
-          { timeRemainingMilliseconds ->
-            timerEvents.onNext(
-              VisualEvents.TimeRemainingUpdate(timeRemainingMilliseconds))
-          },
-          { e -> timerEvents.onError(e) },
-          { timerEvents.onComplete() }
-        )
-    }
-  }
-
-  fun stopVisualTimeRemainingIndicator() {
-    timerEventsSubscription?.dispose()
+    mediaPlayer!!.stop()
   }
 
   override fun onDestroy() {
+    compositeDisposable.dispose()
     audioManager.abandonAudioFocus(onAudioFocusChangedCallBack)
-    timerEventsSubscription?.dispose()
 
     if (mediaPlayer != null) {
       try {
