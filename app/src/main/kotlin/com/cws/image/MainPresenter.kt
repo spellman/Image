@@ -180,9 +180,9 @@ class MainPresenter(
     return "english"
   }
 
-  fun instructionParsingFailureToMessage(f: ParsingFailure) : String {
+  fun instructionParsingFailureToMessage(parsingFailure: ParsingFailure) : String {
     val r = activity.resources
-    val name = when (f) {
+    val name = when (parsingFailure) {
       is ParsingFailure.FileNameEncoding ->
         "resource_file_name_encoding_failure_explanation"
 
