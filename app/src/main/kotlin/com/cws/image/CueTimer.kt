@@ -1,6 +1,5 @@
 package com.cws.image
 
-import android.animation.Animator
 import android.animation.ObjectAnimator
 import android.content.Context
 import android.databinding.BindingAdapter
@@ -14,25 +13,23 @@ import android.util.TypedValue
 import android.view.View
 import android.widget.FrameLayout
 import com.github.andrewoma.dexx.kollection.ImmutableList
+import com.github.andrewoma.dexx.kollection.immutableListOf
 import com.github.andrewoma.dexx.kollection.toImmutableList
 import io.reactivex.Observable
-import io.reactivex.Single
 import io.reactivex.functions.BiFunction
 import io.reactivex.functions.Function3
+import io.reactivex.subjects.BehaviorSubject
 import io.reactivex.subjects.PublishSubject
-import timber.log.Timber
 import kotlin.properties.Delegates
 
 @BindingAdapter("timerDurationMilliseconds")
 fun setTimerDurationMilliseconds(cueTimer: CueTimer, timerDurationMilliseconds: Int) {
-  Timber.d("About to init timerDurationMilliseconds to ${timerDurationMilliseconds}")
   cueTimer.timerDurationMillisecondsStream.onNext(timerDurationMilliseconds)
 }
 
 @BindingAdapter("elapsedTimeMilliseconds")
 fun setElapsedTimeMilliseconds(cueTimer: CueTimer, elapsedTimeMilliseconds: Long) {
-  Timber.d("About to init elapsedTimeMilliseconds to ${elapsedTimeMilliseconds}")
-  cueTimer.elapsedTimeMillisecondsStream.onNext(elapsedTimeMilliseconds)
+  cueTimer.elapsedTimeAtInitMillisecondsStream.onNext(elapsedTimeMilliseconds)
 }
 
 class CueTimer(
@@ -40,7 +37,7 @@ class CueTimer(
   attrs: AttributeSet?,
   defStyleAttr: Int,
   defStyleRes: Int
-) : FrameLayout(context, attrs, defStyleAttr, defStyleRes), Animator.AnimatorListener {
+) : FrameLayout(context, attrs, defStyleAttr, defStyleRes) {
   constructor(
     context: Context,
     attrs: AttributeSet?,
@@ -67,7 +64,7 @@ class CueTimer(
   private val centerRadius: Float
 
   val timerDurationMillisecondsStream: PublishSubject<Int> = PublishSubject.create()
-  val elapsedTimeMillisecondsStream: PublishSubject<Long> = PublishSubject.create()
+  val elapsedTimeAtInitMillisecondsStream: PublishSubject<Long> = PublishSubject.create()
   private var timerDurationMilliseconds = 0
     set(value) {
       field = value
@@ -75,25 +72,7 @@ class CueTimer(
     }
   private var elapsedTimeAtInitMilliseconds: Long by Delegates.notNull<Long>()
   val countdownAnimator: ObjectAnimator by lazy { makeCountdownAnimator() }
-  val hasCompletedStream: PublishSubject<Boolean> = PublishSubject.create()
-  var _hasCompleted: Boolean? = null
-
-  fun hasCompleted(): Single<Boolean> {
-    val h = _hasCompleted
-    if (h != null) {
-      return Single.just(h)
-    }
-    else {
-      return Single.create<Boolean>(
-        { emitter ->
-          hasCompletedStream.subscribe(
-            { x -> emitter.onSuccess(x) },
-            { e -> emitter.onError(e) }
-          )
-        }
-      )
-    }
-  }
+  val hasInitialized: BehaviorSubject<Boolean> = BehaviorSubject.createDefault(false)
 
   var needleAngleDegrees = 0F
     set(value) {
@@ -143,7 +122,7 @@ class CueTimer(
 
     Observable.combineLatest(
       timerDurationMillisecondsStream,
-      elapsedTimeMillisecondsStream,
+      elapsedTimeAtInitMillisecondsStream,
       BiFunction { timerDurationMilliseconds: Int, elapsedTimeMilliseconds: Long ->
         Pair(timerDurationMilliseconds, elapsedTimeMilliseconds)
       }
@@ -152,7 +131,16 @@ class CueTimer(
         init(timerDurationMilliseconds, elapsedTimeMilliseconds)
       }
 
-    hasCompletedStream.subscribe { x -> _hasCompleted = x }
+    Observable.combineLatest(
+      cueTimerClockFace.hasInitialized,
+      cueTimerNeedle.hasInitialized,
+      BiFunction { clockFaceHasInitialized: Boolean, needleHasInitialized: Boolean ->
+        Pair(clockFaceHasInitialized, needleHasInitialized)
+      }
+    )
+      .subscribe { (clockFaceHasInitialized, needleHasInitialized) ->
+        hasInitialized.onNext(clockFaceHasInitialized && needleHasInitialized)
+      }
   }
 
   override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
@@ -188,47 +176,36 @@ class CueTimer(
 
   // 2017-05-07 Cort Spellman
   // Note that while a LinearInterpolator is the likely choice for the timer
-  // animation the interpolation is left external to this view. This works
-  // with initializing the timer with an externally-supplied duration and
-  // elapsed time. (As opposed to saving the start time, to be recovered in case
-  // of, say, a configuration change.)
-  fun init(timerDurationMilliseconds: Int, elapsedTimeMilliseconds: Long) {
-    Timber.d("About to set timerDurationMilliseconds to ${timerDurationMilliseconds}, set elapsedTimeAtInitMilliseconds to ${elapsedTimeMilliseconds}, and init needle")
-    this.timerDurationMilliseconds = timerDurationMilliseconds
-    if (elapsedTimeMilliseconds < timerDurationMilliseconds) {
-      elapsedTimeAtInitMilliseconds = elapsedTimeMilliseconds
-      hasCompletedStream.onNext(false)
-    }
-    else {
-      elapsedTimeAtInitMilliseconds = timerDurationMilliseconds.toLong()
-      hasCompletedStream.onNext(true)
-    }
+  // animation, the interpolation is left external to this view. I think this
+  // goes well with initializing the timer with an externally-supplied duration
+  // and elapsed time. (As opposed to saving the start time, to be recovered in
+  // case of, say, a configuration change.)
+  fun init(timerDurationMilliseconds: Int, actualElapsedTimeMilliseconds: Long) {
+    val elapsedTimeMilliseconds =
+      if (actualElapsedTimeMilliseconds < timerDurationMilliseconds) {
+        actualElapsedTimeMilliseconds
+      }
+      else {
+        timerDurationMilliseconds.toLong()
+      }
 
-    Timber.d("About to init needle\n  arcStartAngleDegrees: ${arcStartAngleDegrees}\n  arcSweepAngleDegrees: ${arcSweepAngleDegrees}\n  timerDurationMilliseconds: ${timerDurationMilliseconds}\n  elapsedTimeAtInitMilliseconds: ${elapsedTimeAtInitMilliseconds}")
     val x = needleAngleDegreesAtElapsedTime(arcStartAngleDegrees,
                                             arcSweepAngleDegrees,
                                             timerDurationMilliseconds,
-                                            elapsedTimeAtInitMilliseconds)
-    Timber.d("Initing needleAngleDegrees to ${x}")
+                                            elapsedTimeMilliseconds)
+
     needleAngleDegrees = x
+    this.elapsedTimeAtInitMilliseconds = elapsedTimeMilliseconds
+    this.timerDurationMilliseconds = timerDurationMilliseconds
   }
 
   private fun makeCountdownAnimator(): ObjectAnimator {
-    assert(elapsedTimeAtInitMilliseconds <= timerDurationMilliseconds)
-
     val animator = ObjectAnimator
       .ofFloat(this, "needleAngleDegrees", arcStartAngleDegrees + arcSweepAngleDegrees)
       .setDuration(timerDurationMilliseconds.toLong() - elapsedTimeAtInitMilliseconds)
 
-    animator.addListener(this)
-
     return animator
   }
-
-  override fun onAnimationEnd(animator: Animator) { hasCompletedStream.onNext(true) }
-  override fun onAnimationStart(animation: Animator?) { }
-  override fun onAnimationCancel(animation: Animator?) { }
-  override fun onAnimationRepeat(animation: Animator?) { }
 }
 
 
@@ -246,19 +223,21 @@ class CueTimerClockFace(context: Context) : View(context) {
   private var arcBottom: Float by Delegates.notNull<Float>()
 
   private var endMarkLengthRatio: Float by Delegates.notNull<Float>()
-  private lateinit var endMarkStart: PointF
-  private lateinit var endMarkEnd: PointF
+  private val endMarkStart = PointF(0F, 0F)
+  private val endMarkEnd = PointF(0F, 0F)
 
   private var numbersRadius: Float by Delegates.notNull<Float>()
   private var textOffset: Float by Delegates.notNull<Float>()
-  private lateinit var countdownSecondsPoints: ImmutableList<PointF>
   private var timerDurationSeconds: Int by Delegates.notNull<Int>()
+  private lateinit var countdownSecondsPoints: ImmutableList<PointF>
   private var arcPaint = Paint(Paint.ANTI_ALIAS_FLAG)
   private var numbersPaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
   val centerStream: PublishSubject<PointF> = PublishSubject.create<PointF>()
   val arcRadiusStream: PublishSubject<Float> = PublishSubject.create<Float>()
   val timerDurationMillisecondsStream: PublishSubject<Int> = PublishSubject.create<Int>()
+
+  val hasInitialized: BehaviorSubject<Boolean> = BehaviorSubject.createDefault(false)
 
   constructor(
     context: Context,
@@ -310,23 +289,12 @@ class CueTimerClockFace(context: Context) : View(context) {
         val endMarkLength = arcRadius * endMarkLengthRatio
         val endMarkStartBeforeXf = PointF(arcRadius - strokeWidth / 2, 0F)
         val endMarkEndBeforeXf = PointF(endMarkStartBeforeXf.x - endMarkLength, 0F)
-        endMarkStart =
-          translatePointF(
-            center.x,
-            center.y,
-            rotatePointF(endAngleRadians, endMarkStartBeforeXf)
-          )
-        endMarkEnd =
-          translatePointF(
-            center.x,
-            center.y,
-            rotatePointF(endAngleRadians, endMarkEndBeforeXf)
-          )
 
-        Timber.d("End mark start before xf: ${endMarkStartBeforeXf}")
-        Timber.d("End mark end before xf: ${endMarkEndBeforeXf}")
-        Timber.d("End mark start: ${endMarkStart}")
-        Timber.d("End mark end: ${endMarkEnd}")
+        rotatePointF(endAngleRadians, endMarkStartBeforeXf, endMarkStart)
+        translatePointF(center.x, center.y, endMarkStart, endMarkStart)
+
+        rotatePointF(endAngleRadians, endMarkEndBeforeXf, endMarkEnd)
+        translatePointF(center.x, center.y, endMarkEnd, endMarkEnd)
 
         timerDurationSeconds = timerDurationMilliseconds / 1000
 
@@ -337,20 +305,28 @@ class CueTimerClockFace(context: Context) : View(context) {
           0.0
         }
 
-        countdownSecondsPoints = (1..timerDurationSeconds).map { i ->
+        countdownSecondsPoints =
+          (1..timerDurationSeconds)
+            .map { _ -> PointF(0F, 0F) }
+            .toImmutableList()
+
+        for (i in countdownSecondsPoints.indices) {
+          rotatePointF(endAngleRadians,
+                       PointF(
+                         numbersRadius * Math.cos(-radiansPerSecond * (i + 1)).toFloat(),
+                         numbersRadius * Math.sin(-radiansPerSecond * (i + 1)).toFloat()
+                       ),
+                       countdownSecondsPoints[i]
+          )
           translatePointF(
             center.x,
             center.y - textOffset,
-            rotatePointF(endAngleRadians,
-                         PointF(
-                           numbersRadius * Math.cos(-radiansPerSecond * i).toFloat(),
-                           numbersRadius * Math.sin(-radiansPerSecond * i).toFloat()
-                         )
-            )
+            countdownSecondsPoints[i],
+            countdownSecondsPoints[i]
           )
         }
-          .toImmutableList()
 
+        hasInitialized.onNext(true)
         invalidate()
       }
   }
@@ -382,7 +358,6 @@ class CueTimerClockFace(context: Context) : View(context) {
                     arcPaint
     )
 
-
     if (timerDurationSeconds > 0) {
       (1..timerDurationSeconds).forEach { i ->
         val idx = i - 1
@@ -403,7 +378,6 @@ class CueTimerNeedle(context: Context) : View(context) {
   private lateinit var center: PointF
   private var centerRadius: Float by Delegates.notNull<Float>()
   private var needleLengthRatio: Float by Delegates.notNull<Float>()
-
   var thetaDegrees = 0F
     set(value) {
       if (field != value) {
@@ -413,12 +387,14 @@ class CueTimerNeedle(context: Context) : View(context) {
       }
     }
   private var thetaRadians: Double = Math.toRadians(thetaDegrees.toDouble())
-  private var needlePoint1 = PointF(0F, 0F)
-  private var needlePoint2 = PointF(0F, 0F)
-  private var needlePoint3 = PointF(0F, 0F)
+  private lateinit var needlePoints: ImmutableList<PointF>
+  private lateinit var xfPoints: ImmutableList<PointF>
   private val needlePath = Path()
 
   private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+
+  val hasInitialized: BehaviorSubject<Boolean> = BehaviorSubject.createDefault(
+    false)
 
   constructor(
     context: Context,
@@ -436,52 +412,58 @@ class CueTimerNeedle(context: Context) : View(context) {
     this.center = center
 
     val needleLength = arcRadius * needleLengthRatio
-    needlePoint1 = PointF(0F, -centerRadius)
-    needlePoint2 = PointF(0F, centerRadius)
-    needlePoint3 = PointF(needleLength, 0F)
+
+    needlePoints = immutableListOf(
+      PointF(0F, -centerRadius),
+      PointF(0F, centerRadius),
+      PointF(needleLength, 0F)
+    )
+    xfPoints = needlePoints.map { _ -> PointF(0F, 0F) }.toImmutableList()
+
+    hasInitialized.onNext(true)
   }
 
   override fun onDraw(canvas: Canvas) {
     canvas.drawCircle(center.x, center.y, centerRadius, paint)
-    canvas.drawPath(
-      rotatePath(needlePath, center, thetaRadians, needlePoint1, needlePoint2, needlePoint3),
-      paint
-    )
-  }
-
-  fun rotatePath(path: Path, point: PointF, angleRadians: Double, vararg points: PointF): Path {
-    path.reset()
-
-    val xfPts = points.map { p ->
-      translatePointF(point.x, point.y, rotatePointF(angleRadians, p))
-    }
-
-    path.moveTo(xfPts.first().x, xfPts.first().y)
-    xfPts.drop(1).forEach { p -> path.lineTo(p.x, p.y) }
-    path.close()
-
-    return path
+    rotatePath(needlePath, center, thetaRadians, needlePoints, xfPoints)
+    canvas.drawPath(needlePath, paint)
   }
 }
 
-fun translatePointF(deltaX: Float, deltaY: Float, point: PointF): PointF {
-  // 2017-05-01 Cort Spellman
-  // If performance becomes a problem, then represent translation in 2-space as
-  // a shear in 3-space and compose the rotation and shearing matrices into a
-  // a single transformation matrix.
-  // For now, though, it's easier to translate by translating.
-  return PointF(point.x + deltaX, point.y + deltaY)
+fun rotatePath(
+  path: Path,
+  point: PointF,
+  angleRadians: Double,
+  inPathPoints: ImmutableList<PointF>,
+  outPathPoints: ImmutableList<PointF>
+) {
+  assert(inPathPoints.count() == outPathPoints.count())
+  path.reset()
+
+  for (i in inPathPoints.indices) { rotatePointF(angleRadians, inPathPoints[i], outPathPoints[i]) }
+  for (i in outPathPoints.indices) { translatePointF(point.x, point.y, outPathPoints[i], outPathPoints[i]) }
+
+  path.moveTo(outPathPoints.first().x, outPathPoints.first().y)
+  outPathPoints.drop(1).forEach { p -> path.lineTo(p.x, p.y) }
+  path.close()
 }
 
-fun rotatePointF(thetaRadians: Double, p: PointF): PointF {
-  // 2017-04-30 Cort Spellman
-  // Unless performance becomes a problem, rotate the original points every
-  // time. This does require creating point objects in onDraw; creating
-  // objects is NOT recommended inside onDraw.
-  // An alternative would be to provide delta angles and mutate the points,
-  // rotating by the delta every time.
-  return PointF(
-    (p.x * Math.cos(thetaRadians) - p.y * Math.sin(thetaRadians)).toFloat(),
-    (p.x * Math.sin(thetaRadians) + p.y * Math.cos(thetaRadians)).toFloat()
-  )
+fun translatePointF(deltaX: Float, deltaY: Float, inPoint: PointF, outPoint: PointF) {
+  outPoint.x = inPoint.x + deltaX
+  outPoint.y = inPoint.y + deltaY
+}
+
+fun rotatePointF(thetaRadians: Double, inPoint: PointF, outPoint: PointF) {
+  val xOld = inPoint.x
+  val yOld = inPoint.y
+
+  val xNew = (xOld * Math.cos(thetaRadians)
+              - yOld * Math.sin(thetaRadians)
+             ).toFloat()
+  val yNew = (xOld * Math.sin(thetaRadians)
+              + yOld * Math.cos(thetaRadians)
+             ).toFloat()
+
+  outPoint.x = xNew
+  outPoint.y = yNew
 }

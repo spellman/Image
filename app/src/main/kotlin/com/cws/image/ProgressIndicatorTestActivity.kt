@@ -61,17 +61,17 @@ class ProgressIndicatorTestActivity : AppCompatActivity() {
 
     if (savedInstanceState != null) {
       val x = savedInstanceState.getLong(ANIMATION_START_TIME_MILLISECONDS, 0L)
-      Timber.d(
-        "Recovered ANIMATION_START_TIME_MILLISECONDS value from bundle: ${x}. Initing timer with timerDurationMilliseconds: ${timerDurationMilliseconds}, elapsedTimeMilliseconds: ${0L}.")
-      if (x != 0L) {
+      if (x == 0L) {
+        Timber.d("ANIMATION_START_TIME_MILLISECONDS value was not in the bundle. Initing timer with timerDurationMilliseconds: ${timerDurationMilliseconds}, elapsedTimeMilliseconds: ${0L}.")
+      }
+      else {
         animationStartTimeMilliseconds = x
         val elapsedTimeMilliseconds = SystemClock.uptimeMillis() - x
         startAnimation.isEnabled = false
 
-        Timber.d(
-          "Recovered ANIMATION_START_TIME_MILLISECONDS value from bundle: ${x}. Initing timer with timerDurationMilliseconds: ${timerDurationMilliseconds}, elapsedTimeMilliseconds: ${elapsedTimeMilliseconds}.")
-        viewModel = viewModel.copy(
-          elapsedTimeMilliseconds = elapsedTimeMilliseconds)
+        Timber.d("Recovered ANIMATION_START_TIME_MILLISECONDS value from bundle: ${x}. Initing timer with timerDurationMilliseconds: ${timerDurationMilliseconds}, elapsedTimeMilliseconds: ${elapsedTimeMilliseconds}.")
+        viewModel =
+          viewModel.copy(elapsedTimeMilliseconds = elapsedTimeMilliseconds)
       }
     }
 
@@ -79,9 +79,11 @@ class ProgressIndicatorTestActivity : AppCompatActivity() {
     binding.viewModel = viewModel
     Timber.d("Bound viewModel: ${viewModel}")
 
-    circleCueTimer.hasCompleted()
-      .subscribe { hasCompleted ->
-        if (animationStartTimeMilliseconds != null && hasCompleted) {
+    circleCueTimer.hasInitialized
+      .subscribe { hasInitialized ->
+        if (animationStartTimeMilliseconds != null
+            && hasInitialized
+            && viewModel.elapsedTimeMilliseconds < timerDurationMilliseconds) {
           resumeAnimation()
         }
       }
