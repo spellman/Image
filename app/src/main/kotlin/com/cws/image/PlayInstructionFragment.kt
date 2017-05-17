@@ -18,7 +18,7 @@ sealed class InstructionEvent {
   class AudioPreparing : InstructionEvent()
   class AudioPrepared : InstructionEvent()
   data class InstructionStarted(val startTime: Long) : InstructionEvent()
-  class CueTimerFinished : InstructionEvent()
+  class CueTimerShouldBeFinished : InstructionEvent()
 }
 
 sealed class AudioFocusEvent {
@@ -148,7 +148,7 @@ class PlayInstructionFragment : BaseFragment() {
     compositeDisposable.add(
       Observable.timer(instructionDuration, TimeUnit.MILLISECONDS)
         .subscribe { _ ->
-          instructionEvents.onNext(InstructionEvent.CueTimerFinished())
+          instructionEvents.onNext(InstructionEvent.CueTimerShouldBeFinished())
         }
     )
     mediaPlayer!!.start()

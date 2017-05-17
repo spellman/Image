@@ -15,7 +15,6 @@ import java.util.concurrent.TimeUnit
 
 sealed class CueTimerEvent {
   class Prepared : CueTimerEvent()
-  class Started : CueTimerEvent()
 }
 class PlayInstructionPresenter(
   private val activity: PlayInstructionActivity,
@@ -89,7 +88,7 @@ class PlayInstructionPresenter(
                      && cueTimerEvent is CueTimerEvent.Prepared) {
               startCueTimer()
             }
-            else if (instructionEvent is InstructionEvent.CueTimerFinished) {
+            else if (instructionEvent is InstructionEvent.CueTimerShouldBeFinished) {
               showCue()
             }
           },
@@ -103,6 +102,24 @@ class PlayInstructionPresenter(
     return SystemClock.uptimeMillis()
   }
 
+  fun makeViewModel(): PlayInstructionViewModel {
+    val event = mediaPlayerFragment.instructionEvents.value
+    val elapsedTimeMilliseconds = when (event) {
+      is InstructionEvent.ReadyToPrepare -> 0L
+      is InstructionEvent.AudioPreparing -> 0L
+      is InstructionEvent.AudioPrepared -> 0L
+      is InstructionEvent.InstructionStarted -> currentTime() - event.startTime
+      is InstructionEvent.CueTimerShouldBeFinished -> instruction.cueStartTimeMilliseconds
+    }
+
+    return PlayInstructionViewModel(
+      subject = instruction.subject,
+      language = instruction.language,
+      timerDurationMilliseconds = instruction.cueStartTimeMilliseconds.toInt(),
+      elapsedTimeMilliseconds = elapsedTimeMilliseconds
+    )
+  }
+
   fun prepareCueTimer() {
     activity.prepareCueTimer()
     cueTimerEvents.onNext(CueTimerEvent.Prepared())
@@ -112,7 +129,7 @@ class PlayInstructionPresenter(
     mediaPlayerFragment.prepareInstructionAudio(instruction.audioAbsolutePath)
   }
 
-  fun notifyThatViewIsReady() {
+  fun notifyThatViewIsAttached() {
     viewIsReady.onNext(Unit)
   }
 
@@ -121,16 +138,12 @@ class PlayInstructionPresenter(
   }
 
   fun startInstruction() {
-    Observable.timer(250L, TimeUnit.MILLISECONDS).subscribe { _ ->
+    Observable.timer(500L, TimeUnit.MILLISECONDS).subscribe { _ ->
       launch(CommonPool) {
-        cueTimerEvents.onNext(CueTimerEvent.Started())
+        run(UI) { startCueTimer() }
         mediaPlayerFragment.startInstruction(
           instruction.cueStartTimeMilliseconds,
           currentTime())
-
-        run(UI) {
-          startCueTimer()
-        }
       }
     }
   }

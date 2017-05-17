@@ -64,11 +64,11 @@ class PlayInstructionActivity : AppCompatActivity() {
     super.onCreate(savedInstanceState)
 
     setSupportActionBar(binding.toolbar)
-    binding.viewModel = makeViewModel(mediaPlayerFragment.instructionEvents.value)
+    binding.viewModel = presenter.makeViewModel()
 
     compositeDisposable.add(
       RxView.attaches(binding.cueTimer).subscribe { _ ->
-        presenter.notifyThatViewIsReady()
+        presenter.notifyThatViewIsAttached()
       }
     )
 
@@ -78,23 +78,6 @@ class PlayInstructionActivity : AppCompatActivity() {
   override fun onBackPressed() {
     presenter.stopInstruction()
     super.onBackPressed()
-  }
-
-  fun makeViewModel(event: InstructionEvent): PlayInstructionViewModel {
-    val elapsedTimeMilliseconds = when (event) {
-      is InstructionEvent.ReadyToPrepare -> 0L
-      is InstructionEvent.AudioPreparing -> 0L
-      is InstructionEvent.AudioPrepared -> 0L
-      is InstructionEvent.InstructionStarted -> presenter.currentTime() - event.startTime
-      is InstructionEvent.CueTimerFinished -> instruction.cueStartTimeMilliseconds
-    }
-
-    return PlayInstructionViewModel(
-      subject = instruction.subject,
-      language = instruction.language,
-      timerDurationMilliseconds = instruction.cueStartTimeMilliseconds.toInt(),
-      elapsedTimeMilliseconds = elapsedTimeMilliseconds
-    )
   }
 
   // TODO: Factor out Snackbar stuff, as in MainActivity.
