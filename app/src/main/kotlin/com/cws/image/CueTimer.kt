@@ -62,6 +62,10 @@ class CueTimer(
   private val needleLengthRatio: Float
   private val centerRadiusDefaultDp = strokeWidthDefaultDp
   private val centerRadius: Float
+  private val colorDefault = android.graphics.Color.BLACK
+  private val outerStrokeColor: Int
+  private val textColor: Int
+  private val needleColor: Int
 
   val timerDurationMillisecondsStream: PublishSubject<Int> = PublishSubject.create()
   val elapsedTimeAtInitMillisecondsStream: PublishSubject<Long> = PublishSubject.create()
@@ -101,6 +105,10 @@ class CueTimer(
       R.styleable.CueTimer_center_radius,
       TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, centerRadiusDefaultDp, displayMetrics)
     )
+    outerStrokeColor = a.getColor(R.styleable.CueTimer_outer_stroke_color, colorDefault)
+    textColor = a.getColor(R.styleable.CueTimer_text_color, colorDefault)
+    needleColor = a.getColor(R.styleable.CueTimer_needle_color, colorDefault)
+
     a.recycle()
 
     cueTimerClockFace = CueTimerClockFace(
@@ -108,13 +116,16 @@ class CueTimer(
       strokeWidth = strokeWidth,
       startAngleDegrees = arcStartAngleDegrees,
       sweepAngleDegrees = arcSweepAngleDegrees,
-      endMarkLengthRatio = endMarkLengthRatio
+      endMarkLengthRatio = endMarkLengthRatio,
+      outerStrokeColor = outerStrokeColor,
+      textColor = textColor
       )
 
     cueTimerNeedle = CueTimerNeedle(
       context = context,
       centerRadius = centerRadius,
-      needleLengthRatio = needleLengthRatio
+      needleLengthRatio = needleLengthRatio,
+      needleColor = needleColor
     )
 
     addView(cueTimerClockFace)
@@ -244,7 +255,9 @@ class CueTimerClockFace(context: Context) : View(context) {
     strokeWidth: Float,
     startAngleDegrees: Float,
     sweepAngleDegrees: Float,
-    endMarkLengthRatio: Float
+    endMarkLengthRatio: Float,
+    outerStrokeColor: Int,
+    textColor: Int
   ): this(context) {
     this.strokeWidth = strokeWidth
     this.startAngleDegrees = startAngleDegrees
@@ -252,11 +265,13 @@ class CueTimerClockFace(context: Context) : View(context) {
     this.endAngleRadians = Math.toRadians((startAngleDegrees + sweepAngleDegrees).toDouble())
     this.endMarkLengthRatio = endMarkLengthRatio
 
-    arcPaint.color = ContextCompat.getColor(context, R.color.colorPrimary)
+//    arcPaint.color = ContextCompat.getColor(context, R.color.colorPrimary)
+    arcPaint.color = outerStrokeColor
     arcPaint.style = Paint.Style.STROKE
     arcPaint.strokeWidth = strokeWidth
 
-    numbersPaint.color = ContextCompat.getColor(context, R.color.colorPrimaryText)
+//    numbersPaint.color = ContextCompat.getColor(context, R.color.colorPrimaryText)
+    numbersPaint.color = textColor
     numbersPaint.textAlign = Paint.Align.CENTER
     numbersPaint.style = Paint.Style.FILL
 
@@ -399,12 +414,14 @@ class CueTimerNeedle(context: Context) : View(context) {
   constructor(
     context: Context,
     centerRadius: Float,
-    needleLengthRatio: Float
+    needleLengthRatio: Float,
+    needleColor: Int
   ) : this(context) {
     this.centerRadius = centerRadius
     this.needleLengthRatio = needleLengthRatio
 
-    paint.color = ContextCompat.getColor(context, R.color.colorPrimary)
+//    paint.color = ContextCompat.getColor(context, R.color.colorPrimary)
+    paint.color = needleColor
     paint.style = Paint.Style.FILL
   }
 

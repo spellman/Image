@@ -1,19 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
   <color name="colorPrimary">#009688</color>
-  <color name="colorPrimaryDark">#00796B</color>
-  <color name="colorAccent">#FFC107</color>
-  <color name="colorAccentLight">#FFF8E1</color>
+  <color name="colorPrimaryDark">#00796b</color>
+  <color name="colorAccent">#ffc107</color>
+  <color name="colorAccentLight">#fff8e1</color>
 
-  <color name="colorPrimaryText">#DE000000</color>
-  <color name="colorSecondaryText">#8A000000</color>
+  <color name="colorPrimaryText">#de000000</color>
+  <color name="colorSecondaryText">#8a000000</color>
   <color name="colorDisabledText">#60000000</color>
 
-  <color name="dangerForeground">#FFA94442</color>
-  <color name="dangerBackground">#FFF2DEDE</color>
+  <color name="dangerForeground">#ffa94442</color>
+  <color name="dangerBackground">#fff2dede</color>
 
-  <color name ="placeholderIcon">#FFC0C0C0</color>
-
-  <color name="timeToCueInitial">#FFFF0000</color>
-  <color name="timeToCueFinal">#FF00FF00</color>
+  <color name ="placeholderIcon">#ffc0c0c0</color>
 </resources>

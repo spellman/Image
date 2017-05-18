@@ -30,8 +30,6 @@ class ProgressIndicatorTestActivity : AppCompatActivity() {
   private lateinit var countdown: AppCompatTextView
   private lateinit var circleCueTimer: CueTimer
   private lateinit var startAnimation: Button
-  private var colorInitial: Int by Delegates.notNull<Int>()
-  private var colorFinal: Int by Delegates.notNull<Int>()
   private var countdownSubscription: Disposable? = null
   private val lengthDuration = 8000L
   private val timerDurationMilliseconds = 8000
@@ -56,8 +54,6 @@ class ProgressIndicatorTestActivity : AppCompatActivity() {
     countdown = findViewById(R.id.countdown) as AppCompatTextView
     circleCueTimer = findViewById(R.id.circle_cue_timer) as CueTimer
     startAnimation = findViewById(R.id.start_animation) as Button
-    colorInitial = ContextCompat.getColor(this, R.color.timeToCueInitial)
-    colorFinal = ContextCompat.getColor(this, R.color.timeToCueFinal)
 
     if (savedInstanceState != null) {
       val x = savedInstanceState.getLong(ANIMATION_START_TIME_MILLISECONDS, 0L)
@@ -226,8 +222,6 @@ class ProgressIndicatorTestActivity : AppCompatActivity() {
       elapsedTimeMilliseconds = 0L
     )
     binding.viewModel = viewModel
-
-    (image.drawable as GradientDrawable).color = ColorStateList.valueOf(colorInitial)
 
     startAnimation.isEnabled = true
   }

@@ -7,5 +7,8 @@
     <attr name="end_mark_length_ratio" format="float"/>
     <attr name="needle_length_ratio" format="float"/>
     <attr name="center_radius" format="dimension"/>
+    <attr name="outer_stroke_color" format="color"/>
+    <attr name="text_color" format="color"/>
+    <attr name="needle_color" format="color"/>
   </declare-styleable>
 </resources>
