@@ -11,22 +11,35 @@ import kotlinx.coroutines.experimental.CommonPool
 import kotlinx.coroutines.experimental.android.UI
 import kotlinx.coroutines.experimental.launch
 import kotlinx.coroutines.experimental.run
+import timber.log.Timber
 import java.util.concurrent.TimeUnit
 
 sealed class CueTimerEvent {
   class Prepared : CueTimerEvent()
+  class Started : CueTimerEvent()
 }
 class PlayInstructionPresenter(
   private val activity: PlayInstructionActivity,
   private val mediaPlayerFragment: PlayInstructionFragment,
   private val instruction: InstructionViewModel,
-  cueTimerHasInitialized: Observable<Boolean>
+  cueTimerHasInitialized: Observable<Unit>
   ) {
   private val compositeDisposable = CompositeDisposable()
   val cueTimerEvents: PublishSubject<CueTimerEvent> = PublishSubject.create()
   val viewIsReady: PublishSubject<Unit> = PublishSubject.create()
 
   init {
+    compositeDisposable.add(
+      mediaPlayerFragment.instructionEvents.take(1L).subscribe(
+        { event ->
+          Timber.d("About to set viewModel for instructionEvent ${event}")
+          activity.setViewModel(makeViewModel(event))
+        },
+        { _ -> },
+        {}
+      )
+    )
+
     compositeDisposable.add(
       mediaPlayerFragment.instructionEvents.subscribe(
         { event ->
@@ -73,13 +86,12 @@ class PlayInstructionPresenter(
         mediaPlayerFragment.instructionEvents,
         cueTimerEvents,
         viewIsReady,
-        Function3 { instructionEvent: InstructionEvent, cueTimerEvent: CueTimerEvent, _: Unit ->
-          Pair(instructionEvent, cueTimerEvent)
-        }
+        Function3 { i: InstructionEvent, c: CueTimerEvent, _: Unit -> Pair(i, c) }
       )
         .observeOn(AndroidSchedulers.mainThread())
         .subscribe(
           { (instructionEvent, cueTimerEvent) ->
+            Timber.d("instructionEvent: ${instructionEvent.javaClass.simpleName}, cueTimerEvent: ${cueTimerEvent.javaClass.simpleName}")
             if (instructionEvent is InstructionEvent.AudioPrepared
                 && cueTimerEvent is CueTimerEvent.Prepared) {
               startInstruction()
@@ -102,8 +114,7 @@ class PlayInstructionPresenter(
     return SystemClock.uptimeMillis()
   }
 
-  fun makeViewModel(): PlayInstructionViewModel {
-    val event = mediaPlayerFragment.instructionEvents.value
+  fun makeViewModel(event: InstructionEvent): PlayInstructionViewModel {
     val elapsedTimeMilliseconds = when (event) {
       is InstructionEvent.ReadyToPrepare -> 0L
       is InstructionEvent.AudioPreparing -> 0L
@@ -149,6 +160,8 @@ class PlayInstructionPresenter(
   }
 
   fun startCueTimer() {
+    Timber.d("About to start CueTimer.")
+    cueTimerEvents.onNext(CueTimerEvent.Started())
     activity.startCueTimer()
   }
 

@@ -76,9 +76,8 @@ class ProgressIndicatorTestActivity : AppCompatActivity() {
     Timber.d("Bound viewModel: ${viewModel}")
 
     circleCueTimer.hasInitialized
-      .subscribe { hasInitialized ->
+      .subscribe { _ ->
         if (animationStartTimeMilliseconds != null
-            && hasInitialized
             && viewModel.elapsedTimeMilliseconds < timerDurationMilliseconds) {
           resumeAnimation()
         }

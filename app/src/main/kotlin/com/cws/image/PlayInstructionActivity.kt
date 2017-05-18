@@ -12,6 +12,7 @@ import android.view.animation.LinearInterpolator
 import com.cws.image.databinding.PlayInstructionActivityBinding
 import com.jakewharton.rxbinding2.view.RxView
 import io.reactivex.disposables.CompositeDisposable
+import timber.log.Timber
 
 class PlayInstructionViewModel(
   val subject: String,
@@ -55,7 +56,8 @@ class PlayInstructionActivity : AppCompatActivity() {
       activity = this,
       mediaPlayerFragment = mediaPlayerFragment,
       instruction = instruction,
-      cueTimerHasInitialized = binding.cueTimer.hasInitialized.filter { x -> x }
+      cueTimerHasInitialized = binding.cueTimer.hasInitialized
+        .doOnEach { _ -> Timber.d("CueTimer has initialized") }
     )
   }
   private val compositeDisposable = CompositeDisposable()
@@ -64,7 +66,6 @@ class PlayInstructionActivity : AppCompatActivity() {
     super.onCreate(savedInstanceState)
 
     setSupportActionBar(binding.toolbar)
-    binding.viewModel = presenter.makeViewModel()
 
     compositeDisposable.add(
       RxView.attaches(binding.cueTimer).subscribe { _ ->
@@ -80,6 +81,10 @@ class PlayInstructionActivity : AppCompatActivity() {
     super.onBackPressed()
   }
 
+  fun setViewModel(viewModel: PlayInstructionViewModel) {
+    binding.viewModel = viewModel
+  }
+
   // TODO: Factor out Snackbar stuff, as in MainActivity.
   // FIXME: What dismisses this indefinite-duration snackbar?
   fun showDelayMessage(message: String) {
@@ -87,10 +92,12 @@ class PlayInstructionActivity : AppCompatActivity() {
   }
 
   fun prepareCueTimer() {
+    Timber.d("About to set up CueTimer animator.")
     binding.cueTimer.countdownAnimator.interpolator = LinearInterpolator()
   }
 
   fun startCueTimer() {
+    Timber.d("About to start CueTimer.")
     binding.cueTimer.countdownAnimator.start()
   }
 

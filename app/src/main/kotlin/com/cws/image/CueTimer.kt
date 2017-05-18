@@ -7,7 +7,6 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PointF
-import android.support.v4.content.ContextCompat
 import android.util.AttributeSet
 import android.util.TypedValue
 import android.view.View
@@ -17,9 +16,8 @@ import com.github.andrewoma.dexx.kollection.immutableListOf
 import com.github.andrewoma.dexx.kollection.toImmutableList
 import io.reactivex.Observable
 import io.reactivex.functions.BiFunction
-import io.reactivex.functions.Function3
-import io.reactivex.subjects.BehaviorSubject
 import io.reactivex.subjects.PublishSubject
+import timber.log.Timber
 import kotlin.properties.Delegates
 
 @BindingAdapter("timerDurationMilliseconds")
@@ -29,7 +27,7 @@ fun setTimerDurationMilliseconds(cueTimer: CueTimer, timerDurationMilliseconds: 
 
 @BindingAdapter("elapsedTimeMilliseconds")
 fun setElapsedTimeMilliseconds(cueTimer: CueTimer, elapsedTimeMilliseconds: Long) {
-  cueTimer.elapsedTimeAtInitMillisecondsStream.onNext(elapsedTimeMilliseconds)
+  cueTimer.rawElapsedTimeAtInitMillisecondsStream.onNext(elapsedTimeMilliseconds)
 }
 
 class CueTimer(
@@ -68,15 +66,11 @@ class CueTimer(
   private val needleColor: Int
 
   val timerDurationMillisecondsStream: PublishSubject<Int> = PublishSubject.create()
-  val elapsedTimeAtInitMillisecondsStream: PublishSubject<Long> = PublishSubject.create()
-  private var timerDurationMilliseconds = 0
-    set(value) {
-      field = value
-      cueTimerClockFace.setTimerDuration(value)
-    }
+  val rawElapsedTimeAtInitMillisecondsStream: PublishSubject<Long> = PublishSubject.create()
+  private var timerDurationMilliseconds: Int by Delegates.notNull<Int>()
   private var elapsedTimeAtInitMilliseconds: Long by Delegates.notNull<Long>()
   val countdownAnimator: ObjectAnimator by lazy { makeCountdownAnimator() }
-  val hasInitialized: BehaviorSubject<Boolean> = BehaviorSubject.createDefault(false)
+  val hasInitialized: PublishSubject<Unit> = PublishSubject.create()
 
   var needleAngleDegrees = 0F
     set(value) {
@@ -131,9 +125,27 @@ class CueTimer(
     addView(cueTimerClockFace)
     addView(cueTimerNeedle)
 
-    Observable.combineLatest(
-      timerDurationMillisecondsStream,
-      elapsedTimeAtInitMillisecondsStream,
+    // 2017-05-17 Cort Spellman
+    // I'm zipping to synchronize the streams:
+    // When the timer duration and elapsed time are set via data binding, the
+    // binding adapter functions called with the supplied XML attributes are
+    // called serially.
+    // I could just bind a tuple with both the timer duration and elapsed time
+    // but this seems nicer and doesn't require a view model (each attribute
+    // could be set to a hard-coded value).
+    //
+    // 2017-05-17 Cort spellman
+    // PROBLEM: The binding adapter functions are each called once with a zero
+    // value for the data type. WHY?
+    // * I have not seen any documentation of this behavior.
+    // * Is this subject to change in the future?
+    // As a workaround, I'm filtering elapsed times for positive values.
+    // NOTE: init must therefore be called programmatically to set a timer
+    // duration of zero; the filter currently prevents setting the duration to
+    // zero via data binding.
+    Observable.zip(
+      timerDurationMillisecondsStream.filter {x -> x > 0},
+      rawElapsedTimeAtInitMillisecondsStream,
       BiFunction { timerDurationMilliseconds: Int, elapsedTimeMilliseconds: Long ->
         Pair(timerDurationMilliseconds, elapsedTimeMilliseconds)
       }
@@ -145,12 +157,10 @@ class CueTimer(
     Observable.combineLatest(
       cueTimerClockFace.hasInitialized,
       cueTimerNeedle.hasInitialized,
-      BiFunction { clockFaceHasInitialized: Boolean, needleHasInitialized: Boolean ->
-        Pair(clockFaceHasInitialized, needleHasInitialized)
-      }
+      BiFunction { _: Unit, _: Unit -> Unit }
     )
-      .subscribe { (clockFaceHasInitialized, needleHasInitialized) ->
-        hasInitialized.onNext(clockFaceHasInitialized && needleHasInitialized)
+      .subscribe { _ ->
+        hasInitialized.onNext(Unit)
       }
   }
 
@@ -191,10 +201,11 @@ class CueTimer(
   // goes well with initializing the timer with an externally-supplied duration
   // and elapsed time. (As opposed to saving the start time, to be recovered in
   // case of, say, a configuration change.)
-  fun init(timerDurationMilliseconds: Int, actualElapsedTimeMilliseconds: Long) {
+  fun init(timerDurationMilliseconds: Int, rawElapsedTimeMilliseconds: Long) {
+    Timber.d("CueTimer#init started with timerDurationMilliseconds: ${timerDurationMilliseconds}, rawElapsedTimeMilliseconds: ${rawElapsedTimeMilliseconds}")
     val elapsedTimeMilliseconds =
-      if (actualElapsedTimeMilliseconds < timerDurationMilliseconds) {
-        actualElapsedTimeMilliseconds
+      if (rawElapsedTimeMilliseconds < timerDurationMilliseconds) {
+        rawElapsedTimeMilliseconds
       }
       else {
         timerDurationMilliseconds.toLong()
@@ -205,9 +216,17 @@ class CueTimer(
                                             timerDurationMilliseconds,
                                             elapsedTimeMilliseconds)
 
+    Timber.d("About to set CueTimer#needleAngleDegrees to ${x} from CueTimer#init")
     needleAngleDegrees = x
+
+    Timber.d("About to set CueTimer#elapsedTimeAtInitMilliseconds to ${elapsedTimeMilliseconds} from CueTimer#init")
     this.elapsedTimeAtInitMilliseconds = elapsedTimeMilliseconds
+
+    Timber.d("About to set CueTimer#timerDurationMilliseconds to ${timerDurationMilliseconds} from CueTimer#init")
     this.timerDurationMilliseconds = timerDurationMilliseconds
+
+    Timber.d("About to call CueTimerClockFace#setTimerDuration with ${timerDurationMilliseconds} from CueTimer#init")
+    cueTimerClockFace.setTimerDuration(timerDurationMilliseconds)
   }
 
   private fun makeCountdownAnimator(): ObjectAnimator {
@@ -244,11 +263,11 @@ class CueTimerClockFace(context: Context) : View(context) {
   private var arcPaint = Paint(Paint.ANTI_ALIAS_FLAG)
   private var numbersPaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
-  val centerStream: PublishSubject<PointF> = PublishSubject.create<PointF>()
-  val arcRadiusStream: PublishSubject<Float> = PublishSubject.create<Float>()
-  val timerDurationMillisecondsStream: PublishSubject<Int> = PublishSubject.create<Int>()
+  data class ArcDefinition(val center: PointF, val arcRadius: Float)
+  val arcDefinitionStream: PublishSubject<ArcDefinition> = PublishSubject.create()
+  val timerDurationMillisecondsStream: PublishSubject<Int> = PublishSubject.create()
 
-  val hasInitialized: BehaviorSubject<Boolean> = BehaviorSubject.createDefault(false)
+  val hasInitialized: PublishSubject<Unit> = PublishSubject.create()
 
   constructor(
     context: Context,
@@ -265,25 +284,23 @@ class CueTimerClockFace(context: Context) : View(context) {
     this.endAngleRadians = Math.toRadians((startAngleDegrees + sweepAngleDegrees).toDouble())
     this.endMarkLengthRatio = endMarkLengthRatio
 
-//    arcPaint.color = ContextCompat.getColor(context, R.color.colorPrimary)
     arcPaint.color = outerStrokeColor
     arcPaint.style = Paint.Style.STROKE
     arcPaint.strokeWidth = strokeWidth
 
-//    numbersPaint.color = ContextCompat.getColor(context, R.color.colorPrimaryText)
     numbersPaint.color = textColor
     numbersPaint.textAlign = Paint.Align.CENTER
     numbersPaint.style = Paint.Style.FILL
 
     Observable.combineLatest(
-      centerStream,
-      arcRadiusStream,
+      arcDefinitionStream,
       timerDurationMillisecondsStream,
-      Function3 { center: PointF, arcRadius: Float, timerDurationMilliseconds: Int ->
+      BiFunction { (center, arcRadius): ArcDefinition, timerDurationMilliseconds: Int ->
         Triple(center, arcRadius, timerDurationMilliseconds)
       }
     )
       .subscribe { (center, arcRadius, timerDurationMilliseconds) ->
+        Timber.d("New arc definition or timer duration for CueTimerClockFace.\n  center: ${center}, arcRadius: ${arcRadius}, timerDurationMilliseconds: ${timerDurationMilliseconds}")
         this.center = center
 
         val arcSize = arcRadius * 2
@@ -341,7 +358,8 @@ class CueTimerClockFace(context: Context) : View(context) {
           )
         }
 
-        hasInitialized.onNext(true)
+        Timber.d("About to put value on CueTimerClockFace#hasInitialized stream.")
+        hasInitialized.onNext(Unit)
         invalidate()
       }
   }
@@ -351,8 +369,7 @@ class CueTimerClockFace(context: Context) : View(context) {
   }
 
   fun setDimensions(center: PointF, arcRadius: Float) {
-    centerStream.onNext(center)
-    arcRadiusStream.onNext(arcRadius)
+    arcDefinitionStream.onNext(ArcDefinition(center, arcRadius))
   }
 
   override fun onDraw(canvas: Canvas) {
@@ -408,8 +425,7 @@ class CueTimerNeedle(context: Context) : View(context) {
 
   private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
 
-  val hasInitialized: BehaviorSubject<Boolean> = BehaviorSubject.createDefault(
-    false)
+  val hasInitialized: PublishSubject<Unit> = PublishSubject.create()
 
   constructor(
     context: Context,
@@ -420,12 +436,12 @@ class CueTimerNeedle(context: Context) : View(context) {
     this.centerRadius = centerRadius
     this.needleLengthRatio = needleLengthRatio
 
-//    paint.color = ContextCompat.getColor(context, R.color.colorPrimary)
     paint.color = needleColor
     paint.style = Paint.Style.FILL
   }
 
   fun setDimensions(center: PointF, arcRadius: Float) {
+    Timber.d("New measurements for CueTimerNeedle\n  center: ${center}, arcRadius: ${arcRadius}")
     this.center = center
 
     val needleLength = arcRadius * needleLengthRatio
@@ -437,7 +453,8 @@ class CueTimerNeedle(context: Context) : View(context) {
     )
     xfPoints = needlePoints.map { _ -> PointF(0F, 0F) }.toImmutableList()
 
-    hasInitialized.onNext(true)
+    Timber.d("About to put value on CueTimerNeedle#hasInitialized stream.")
+    hasInitialized.onNext(Unit)
   }
 
   override fun onDraw(canvas: Canvas) {
