@@ -37,6 +37,24 @@
       <!--</intent-filter>-->
     </activity>
 
+    <activity android:name=".CueTextTestActivity">
+      <!--<intent-filter>-->
+        <!--<action android:name="android.intent.action.MAIN"/>-->
+
+        <!--<category android:name="android.intent.category.LAUNCHER"/>-->
+        <!--<category android:name="android.intent.category.DEFAULT"/>-->
+      <!--</intent-filter>-->
+    </activity>
+
+    <activity android:name=".InstructionVisualTestActivity">
+      <!--<intent-filter>-->
+        <!--<action android:name="android.intent.action.MAIN"/>-->
+
+        <!--<category android:name="android.intent.category.LAUNCHER"/>-->
+        <!--<category android:name="android.intent.category.DEFAULT"/>-->
+      <!--</intent-filter>-->
+    </activity>
+
     <meta-data
         android:name="io.fabric.ApiKey"
         android:value="8c7a128abd9f112911957e09e2bf2d03428f9ec8"/>

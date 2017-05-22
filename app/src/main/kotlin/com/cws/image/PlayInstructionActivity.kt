@@ -8,17 +8,32 @@ import android.os.Bundle
 import android.support.design.widget.Snackbar
 import android.support.v7.app.AppCompatActivity
 import android.view.View
+import android.view.animation.AccelerateDecelerateInterpolator
+import android.view.animation.DecelerateInterpolator
 import android.view.animation.LinearInterpolator
 import com.cws.image.databinding.PlayInstructionActivityBinding
 import com.jakewharton.rxbinding2.view.RxView
 import io.reactivex.disposables.CompositeDisposable
 import timber.log.Timber
 
+enum class CueTextAlpha() {
+  VISIBLE,
+  HIDDEN
+}
+
+fun CueTextAlpha.toInt(): Int {
+  return when (this) {
+    CueTextAlpha.HIDDEN -> 0
+    CueTextAlpha.VISIBLE -> 1
+  }
+}
+
 class PlayInstructionViewModel(
   val subject: String,
   val language: String,
   val timerDurationMilliseconds: Int,
-  val elapsedTimeMilliseconds: Long
+  val elapsedTimeMilliseconds: Long,
+  val cueTextAlpha: Int
 ) {
   val appVersionInfo = "Version ${BuildConfig.VERSION_NAME} | Version Code ${BuildConfig.VERSION_CODE} | Commit ${BuildConfig.GIT_SHA}"
 }
@@ -101,9 +116,53 @@ class PlayInstructionActivity : AppCompatActivity() {
     binding.cueTimer.countdownAnimator.start()
   }
 
-  fun showCue() {
-    binding.cueText.visibility = View.VISIBLE
+  fun animateGrowThenRestore(view: View, startAction: () -> Unit = {}, endAction: () -> Unit = {}): () -> Unit {
+    val scale = 0.05F
+    val halfDuration = 175L
+    return {
+      view.animate()
+        .scaleXBy(scale)
+        .scaleYBy(scale)
+        .setDuration(halfDuration)
+        .setStartDelay(0L)
+        .setInterpolator(AccelerateDecelerateInterpolator())
+        .withStartAction(startAction)
+        .withEndAction {
+          view.animate()
+            .scaleXBy(-scale)
+            .scaleYBy(-scale)
+            .setDuration(halfDuration)
+            .setStartDelay(0L)
+            .setInterpolator(AccelerateDecelerateInterpolator())
+            .withEndAction(endAction)
+            .start()
+        }
+        .start()
+    }
   }
+
+  fun showCue() {
+    binding.cueText.animate()
+      .alpha(1F)
+      .setDuration(30L)
+      .setInterpolator(LinearInterpolator())
+      .withEndAction {
+        animateGrowThenRestore(
+          view = binding.cueText,
+          startAction = {
+            binding.cueTimer.animate()
+              .alpha(0.2F)
+              .setDuration(550L)
+              .setInterpolator(DecelerateInterpolator())
+              .withStartAction {
+                binding.cueHighlight.makeAnimator().start()
+              }
+              .start()
+          },
+          endAction = animateGrowThenRestore(binding.cueText)
+        ).invoke()
+      }
+      .start()  }
 
   fun finishWithInstructionComplete() {
     setResult(Activity.RESULT_OK, Intent())

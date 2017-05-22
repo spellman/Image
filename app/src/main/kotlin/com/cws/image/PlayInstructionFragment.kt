@@ -19,6 +19,7 @@ sealed class InstructionEvent {
   class AudioPrepared : InstructionEvent()
   data class InstructionStarted(val startTime: Long) : InstructionEvent()
   class CueTimerShouldBeFinished : InstructionEvent()
+  class CueHasBeenShown : InstructionEvent()
 }
 
 sealed class AudioFocusEvent {
@@ -153,6 +154,10 @@ class PlayInstructionFragment : BaseFragment() {
     )
     mediaPlayer!!.start()
     instructionEvents.onNext(InstructionEvent.InstructionStarted(startTime))
+  }
+
+  fun recordCueHasBeenShown() {
+    instructionEvents.onNext(InstructionEvent.CueHasBeenShown())
   }
 
   fun stopInstructionAudio() {

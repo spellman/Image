@@ -67,8 +67,8 @@ class CueTimer(
 
   val timerDurationMillisecondsStream: PublishSubject<Int> = PublishSubject.create()
   val rawElapsedTimeAtInitMillisecondsStream: PublishSubject<Long> = PublishSubject.create()
-  private var timerDurationMilliseconds: Int by Delegates.notNull<Int>()
-  private var elapsedTimeAtInitMilliseconds: Long by Delegates.notNull<Long>()
+  private var timerDurationMilliseconds by Delegates.notNull<Int>()
+  private var elapsedTimeAtInitMilliseconds by Delegates.notNull<Long>()
   val countdownAnimator: ObjectAnimator by lazy { makeCountdownAnimator() }
   val hasInitialized: PublishSubject<Unit> = PublishSubject.create()
 
@@ -135,8 +135,8 @@ class CueTimer(
     // could be set to a hard-coded value).
     //
     // 2017-05-17 Cort spellman
-    // PROBLEM: The binding adapter functions are each called once with a zero
-    // value for the data type. WHY?
+    // PROBLEM: The binding adapter functions are each initially called with a
+    // zero value for the data type. WHY?
     // * I have not seen any documentation of this behavior.
     // * Is this subject to change in the future?
     // As a workaround, I'm filtering elapsed times for positive values.
@@ -144,12 +144,13 @@ class CueTimer(
     // duration of zero; the filter currently prevents setting the duration to
     // zero via data binding.
     Observable.zip(
-      timerDurationMillisecondsStream.filter {x -> x > 0},
+      timerDurationMillisecondsStream,
       rawElapsedTimeAtInitMillisecondsStream,
       BiFunction { timerDurationMilliseconds: Int, elapsedTimeMilliseconds: Long ->
         Pair(timerDurationMilliseconds, elapsedTimeMilliseconds)
       }
     )
+      .filter { (timerDurationMilliseconds, _) -> timerDurationMilliseconds > 0 }
       .subscribe { (timerDurationMilliseconds, elapsedTimeMilliseconds) ->
         init(timerDurationMilliseconds, elapsedTimeMilliseconds)
       }
@@ -165,9 +166,7 @@ class CueTimer(
   }
 
   override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
-    if (!changed) {
-      return
-    }
+    if (!changed) { return }
 
     center.x = width / 2F
     center.y = height / 2F
@@ -176,7 +175,7 @@ class CueTimer(
     cueTimerClockFace.setDimensions(center, arcRadius)
     cueTimerNeedle.setDimensions(center, arcRadius)
 
-    super.onLayout(changed, left, top, right, bottom)
+    super.onLayout(changed, l, t, r, b)
   }
 
   fun needleAngleDegreesAtElapsedTime(
@@ -242,23 +241,23 @@ class CueTimer(
 
 class CueTimerClockFace(context: Context) : View(context) {
   private lateinit var center: PointF
-  private var strokeWidth: Float by Delegates.notNull<Float>()
-  private var startAngleDegrees: Float by Delegates.notNull<Float>()
-  private var sweepAngleDegrees: Float by Delegates.notNull<Float>()
-  private var endAngleRadians: Double by Delegates.notNull<Double>()
+  private var strokeWidth by Delegates.notNull<Float>()
+  private var startAngleDegrees by Delegates.notNull<Float>()
+  private var sweepAngleDegrees by Delegates.notNull<Float>()
+  private var endAngleRadians by Delegates.notNull<Double>()
 
-  private var arcLeft: Float by Delegates.notNull<Float>()
-  private var arcTop: Float by Delegates.notNull<Float>()
-  private var arcRight: Float by Delegates.notNull<Float>()
-  private var arcBottom: Float by Delegates.notNull<Float>()
+  private var arcLeft by Delegates.notNull<Float>()
+  private var arcTop by Delegates.notNull<Float>()
+  private var arcRight by Delegates.notNull<Float>()
+  private var arcBottom by Delegates.notNull<Float>()
 
-  private var endMarkLengthRatio: Float by Delegates.notNull<Float>()
+  private var endMarkLengthRatio by Delegates.notNull<Float>()
   private val endMarkStart = PointF(0F, 0F)
   private val endMarkEnd = PointF(0F, 0F)
 
-  private var numbersRadius: Float by Delegates.notNull<Float>()
-  private var textOffset: Float by Delegates.notNull<Float>()
-  private var timerDurationSeconds: Int by Delegates.notNull<Int>()
+  private var numbersRadius by Delegates.notNull<Float>()
+  private var textOffset by Delegates.notNull<Float>()
+  private var timerDurationSeconds = 0
   private lateinit var countdownSecondsPoints: ImmutableList<PointF>
   private var arcPaint = Paint(Paint.ANTI_ALIAS_FLAG)
   private var numbersPaint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -301,13 +300,8 @@ class CueTimerClockFace(context: Context) : View(context) {
     )
       .subscribe { (center, arcRadius, timerDurationMilliseconds) ->
         Timber.d("New arc definition or timer duration for CueTimerClockFace.\n  center: ${center}, arcRadius: ${arcRadius}, timerDurationMilliseconds: ${timerDurationMilliseconds}")
-        this.center = center
 
         val arcSize = arcRadius * 2
-        arcLeft = center.x - arcRadius + strokeWidth
-        arcRight = center.x + arcRadius - strokeWidth
-        arcTop = center.y - arcRadius + strokeWidth
-        arcBottom = center.y + arcRadius - strokeWidth
 
         numbersPaint.textSize =
           TypedValue.applyDimension(
@@ -369,6 +363,12 @@ class CueTimerClockFace(context: Context) : View(context) {
   }
 
   fun setDimensions(center: PointF, arcRadius: Float) {
+    this.center = center
+    arcLeft = center.x - arcRadius + strokeWidth
+    arcRight = center.x + arcRadius - strokeWidth
+    arcTop = center.y - arcRadius + strokeWidth
+    arcBottom = center.y + arcRadius - strokeWidth
+
     arcDefinitionStream.onNext(ArcDefinition(center, arcRadius))
   }
 
@@ -408,8 +408,8 @@ class CueTimerClockFace(context: Context) : View(context) {
 
 class CueTimerNeedle(context: Context) : View(context) {
   private lateinit var center: PointF
-  private var centerRadius: Float by Delegates.notNull<Float>()
-  private var needleLengthRatio: Float by Delegates.notNull<Float>()
+  private var centerRadius by Delegates.notNull<Float>()
+  private var needleLengthRatio by Delegates.notNull<Float>()
   var thetaDegrees = 0F
     set(value) {
       if (field != value) {

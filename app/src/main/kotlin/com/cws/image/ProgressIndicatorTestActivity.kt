@@ -1,11 +1,8 @@
 package com.cws.image
 
-import android.content.res.ColorStateList
 import android.databinding.DataBindingUtil
-import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.SystemClock
-import android.support.v4.content.ContextCompat
 import android.support.v7.app.AppCompatActivity
 import android.support.v7.widget.AppCompatTextView
 import android.view.View
@@ -16,7 +13,6 @@ import android.widget.ImageView
 import com.cws.image.databinding.ProgressIndicatorTestActivityBinding
 import io.reactivex.disposables.Disposable
 import timber.log.Timber
-import kotlin.properties.Delegates
 
 data class TimingValues(
   val timerDurationMilliseconds: Int,

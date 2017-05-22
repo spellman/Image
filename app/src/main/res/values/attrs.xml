@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+  <attr name="stroke_width" format="dimension"/>
+
   <declare-styleable name="CueTimer">
-    <attr name="stroke_width" format="dimension"/>
+    <attr name="stroke_width"/>
     <attr name="start_angle_degrees" format="float"/>
     <attr name="sweep_angle_degrees" format="float"/>
     <attr name="end_mark_length_ratio" format="float"/>
@@ -10,5 +12,17 @@
     <attr name="outer_stroke_color" format="color"/>
     <attr name="text_color" format="color"/>
     <attr name="needle_color" format="color"/>
+  </declare-styleable>
+
+  <declare-styleable name="ExpandingOval">
+    <attr name="stroke_width"/>
+    <attr name="color" format="color"/>
+    <attr name="width_initial" format="dimension"/>
+    <attr name="height_initial" format="dimension"/>
+    <attr name="fade_in_dimension_scale_factor_final" format="float"/>
+    <attr name="fade_in_duration" format="integer"/>
+    <attr name="fade_in_alpha_final" format="float"/>
+    <attr name="fade_out_dimension_scale_factor_final" format="float"/>
+    <attr name="fade_out_duration" format="integer"/>
   </declare-styleable>
 </resources>

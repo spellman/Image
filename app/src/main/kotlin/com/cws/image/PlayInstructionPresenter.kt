@@ -98,7 +98,7 @@ class PlayInstructionPresenter(
             }
             else if (instructionEvent is InstructionEvent.InstructionStarted
                      && cueTimerEvent is CueTimerEvent.Prepared) {
-              startCueTimer()
+              resumeCueTimer()
             }
             else if (instructionEvent is InstructionEvent.CueTimerShouldBeFinished) {
               showCue()
@@ -115,19 +115,31 @@ class PlayInstructionPresenter(
   }
 
   fun makeViewModel(event: InstructionEvent): PlayInstructionViewModel {
+    Timber.d("makeViewModel for instruction event; ${event}")
     val elapsedTimeMilliseconds = when (event) {
       is InstructionEvent.ReadyToPrepare -> 0L
       is InstructionEvent.AudioPreparing -> 0L
       is InstructionEvent.AudioPrepared -> 0L
       is InstructionEvent.InstructionStarted -> currentTime() - event.startTime
       is InstructionEvent.CueTimerShouldBeFinished -> instruction.cueStartTimeMilliseconds
+      is InstructionEvent.CueHasBeenShown -> instruction.cueStartTimeMilliseconds
     }
 
+    val cueTextAlpha =
+      if (elapsedTimeMilliseconds < instruction.cueStartTimeMilliseconds) {
+        CueTextAlpha.HIDDEN
+      }
+      else {
+        CueTextAlpha.VISIBLE
+      }
+
+    Timber.d("view model elapsed time: ${elapsedTimeMilliseconds}")
     return PlayInstructionViewModel(
       subject = instruction.subject,
       language = instruction.language,
       timerDurationMilliseconds = instruction.cueStartTimeMilliseconds.toInt(),
-      elapsedTimeMilliseconds = elapsedTimeMilliseconds
+      elapsedTimeMilliseconds = elapsedTimeMilliseconds,
+      cueTextAlpha = cueTextAlpha.toInt()
     )
   }
 
@@ -151,7 +163,7 @@ class PlayInstructionPresenter(
   fun startInstruction() {
     Observable.timer(500L, TimeUnit.MILLISECONDS).subscribe { _ ->
       launch(CommonPool) {
-        run(UI) { startCueTimer() }
+        run(UI) { resumeCueTimer() }
         mediaPlayerFragment.startInstruction(
           instruction.cueStartTimeMilliseconds,
           currentTime())
@@ -159,7 +171,7 @@ class PlayInstructionPresenter(
     }
   }
 
-  fun startCueTimer() {
+  fun resumeCueTimer() {
     Timber.d("About to start CueTimer.")
     cueTimerEvents.onNext(CueTimerEvent.Started())
     activity.startCueTimer()
@@ -171,6 +183,7 @@ class PlayInstructionPresenter(
 
   fun showCue() {
     activity.showCue()
+    mediaPlayerFragment.recordCueHasBeenShown()
   }
 
   fun onDestroy() {
