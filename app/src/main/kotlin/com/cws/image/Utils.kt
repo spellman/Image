@@ -10,7 +10,7 @@ tailrec fun <T> _partitionBy(
   n: Int,
   step: Int): ImmutableList<ImmutableList<T>> {
   if (s.isEmpty()) {
-    return immutableListOf()
+    return acc
   }
   else {
     val p = s.take(n)
@@ -38,4 +38,3 @@ fun String.partitionBy(n: Int): ImmutableList<ImmutableList<Char>> {
 fun String.partitionBy(n: Int, step: Int): ImmutableList<ImmutableList<Char>> {
   return this.toList().partitionBy(n, step)
 }
-
