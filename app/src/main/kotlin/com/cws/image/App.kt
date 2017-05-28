@@ -36,6 +36,7 @@ class App : Application() {
 //    Thread.setDefaultUncaughtExceptionHandler(AppCrashHandler(this))
     Fabric.with(this, Crashlytics())
     Fabric.with(this, Answers())
+    Crashlytics.setString("git_sha", BuildConfig.GIT_SHA)
     if (BuildConfig.DEBUG) {
       Timber.plant(Timber.DebugTree())
     }
