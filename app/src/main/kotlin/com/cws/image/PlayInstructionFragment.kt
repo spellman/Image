@@ -136,11 +136,11 @@ class PlayInstructionFragment : BaseFragment() {
       mediaPlayer!!.prepareAsync()
     }
     catch (e: IOException) {
-      Timber.e(e)
+      Timber.e(e, "Could not play instruction: ${audioFilePath}")
       instructionEvents.onError(e)
     }
     catch (e: IllegalArgumentException) {
-      Timber.e(e)
+      Timber.e(e, "Could not play instruction: ${audioFilePath}")
       instructionEvents.onError(e)
     }
   }
