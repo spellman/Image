@@ -38,7 +38,7 @@ fun validatePasswordWithConfirmation(context: Context): ValidatorApplier {
   return ValidatorApplier(
     immutableListOf(
       Validator(
-        context.getString(R.string.password_min_length, passwordMinLength),
+        context.resources.getQuantityString(R.plurals.password_min_length, passwordMinLength, passwordMinLength),
         { password, _ -> password.length >= passwordMinLength }
       ),
       Validator(
