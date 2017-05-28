@@ -1,5 +1,7 @@
 package com.cws.image
 
+import android.app.Activity
+import android.view.WindowManager
 import com.github.andrewoma.dexx.kollection.ImmutableList
 import com.github.andrewoma.dexx.kollection.immutableListOf
 import com.github.andrewoma.dexx.kollection.toImmutableList
@@ -37,4 +39,8 @@ fun String.partitionBy(n: Int): ImmutableList<ImmutableList<Char>> {
 
 fun String.partitionBy(n: Int, step: Int): ImmutableList<ImmutableList<Char>> {
   return this.toList().partitionBy(n, step)
+}
+
+fun requestKeepScreenOn(activity: Activity) {
+  activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 }

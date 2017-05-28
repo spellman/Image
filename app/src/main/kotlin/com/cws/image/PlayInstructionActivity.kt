@@ -87,6 +87,7 @@ class PlayInstructionActivity : AppCompatActivity() {
     )
 
     volumeControlStream = AudioManager.STREAM_MUSIC
+    requestKeepScreenOn(this)
   }
 
   override fun onBackPressed() {

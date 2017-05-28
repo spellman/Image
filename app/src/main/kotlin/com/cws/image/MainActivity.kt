@@ -88,6 +88,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     showInstructions()
+    requestKeepScreenOn(this)
   }
 
   override fun onSaveInstanceState(outState: Bundle?) {
