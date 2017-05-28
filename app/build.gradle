@@ -15,9 +15,7 @@ apply plugin: "kotlin-android-extensions"
 apply plugin: "kotlin-kapt"
 apply plugin: "io.fabric"
 
-def versionMajor = 0
-def versionMinor = 0
-def versionPatch = 1
+def version = 0
 def versionBuild = 4 // bump for dogfood builds, public betas, etc.
 
 // From https://github.com/JakeWharton/u2020/blob/1712f903084703059b9a4316b63fa9a29b4559cd/build.gradle
@@ -56,7 +54,7 @@ android {
     targetSdkVersion 25
 
     versionCode 5
-    versionName "${versionMajor}.${versionMinor}.${versionPatch}.${versionBuild}"
+    versionName "${version}"
 
     buildConfigField 'String', 'GIT_SHA', "\"${gitSha()}\""
     buildConfigField 'long', 'GIT_TIMESTAMP', "${gitTimestamp()}L"
