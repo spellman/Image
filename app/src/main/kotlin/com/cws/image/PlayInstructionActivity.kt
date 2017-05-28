@@ -16,7 +16,7 @@ import com.jakewharton.rxbinding2.view.RxView
 import io.reactivex.disposables.CompositeDisposable
 import timber.log.Timber
 
-enum class CueTextAlpha() {
+enum class CueTextAlpha {
   VISIBLE,
   HIDDEN
 }
