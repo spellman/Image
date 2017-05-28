@@ -26,12 +26,6 @@ import io.reactivex.disposables.CompositeDisposable
 import paperparcel.PaperParcel
 import timber.log.Timber
 
-// 2017-02-19 Cort Spellman
-// TODO: Put version info in a menu item that doesn't do anything when clicked.
-class MainViewModel {
-  val appVersionInfo = "Version ${BuildConfig.VERSION_NAME} | Version Code ${BuildConfig.VERSION_CODE} | Commit ${BuildConfig.GIT_SHA}"
-}
-
 @PaperParcel
 data class InstructionViewModel(
   val subject: String,
@@ -60,7 +54,6 @@ class MainActivity : AppCompatActivity() {
   private val PERMISSION_REQUEST_WRITE_EXTERNAL_STORAGE = 0
   private val REQUEST_CODE_PLAY_INSTRUCTION = 1
   private val SELECTED_LANGUAGE = "selected-language"
-  private val viewModel by lazy { MainViewModel() }
   private val presenter by lazy {
     MainPresenter(
       this,
@@ -76,12 +69,8 @@ class MainActivity : AppCompatActivity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
-
     presenter.resumeKioskModeIfItWasInterrupted()
-
     setSupportActionBar(binding.toolbar)
-    binding.viewModel = viewModel
-
     initInstructionsRecyclerView()
     initUnparsableInstructionsRecyclerView()
 
@@ -142,6 +131,9 @@ class MainActivity : AppCompatActivity() {
   override fun onCreateOptionsMenu(menu: Menu): Boolean {
     super.onCreateOptionsMenu(menu)
     menuInflater.inflate(R.menu.main_activity, menu)
+    menu.findItem(R.id.version_name).title =
+      String.format(resources.getString(R.string.format_version_name),
+                    resources.getString(R.string.VERSION_NAME))
 
     return true
   }
@@ -191,6 +183,8 @@ class MainActivity : AppCompatActivity() {
         true
       }
 
+      R.id.version_name -> true
+
       else -> {
         super.onOptionsItemSelected(item)
       }
@@ -212,7 +206,7 @@ class MainActivity : AppCompatActivity() {
 
   fun initInstructionsRecyclerView() {
     val onSubjectClicked: (View, Int, Any?) -> Unit =
-      { view: View, position: Int, item: Any? ->
+      { _: View, position: Int, item: Any? ->
         if (item as? InstructionViewModel != null) {
           presenter.playInstruction(item as InstructionViewModel)
         }
@@ -235,9 +229,11 @@ class MainActivity : AppCompatActivity() {
     val divider =
       android.support.v7.widget.DividerItemDecoration(
         this,
-        LinearLayoutManager.VERTICAL)
+        LinearLayoutManager.VERTICAL
+      )
     divider.setDrawable(
-      ContextCompat.getDrawable(this, R.drawable.vertical_list_divider))
+      ContextCompat.getDrawable(this, R.drawable.vertical_list_divider)
+    )
     instructionsForCurrentLanguage.addItemDecoration(divider)
   }
 

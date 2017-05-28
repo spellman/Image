@@ -56,8 +56,9 @@ android {
     versionCode 5
     versionName "${version}"
 
-    buildConfigField 'String', 'GIT_SHA', "\"${gitSha()}\""
-    buildConfigField 'long', 'GIT_TIMESTAMP', "${gitTimestamp()}L"
+    buildConfigField "String", "GIT_SHA", "\"${gitSha()}\""
+    buildConfigField "long", "GIT_TIMESTAMP", "${gitTimestamp()}L"
+    resValue "string", "VERSION_NAME", "\"${version}.${versionBuild} (${gitSha()})\""
 
     testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
   }
@@ -68,6 +69,7 @@ android {
     }
 
     release {
+      resValue "string", "VERSION_NAME", "\"${version}\""
       minifyEnabled false
       proguardFiles getDefaultProguardFile("proguard-android.txt"),
           "proguard-rules.pro"

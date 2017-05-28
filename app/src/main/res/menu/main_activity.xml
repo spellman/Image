@@ -30,4 +30,10 @@
       android:title="Force Exit Kiosk Mode"
       app:showAsAction="never"
       />
+  <item
+      android:id="@+id/version_name"
+      android:title="@string/VERSION_NAME"
+      android:enabled="false"
+      app:showAsAction="never"
+      />
 </menu>

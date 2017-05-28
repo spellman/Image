@@ -34,9 +34,7 @@ class PlayInstructionViewModel(
   val timerDurationMilliseconds: Int,
   val elapsedTimeMilliseconds: Long,
   val cueTextAlpha: Int
-) {
-  val appVersionInfo = "Version ${BuildConfig.VERSION_NAME} | Version Code ${BuildConfig.VERSION_CODE} | Commit ${BuildConfig.GIT_SHA}"
-}
+)
 
 class PlayInstructionActivity : AppCompatActivity() {
   companion object {
