@@ -32,7 +32,26 @@ class MainPresenter(
   val deviceAdminReceiver by lazy {
     ComponentName(activity.applicationContext, ImageDeviceAdminReceiver::class.java)
   }
-  val canEnterKioskMode: Boolean by lazy { _canEnterKioskMode() }
+  val canEnterKioskMode: Boolean by lazy {
+    if (!devicePolicyManager.isDeviceOwnerApp(activity.packageName)) {
+      false
+    }
+    else {
+      devicePolicyManager.setLockTaskPackages(deviceAdminReceiver,
+                                              arrayOf(activity.packageName))
+
+      if (!devicePolicyManager.isLockTaskPermitted(activity.packageName)) {
+        // TODO: This should not happen so log an error to Crashlytics.
+        Timber.e(
+          "DevicePolicyManager#isDeviceOwnerApp just returned true and we just made this a lo")
+        false
+      }
+      else {
+
+        true
+      }
+    }
+  }
 
   fun showInstructions() {
     getInstructions.getInstructions()
@@ -198,23 +217,6 @@ class MainPresenter(
 
     return r.getString(
       r.getIdentifier(name, "string", activity.packageName))
-  }
-
-  fun _canEnterKioskMode(): Boolean {
-    if (!devicePolicyManager.isDeviceOwnerApp(activity.packageName)) {
-      return false
-    }
-
-    devicePolicyManager.setLockTaskPackages(deviceAdminReceiver,
-                                            arrayOf(activity.packageName))
-
-    if (!devicePolicyManager.isLockTaskPermitted(activity.packageName)) {
-      // TODO: This should not happen so log an error to Crashlytics.
-      Timber.e("DevicePolicyManager#isDeviceOwnerApp just returned true and we just made this a lo")
-      return false
-    }
-
-    return true
   }
 
   fun showInstructionsToSetUpLockedMode() {
