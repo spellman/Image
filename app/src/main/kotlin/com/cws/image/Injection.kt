@@ -75,8 +75,16 @@ fun provideAuthentication(context: Context): Authentication {
   )
 }
 
+
+
 fun provideKioskModeSetting(context: Context): KioskModeSetting {
   return KioskModeSetting.getInstance(
+    provideSharedPreferencesStorage(context)
+  )
+}
+
+fun provideAppInstanceId(context: Context): AppInstanceId {
+  return AppInstanceId.getInstance(
     provideSharedPreferencesStorage(context)
   )
 }
