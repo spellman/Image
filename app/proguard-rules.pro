@@ -15,3 +15,13 @@
 #-keepclassmembers class fqcn.of.javascript.interface.for.webview {
 #   public *;
 #}
+
+# Crashlytics
+#   as per https://docs.fabric.io/android/crashlytics/dex-and-proguard.html
+-keepattributes *Annotation*
+-keepattributes SourceFile,LineNumberTable
+-keep public class * extends java.lang.Exception
+
+# Picasso
+#   as per https://github.com/square/picasso
+-dontwarn com.squareup.okhttp.**

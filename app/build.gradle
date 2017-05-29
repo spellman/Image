@@ -72,7 +72,7 @@ android {
     release {
       resValue "string", "VERSION_NAME", "\"${version}\""
       buildConfigField "boolean", "SHOULD_RESTART_ON_CRASH", "true"
-      minifyEnabled false
+      minifyEnabled true
       proguardFiles getDefaultProguardFile("proguard-android.txt"),
           "proguard-rules.pro"
     }
