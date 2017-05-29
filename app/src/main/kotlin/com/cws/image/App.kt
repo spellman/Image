@@ -33,7 +33,11 @@ class App : Application() {
 
   override fun onCreate() {
     super.onCreate()
-//    Thread.setDefaultUncaughtExceptionHandler(AppCrashHandler(this))
+
+    if (BuildConfig.SHOULD_RESTART_ON_CRASH) {
+      Thread.setDefaultUncaughtExceptionHandler(AppCrashHandler(this))
+    }
+
     Fabric.with(this, Crashlytics())
     Fabric.with(this, Answers())
     Crashlytics.setString("git_sha", BuildConfig.GIT_SHA)
@@ -41,7 +45,10 @@ class App : Application() {
       Timber.plant(Timber.DebugTree())
     }
     Timber.plant(CrashlyticsTree())
-    refWatcher = LeakCanary.install(this)
-    Stetho.initializeWithDefaults(this)
+
+    if (BuildConfig.DEBUG) {
+      refWatcher = LeakCanary.install(this)
+      Stetho.initializeWithDefaults(this)
+    }
   }
 }

@@ -60,6 +60,7 @@ android {
     buildConfigField "long", "GIT_TIMESTAMP", "${gitTimestamp()}L"
     resValue "string", "VERSION_NAME", "\"${version}.${versionBuild} (${gitSha()})\""
 
+    buildConfigField "boolean", "SHOULD_RESTART_ON_CRASH", "false"
     testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
   }
 
@@ -70,6 +71,7 @@ android {
 
     release {
       resValue "string", "VERSION_NAME", "\"${version}\""
+      buildConfigField "boolean", "SHOULD_RESTART_ON_CRASH", "true"
       minifyEnabled false
       proguardFiles getDefaultProguardFile("proguard-android.txt"),
           "proguard-rules.pro"
@@ -139,8 +141,8 @@ dependencies {
   compile "com.f2prateek.rx.preferences2:rx-preferences:2.0.0-RC1"
   compile "com.squareup.picasso:picasso:2.5.2"
   compile "com.jakewharton.timber:timber:4.5.1"
-  compile "com.facebook.stetho:stetho:1.5.0"
-  compile "com.facebook.stetho:stetho-okhttp3:1.5.0"
+  debugCompile "com.facebook.stetho:stetho:1.5.0"
+  debugCompile "com.facebook.stetho:stetho-okhttp3:1.5.0"
   testCompile "junit:junit:4.12"
   debugCompile "com.squareup.leakcanary:leakcanary-android:1.5.1"
   kapt "com.android.databinding:compiler:2.3.2"

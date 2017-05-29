@@ -32,11 +32,11 @@ class AppCrashHandler(val application: Application) : Thread.UncaughtExceptionHa
   }
 
   override fun uncaughtException(thread: Thread?, e: Throwable?) {
-    if (liveActivity != null) {
+    liveActivity?.let {
       val intent = Intent(application.applicationContext, MainActivity::class.java)
       intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-      liveActivity?.finish()
-      liveActivity?.startActivity(intent)
+      it.finish()
+      it.startActivity(intent)
     }
 
     System.exit(0)
