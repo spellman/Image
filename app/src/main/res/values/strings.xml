@@ -6,29 +6,30 @@
 
   <string name="shared_preferences_file_key">image-shared-preferences</string>
 
-  <string name="set_up_kiosk_mode">Set Up Kiosk Mode</string>
+  <string name="set_up_kiosk_mode">Set Up Locked Mode</string>
 
   <string name="password">Password</string>
   <string name="old_password">Old password</string>
   <string name="new_password">New password</string>
   <string name="confirm_new_password">Confirm new password</string>
 
-  <string name="enter_kiosk_mode">Enter Kiosk Mode</string>
-  <string name="exit_kiosk_mode">Exit Kiosk Mode</string>
+  <string name="enter_kiosk_mode">Enter Locked Mode</string>
+  <string name="exit_kiosk_mode">Exit Locked Mode</string>
   <string name="set_password">Set Unlock Password</string>
+  <string name="change_password">Change Unlock Password</string>
 
   <string name="set_password_dialog_title">Set password</string>
-  <string name="set_password_dialog_message">Enter a password to be used to unlock the device from running only this app.</string>
+  <string name="set_password_dialog_message">This password will unlock the device from running only this app.\n\nIf you lose the password and lock the app, then the device will be locked to this app.</string>
   <plurals name="password_min_length">
     <item quantity="one">Password must be at least %1$d character long.</item>
     <item quantity="other">Password must be at least %1$d characters long.</item>
   </plurals>
   <string name="password_cannot_contain_password">Password cannot contain the word \"password\" or similar.</string>
-  <string name="password_cannot_contain_common_sequence">Password cannot contain common, and therefore easily guessable, sequences of characters.</string>
+  <string name="password_cannot_contain_common_sequence">Password cannot contain 4+ sequential or repeated characters.</string>
   <string name="passwords_must_match">Passwords must match.</string>
 
   <string name="enter_password">Enter password</string>
-  <string name="enter_password_to_exit_kiosk_mode_dialog_message">Enter password to unlock the device from running only this app.</string>
+  <string name="enter_password_to_exit_kiosk_mode_dialog_message">Entering the password will unlock the device from running only this app.</string>
   <string name="wrong_password">Wrong password</string>
 
   <string name="instructions_to_set_up_kiosk_mode_title">The device can\'t yet be locked to this app.</string>

@@ -316,18 +316,16 @@ class MainPresenter(
     activity.showDialogToEnterPasswordToExitKioskMode()
   }
 
-  fun exitKioskMode() {
+  fun exitKioskMode(message: String? = null) {
+    message?.let {
+      activity.showSnackbarLong(
+        "${it} ${activity.getString(R.string.error_has_been_logged)}"
+      )
+    }
     Timber.d("About to exit kiosk mode.")
     activity.stopLockTask()
     setShouldBeInKioskMode(false)
     Timber.d("Exited kiosk mode.")
-  }
-
-  fun exitKioskMode(message: String) {
-    activity.showSnackbarLong(
-      "${message} ${activity.getString(R.string.error_has_been_logged)}"
-    )
-    exitKioskMode()
   }
 
   fun resumeKioskModeIfItWasInterrupted() {
@@ -339,6 +337,15 @@ class MainPresenter(
 
   fun isSetUpKioskModeMenuItemVisible(): Boolean {
     return !canEnterKioskMode
+  }
+
+  fun setPasswordMenuItemTitle(): String {
+    return if (authentication.isPasswordSet()) {
+      activity.getString(R.string.change_password)
+    }
+    else {
+      activity.getString(R.string.set_password)
+    }
   }
 
   fun isSetPasswordMenuItemVisible(): Boolean {

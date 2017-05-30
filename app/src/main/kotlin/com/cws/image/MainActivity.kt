@@ -50,7 +50,15 @@ data class UnparsableInstructionViewModel(
   val failureMessage: String
 )
 
-class MainActivity : AppCompatActivity() {
+interface SetPassword {
+  fun setPassword(password: String)
+}
+
+interface ExitKioskMode {
+  fun exitKioskMode(message: String? = null)
+}
+
+class MainActivity : AppCompatActivity(), SetPassword, ExitKioskMode {
   private val PERMISSION_REQUEST_WRITE_EXTERNAL_STORAGE = 0
   private val REQUEST_CODE_PLAY_INSTRUCTION = 1
   private val SELECTED_LANGUAGE = "selected-language"
@@ -144,8 +152,9 @@ class MainActivity : AppCompatActivity() {
     menu.findItem(R.id.set_up_kiosk_mode)
       .isVisible = presenter.isSetUpKioskModeMenuItemVisible()
 
-    menu.findItem(R.id.set_password)
-      .isVisible = presenter.isSetPasswordMenuItemVisible()
+    val setPasswordMenuItem = menu.findItem(R.id.set_password)
+    setPasswordMenuItem.title = presenter.setPasswordMenuItemTitle()
+    setPasswordMenuItem.isVisible = presenter.isSetPasswordMenuItemVisible()
 
     val enterKioskModeMenuItem = menu.findItem(R.id.enter_kiosk_mode)
     enterKioskModeMenuItem.isVisible = presenter.isEnterKioskModeMenuItemVisible()
@@ -275,14 +284,6 @@ class MainActivity : AppCompatActivity() {
 
   private fun requestPermissionWriteExternalStorage() {
     if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
-      // TODO: Show an explanation to the user *asynchronously* -- don't block
-      // this thread waiting for the user's response! After the user sees the
-      // explanation (dialog or snackbar are easy), try again to request the
-      // permission.
-      ActivityCompat.requestPermissions(
-        this,
-        arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
-        PERMISSION_REQUEST_WRITE_EXTERNAL_STORAGE)
     }
     else {
       ActivityCompat.requestPermissions(
@@ -374,7 +375,7 @@ class MainActivity : AppCompatActivity() {
       .show(supportFragmentManager, EnterPasswordDialogFragment::class.java.name)
   }
 
-  fun setPassword(password: String) {
+  override fun setPassword(password: String) {
     presenter.setPassword(password)
   }
 
@@ -389,11 +390,7 @@ class MainActivity : AppCompatActivity() {
       .show(supportFragmentManager, EnterPasswordDialogFragment::class.java.name)
   }
 
-  fun exitKioskMode() {
-    presenter.exitKioskMode()
-  }
-
-  fun exitKioskMode(message: String) {
+  override fun exitKioskMode(message: String?) {
     presenter.exitKioskMode(message)
   }
 }

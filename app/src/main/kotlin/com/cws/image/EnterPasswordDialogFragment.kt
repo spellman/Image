@@ -8,9 +8,11 @@ import android.support.v7.app.AlertDialog
 import android.view.LayoutInflater
 import android.view.View
 import android.widget.TextView
+import android.widget.Toast
 import com.cws.image.databinding.EnterPasswordDialogBinding
 import com.jakewharton.rxbinding2.widget.RxTextView
 import io.reactivex.android.schedulers.AndroidSchedulers
+import io.reactivex.Observable
 import io.reactivex.subjects.PublishSubject
 import kotlinx.coroutines.experimental.CommonPool
 import kotlinx.coroutines.experimental.android.UI
@@ -27,7 +29,7 @@ class EnterPasswordDialogFragment : DialogFragment() {
   private val authentication: Authentication by lazy {
     provideAuthentication(activity.applicationContext)
   }
-  private val submitPasswordSubject: PublishSubject<Unit> by lazy {
+  private val showErrorMessages: PublishSubject<Unit> by lazy {
     PublishSubject.create<Unit>()
   }
 
@@ -58,15 +60,15 @@ class EnterPasswordDialogFragment : DialogFragment() {
     val paddingRight = message.paddingRight
     message.setPadding(paddingLeft, paddingTop, paddingRight, paddingBottom)
 
-    io.reactivex.Observable.merge(
+    Observable.merge(
       RxTextView.textChanges(binding.password),
-      submitPasswordSubject
+      showErrorMessages
     )
       .debounce(300L, TimeUnit.MILLISECONDS)
       .observeOn(AndroidSchedulers.mainThread())
       .subscribe { x ->
         when (x) {
-          is CharSequence -> errorMessages.visibility = View.GONE
+          is CharSequence -> errorMessages.visibility = View.INVISIBLE
           is Unit -> errorMessages.visibility = View.VISIBLE
         }
       }
@@ -82,25 +84,39 @@ class EnterPasswordDialogFragment : DialogFragment() {
           Timber.e(
             Exception(
               "Cannot check whether kiosk-mode-unlock password is correct because there is no stored password."))
-          val errorMessage = "No unlock password was found. This kiosk mode is merely intended to be a theft/misuse deterrent so the device is being unlocked."
-          (activity as MainActivity).exitKioskMode(errorMessage)
+          exitKioskMode(
+            "No unlock password was found. This kiosk mode is merely intended to be a theft/misuse deterrent so the device is being unlocked."
+          )
           dialog.dismiss()
         }
 
         is Result.Ok -> {
           if (res.okValue) {
-            (activity as MainActivity).exitKioskMode()
+            exitKioskMode()
             dialog.dismiss()
           }
           else {
             run(UI) {
               Timber.d("Password is not correct. Cannot exit kiosk mode.")
               binding.password.setText("")
-              submitPasswordSubject.onNext(Unit)
+              showErrorMessages.onNext(Unit)
             }
           }
         }
       }
+    }
+  }
+
+  fun exitKioskMode(message: String? = null) {
+    (activity as? ExitKioskMode)?.exitKioskMode(message)
+    ?: run {
+      Toast.makeText(
+        context,
+        "Could not exit kiosk mode. Please try again.\n${getString(R.string.error_has_been_logged)}",
+        Toast.LENGTH_LONG
+      )
+        .show()
+      Timber.e("Could not exit kiosk mode because activity could not be cast to ExitKioskMode, which has the click-handler method. Activity: ${activity?.javaClass?.canonicalName}")
     }
   }
 }
