@@ -6,6 +6,7 @@
 
   <string name="shared_preferences_file_key">image-shared-preferences</string>
 
+  <string name="storage_permission_rationale_message">Please grant me permission to access storage so I can read and play the instruction audio files.</string>
   <string name="set_up_kiosk_mode">Set Up Locked Mode</string>
 
   <string name="password">Password</string>

@@ -278,18 +278,36 @@ class MainActivity : AppCompatActivity(), SetPassword, ExitKioskMode {
       presenter.showInstructions()
     }
     else {
-      requestPermissionWriteExternalStorage()
+      _requestPermissionWriteExternalStorage()
     }
   }
 
-  private fun requestPermissionWriteExternalStorage() {
+  fun requestPermissionWriteExternalStorage() {
+    ActivityCompat.requestPermissions(
+      this,
+      arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
+      PERMISSION_REQUEST_WRITE_EXTERNAL_STORAGE
+    )
+  }
+
+  private fun _requestPermissionWriteExternalStorage() {
     if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
+      val snackbar =
+        Snackbar.make(
+          binding.root,
+          R.string.storage_permission_rationale_message,
+          Snackbar.LENGTH_INDEFINITE
+        )
+      val snackbarTextView = snackbar.view.findViewById(
+        android.support.design.R.id.snackbar_text) as? TextView
+      snackbarTextView?.maxLines = 3
+      snackbar.setAction(android.R.string.ok) { _: View ->
+        requestPermissionWriteExternalStorage()
+      }
+      snackbar.show()
     }
     else {
-      ActivityCompat.requestPermissions(
-        this,
-        arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
-        PERMISSION_REQUEST_WRITE_EXTERNAL_STORAGE)
+      requestPermissionWriteExternalStorage()
     }
   }
 
@@ -303,7 +321,7 @@ class MainActivity : AppCompatActivity(), SetPassword, ExitKioskMode {
         showInstructions()
       }
       else {
-        requestPermissionWriteExternalStorage()
+        _requestPermissionWriteExternalStorage()
       }
     }
     else {
