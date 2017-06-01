@@ -56,7 +56,8 @@ class PlayInstructionActivity : AppCompatActivity() {
   private val mediaPlayerFragment by lazy {
     val fragmentTag = PlayInstructionFragment::class.java.name
     val fm = supportFragmentManager
-    fm.findFragmentByTag(fragmentTag) as? PlayInstructionFragment ?: let {
+    fm.findFragmentByTag(fragmentTag) as? PlayInstructionFragment
+    ?: let {
       val fragment = PlayInstructionFragment()
       fm.beginTransaction()
         .add(fragment, fragmentTag)

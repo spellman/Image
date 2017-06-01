@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.cws.image">
+<manifest
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.cws.image"
+    >
 
   <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
   <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
