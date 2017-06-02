@@ -63,8 +63,6 @@ class InstructionVisualTestActivity : AppCompatActivity() {
     timerAnimator.interpolator = LinearInterpolator()
     timerAnimator.start()
 
-    val that = this
-
     launch(CommonPool) {
       delay(timerDurationMilliseconds.toLong(), TimeUnit.MILLISECONDS)
       run(UI) {
@@ -90,10 +88,10 @@ class InstructionVisualTestActivity : AppCompatActivity() {
                 startAction = {},
                 endAction = {
                 launch(CommonPool) {
-                  delay(5L, TimeUnit.SECONDS)
+                  delay(1L, TimeUnit.SECONDS)
                   run(UI) {
                     binding = DataBindingUtil.setContentView<InstructionVisualTestActivityBinding>(
-                      that,
+                      this@InstructionVisualTestActivity,
                       R.layout.instruction_visual_test_activity
                     )
                     binding.viewModel = viewModel

@@ -81,7 +81,8 @@ class MainPresenter(
         { parsedInstructions ->
           instructions = instructionsToInstructionViewModels(
             parsedInstructions.instructions,
-            parsedInstructions.icons)
+            parsedInstructions.icons
+          )
 
           val unparsableInstructionViewModels =
           parsedInstructions.unparsableFiles

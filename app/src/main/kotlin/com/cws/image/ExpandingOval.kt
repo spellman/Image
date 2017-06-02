@@ -151,12 +151,11 @@ class ExpandingOval(
     )
   }
 
-  override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int,
-                        bottom: Int) {
+  override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
     centerX = width.toFloat() / 2
     centerY = height.toFloat() / 2
     makeOvalBorder(centerX, centerY, makeXRadius(), makeYRadius())
-    super.onLayout(changed, left, top, right, bottom)
+    super.onLayout(changed, l, t, r, b)
   }
 
   override fun onDraw(canvas: Canvas) {

@@ -297,7 +297,7 @@ class CueTimerClockFace(context: Context) : View(context) {
 
 
 
-        // Transformation matrices
+        // Text size
 
         numbersPaint.textSize =
           TypedValue.applyDimension(
@@ -306,6 +306,10 @@ class CueTimerClockFace(context: Context) : View(context) {
             context.resources.displayMetrics
           )
         val textOffset = (numbersPaint.ascent() + numbersPaint.descent()) / 2
+
+
+
+        // Transformation matrices
 
         val rotateByEndAngle = Matrix()
         rotateByEndAngle.setRotate(endAngleDegrees, center.x, center.y)
