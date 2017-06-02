@@ -165,7 +165,7 @@ class MainPresenter(
     return instructions.map { instruction ->
       InstructionViewModel(
         subject = titleCase(instruction.subject),
-        language = instruction.language,
+        language = instruction.language.titlize(),
         audioAbsolutePath = instruction.absolutePath,
         cueStartTimeMilliseconds = instruction.cueStartTime,
         iconAbsolutePath = iconsBySubject[instruction.subject]?.absolutePath

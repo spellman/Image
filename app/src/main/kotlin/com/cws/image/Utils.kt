@@ -42,6 +42,10 @@ fun String.partitionBy(n: Int, step: Int): ImmutableList<ImmutableList<Char>> {
   return this.toList().partitionBy(n, step)
 }
 
+fun String.titlize(): String {
+  return this.split(" ").map { s -> s.capitalize() }.joinToString(" ")
+}
+
 fun <T> isAllSame(coll: Collection<T>): Boolean {
   if (coll.isEmpty()) { return true }
 
