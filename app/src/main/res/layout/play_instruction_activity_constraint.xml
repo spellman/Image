@@ -32,22 +32,24 @@
 
     </android.support.design.widget.AppBarLayout>
 
-    <LinearLayout
+    <android.support.constraint.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical"
         app:layout_behavior="@string/appbar_scrolling_view_behavior"
         >
 
       <com.cws.image.CueTimer
           xmlns:custom="http://schemas.android.com/apk/res-auto"
           android:id="@+id/cue_timer"
-          android:layout_width="match_parent"
+          android:layout_width="0dp"
           android:layout_height="0dp"
-          android:layout_weight="6"
           android:layout_marginEnd="8dp"
           android:layout_marginStart="8dp"
           android:layout_marginTop="24dp"
+          app:layout_constraintLeft_toLeftOf="parent"
+          app:layout_constraintRight_toRightOf="parent"
+          app:layout_constraintTop_toTopOf="parent"
+          app:layout_constraintVertical_weight="6"
           custom:stroke_width="10dp"
           custom:end_mark_length_ratio="0.45"
           custom:start_angle_degrees="240"
@@ -63,9 +65,13 @@
 
       <FrameLayout
           android:id="@+id/cue_text_container"
-          android:layout_width="match_parent"
+          android:layout_width="0dp"
           android:layout_height="0dp"
-          android:layout_weight="4"
+          app:layout_constraintTop_toBottomOf="@+id/cue_timer"
+          app:layout_constraintRight_toRightOf="parent"
+          app:layout_constraintLeft_toLeftOf="parent"
+          app:layout_constraintBottom_toBottomOf="parent"
+          app:layout_constraintVertical_weight="3"
           >
         <TextView
             android:id="@+id/cue_text"
@@ -101,7 +107,7 @@
             />
       </FrameLayout>
 
-    </LinearLayout>
+    </android.support.constraint.ConstraintLayout>
 
   </android.support.design.widget.CoordinatorLayout>
 </layout>

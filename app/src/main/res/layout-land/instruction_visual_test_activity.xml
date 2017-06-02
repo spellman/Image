@@ -3,51 +3,41 @@
   <data>
     <variable
         name="viewModel"
-        type="com.cws.image.PlayInstructionViewModel"
+        type="com.cws.image.TimingValues"
         />
   </data>
 
-  <android.support.design.widget.CoordinatorLayout
+  <android.support.constraint.ConstraintLayout
       xmlns:android="http://schemas.android.com/apk/res/android"
       xmlns:app="http://schemas.android.com/apk/res-auto"
+      xmlns:tools="http://schemas.android.com/tools"
+      android:id="@+id/animation_test"
       android:layout_width="match_parent"
       android:layout_height="match_parent"
-      android:fitsSystemWindows="true"
+      tools:context="com.cws.image.ProgressIndicatorTestActivity"
       >
 
-    <android.support.design.widget.AppBarLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:theme="@style/AppTheme.AppBarOverlay"
-        >
-
-      <android.support.v7.widget.Toolbar
-          android:id="@+id/toolbar"
-          android:layout_width="match_parent"
-          android:layout_height="?attr/actionBarSize"
-          android:background="?attr/colorPrimary"
-          android:title="@{viewModel.subject + ` - ` + viewModel.language}"
-          app:popupTheme="@style/AppTheme.PopupOverlay"
-          />
-
-    </android.support.design.widget.AppBarLayout>
-
     <LinearLayout
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="match_parent"
-        android:orientation="vertical"
+        android:orientation="horizontal"
         app:layout_behavior="@string/appbar_scrolling_view_behavior"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
         >
 
       <com.cws.image.CueTimer
           xmlns:custom="http://schemas.android.com/apk/res-auto"
           android:id="@+id/cue_timer"
-          android:layout_width="match_parent"
-          android:layout_height="0dp"
-          android:layout_weight="6"
+          android:layout_width="0dp"
+          android:layout_height="match_parent"
+          android:layout_weight="5"
           android:layout_marginEnd="8dp"
           android:layout_marginStart="8dp"
           android:layout_marginTop="24dp"
+          android:layout_marginBottom="24dp"
           custom:stroke_width="10dp"
           custom:end_mark_length_ratio="0.45"
           custom:start_angle_degrees="240"
@@ -63,14 +53,14 @@
 
       <FrameLayout
           android:id="@+id/cue_text_container"
-          android:layout_width="match_parent"
-          android:layout_height="0dp"
-          android:layout_weight="4"
+          android:layout_width="0dp"
+          android:layout_height="match_parent"
+          android:layout_weight="5"
           >
         <TextView
             android:id="@+id/cue_text"
             android:text="@string/cue_text"
-            android:alpha="@{viewModel.cueTextAlpha}"
+            android:alpha="0"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
@@ -91,17 +81,29 @@
             android:layout_gravity="center"
             custom:color="@color/colorPrimaryAccent"
             custom:stroke_width="2dp"
-            custom:width_initial="250sp"
-            custom:height_initial="83sp"
-            custom:fade_in_dimension_scale_factor_final="2.1"
+            custom:width_initial="225sp"
+            custom:height_initial="100sp"
+            custom:fade_in_dimension_scale_factor_final="1.9"
             custom:fade_in_duration="250"
             custom:fade_in_alpha_final="0.40"
-            custom:fade_out_dimension_scale_factor_final="2.20"
+            custom:fade_out_dimension_scale_factor_final="2.0"
             custom:fade_out_duration="850"
             />
       </FrameLayout>
 
     </LinearLayout>
 
-  </android.support.design.widget.CoordinatorLayout>
+    <Button
+        android:id="@+id/play"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Play"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        android:padding="32dp"
+        android:onClick="play"
+        />
+
+  </android.support.constraint.ConstraintLayout>
+
 </layout>
