@@ -333,7 +333,7 @@ class CueTimerClockFace(context: Context) : View(context) {
         else {
           0.0
         }
-        val numbersRadius = arcRadius - numbersPaint.textSize * 1.25F
+        val numbersRadius = arcRadius * 0.925F - numbersPaint.textSize
         val countdownSecondsPointsArray =
           (1..timerDurationSeconds)
             .flatMap { i ->
