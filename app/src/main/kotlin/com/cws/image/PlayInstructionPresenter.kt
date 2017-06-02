@@ -116,22 +116,25 @@ class PlayInstructionPresenter(
 
   fun makeViewModel(event: InstructionEvent): PlayInstructionViewModel {
     Timber.d("makeViewModel for instruction event; ${event}")
-    val elapsedTimeMilliseconds = when (event) {
-      is InstructionEvent.ReadyToPrepare -> 0L
-      is InstructionEvent.AudioPreparing -> 0L
-      is InstructionEvent.AudioPrepared -> 0L
-      is InstructionEvent.InstructionStarted -> currentTime() - event.startTime
-      is InstructionEvent.CueTimerShouldBeFinished -> instruction.cueStartTimeMilliseconds
-      is InstructionEvent.CueHasBeenShown -> instruction.cueStartTimeMilliseconds
-    }
+    val (elapsedTimeMilliseconds, cueTextAlpha) = when (event) {
+      is InstructionEvent.ReadyToPrepare ->
+        Pair(0L, CueTextAlpha.BEFORE_CUE)
 
-    val cueTextAlpha =
-      if (elapsedTimeMilliseconds < instruction.cueStartTimeMilliseconds) {
-        CueTextAlpha.HIDDEN
-      }
-      else {
-        CueTextAlpha.VISIBLE
-      }
+      is InstructionEvent.AudioPreparing ->
+        Pair(0L, CueTextAlpha.BEFORE_CUE)
+
+      is InstructionEvent.AudioPrepared ->
+        Pair(0L, CueTextAlpha.BEFORE_CUE)
+
+      is InstructionEvent.InstructionStarted ->
+        Pair(currentTime() - event.startTime, CueTextAlpha.BEFORE_CUE)
+
+      is InstructionEvent.CueTimerShouldBeFinished ->
+        Pair(instruction.cueStartTimeMilliseconds, CueTextAlpha.ON_CUE)
+
+      is InstructionEvent.CueHasBeenShown ->
+        Pair(instruction.cueStartTimeMilliseconds, CueTextAlpha.AFTER_CUE)
+    }
 
     Timber.d("view model elapsed time: ${elapsedTimeMilliseconds}")
     return PlayInstructionViewModel(
@@ -139,7 +142,7 @@ class PlayInstructionPresenter(
       language = instruction.language,
       timerDurationMilliseconds = instruction.cueStartTimeMilliseconds.toInt(),
       elapsedTimeMilliseconds = elapsedTimeMilliseconds,
-      cueTextAlpha = cueTextAlpha.toInt()
+      cueTextAlpha = cueTextAlpha.toFloat()
     )
   }
 

@@ -17,14 +17,16 @@ import io.reactivex.disposables.CompositeDisposable
 import timber.log.Timber
 
 enum class CueTextAlpha {
-  VISIBLE,
-  HIDDEN
+  BEFORE_CUE,
+  ON_CUE,
+  AFTER_CUE
 }
 
-fun CueTextAlpha.toInt(): Int {
+fun CueTextAlpha.toFloat(): Float {
   return when (this) {
-    CueTextAlpha.HIDDEN -> 0
-    CueTextAlpha.VISIBLE -> 1
+    CueTextAlpha.BEFORE_CUE -> 0F
+    CueTextAlpha.ON_CUE -> 1F
+    CueTextAlpha.AFTER_CUE -> 0.5F
   }
 }
 
@@ -33,7 +35,7 @@ class PlayInstructionViewModel(
   val language: String,
   val timerDurationMilliseconds: Int,
   val elapsedTimeMilliseconds: Long,
-  val cueTextAlpha: Int
+  val cueTextAlpha: Float
 )
 
 class PlayInstructionActivity : AppCompatActivity() {
@@ -75,6 +77,7 @@ class PlayInstructionActivity : AppCompatActivity() {
     )
   }
   private val compositeDisposable = CompositeDisposable()
+  val cueFullOpacityDurationMilliseconds = 1000L
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -143,7 +146,7 @@ class PlayInstructionActivity : AppCompatActivity() {
 
   fun showCue() {
     binding.cueText.animate()
-      .alpha(1F)
+      .alpha(CueTextAlpha.ON_CUE.toFloat())
       .setDuration(30L)
       .setInterpolator(LinearInterpolator())
       .withEndAction {
@@ -159,7 +162,16 @@ class PlayInstructionActivity : AppCompatActivity() {
               }
               .start()
           },
-          endAction = animateGrowThenRestore(binding.cueText)
+          endAction = animateGrowThenRestore(
+            view = binding.cueText,
+            endAction = {
+              binding.cueText.animate()
+                .alpha(CueTextAlpha.AFTER_CUE.toFloat())
+                .setDuration(2000L)
+                .setInterpolator(DecelerateInterpolator())
+                .setStartDelay(cueFullOpacityDurationMilliseconds)
+                .start()
+            })
         ).invoke()
       }
       .start()  }
