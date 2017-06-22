@@ -16,7 +16,7 @@ apply plugin: "kotlin-kapt"
 apply plugin: "io.fabric"
 
 def version = 0
-def versionBuild = 4 // bump for dogfood builds, public betas, etc.
+def versionBuild = 5 // bump for dogfood builds, public betas, etc.
 
 // From https://github.com/JakeWharton/u2020/blob/1712f903084703059b9a4316b63fa9a29b4559cd/build.gradle
 def gitSha() {
@@ -53,7 +53,7 @@ android {
     minSdkVersion 21
     targetSdkVersion 25
 
-    versionCode 5
+    versionCode 6
     versionName "${version}"
 
     buildConfigField "String", "GIT_SHA", "\"${gitSha()}\""
