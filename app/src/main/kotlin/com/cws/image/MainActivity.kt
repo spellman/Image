@@ -188,11 +188,6 @@ class MainActivity : AppCompatActivity(), SetPassword, ExitKioskMode {
         true
       }
 
-      R.id.force_exit_kiosk_mode -> {
-        presenter.exitKioskMode()
-        true
-      }
-
       R.id.version_name -> true
 
       else -> {
